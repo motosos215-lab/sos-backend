@@ -10,11 +10,18 @@ Este repositorio contiene la API central de MotoSOS. OpenCode debe trabajar de f
 - No introducir secretos reales en codigo, configuracion, pruebas o documentacion.
 - No usar Entity Framework Core.
 - No agregar bases relacionales como SQL Server, PostgreSQL o SQLite dentro de la API.
+- No usar MCP en esta etapa del proyecto.
+- No implementar multi-provider de base de datos.
 - Mantener compatibilidad con MongoDB como base central.
 - Crear pruebas unitarias, de integracion o seguridad cuando se agregue logica ejecutable.
 - Ejecutar `dotnet build .\MotoSOS.API.slnx -c Release` antes de sugerir commit.
 - Ejecutar `dotnet test .\MotoSOS.API.slnx -c Release` antes de sugerir commit.
 - No hacer commit automaticamente salvo solicitud explicita.
+- Mantener Pull Request obligatorio para cambios hacia `develop` y `main`.
+- Mantener Build & Test y Semgrep SAST como checks obligatorios.
+- Mantener logs sin secretos, tokens, passwords, refresh tokens ni datos sensibles.
+- Mantener rate limiting, security headers y manejo global de errores como baseline de seguridad.
+- Revisar alertas de Dependabot y reglas custom de Semgrep antes de mergear.
 
 ## Convenciones
 
@@ -22,3 +29,4 @@ Este repositorio contiene la API central de MotoSOS. OpenCode debe trabajar de f
 - La documentacion puede estar en espanol.
 - La API es el unico punto de acceso a datos centrales.
 - SQLite queda reservado para almacenamiento local de apps moviles y sincronizacion via endpoints.
+- El flujo de ramas es `feature/*` -> `develop` -> `main`.

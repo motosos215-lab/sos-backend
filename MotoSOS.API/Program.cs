@@ -22,3 +22,5 @@ app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 app.MapGet("/health/ready", () => Results.Ok(new { status = "Ready" }));
 
 app.Run();
+
+public partial class Program;

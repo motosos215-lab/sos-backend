@@ -1,0 +1,104 @@
+rules:
+  - id: csharp-hardcoded-connection-string
+    message: Avoid hardcoded connection strings. Use configuration providers or secret stores.
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "Server=$VALUE"
+          - pattern: $VAR = "Data Source=$VALUE"
+          - pattern: $VAR = "mongodb://$VALUE"
+          - pattern: $VAR = "mongodb+srv://$VALUE"
+    metadata:
+      category: security
+
+  - id: csharp-hardcoded-sensitive-value
+    message: Avoid hardcoded passwords, tokens, JWT keys or secrets.
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern-either:
+          - pattern: $OBJ.Password = "$VALUE"
+          - pattern: $OBJ.Token = "$VALUE"
+          - pattern: $OBJ.RefreshToken = "$VALUE"
+          - pattern: $OBJ.Secret = "$VALUE"
+          - pattern: $OBJ.JwtKey = "$VALUE"
+          - pattern: $PASSWORD = "$VALUE"
+          - pattern: $TOKEN = "$VALUE"
+          - pattern: $SECRET = "$VALUE"
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: .{12,}
+    metadata:
+      category: security
+
+  - id: csharp-random-sensitive-context
+    message: Do not use Random for security-sensitive values. Use RandomNumberGenerator.
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern-either:
+          - pattern: Random.Shared.Next(...)
+          - pattern: new Random(...)
+      - pattern-inside: |
+          $RET $METHOD(...)
+          {
+            ...
+          }
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: (?i).*(token|password|secret|code|otp|nonce|key).*
+    metadata:
+      category: security
+
+  - id: csharp-disable-tls-validation
+    message: Do not disable TLS certificate validation.
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: ServicePointManager.ServerCertificateValidationCallback = (..., ..., ..., ...) => true
+      - pattern: $HANDLER.ServerCertificateCustomValidationCallback = (..., ..., ..., ...) => true
+      - pattern: HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+    metadata:
+      category: security
+
+  - id: csharp-console-sensitive-data
+    message: Do not write sensitive data to console output.
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern: Console.WriteLine($VALUE)
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: (?i).*(password|token|refreshToken|authorization|secret).*
+    metadata:
+      category: security
+
+  - id: csharp-logger-sensitive-data
+    message: Do not log sensitive data such as passwords, tokens, authorization headers or secrets.
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern-either:
+          - pattern: $LOGGER.LogInformation($VALUE, ...)
+          - pattern: $LOGGER.LogWarning($VALUE, ...)
+          - pattern: $LOGGER.LogError($VALUE, ...)
+          - pattern: $LOGGER.LogDebug($VALUE, ...)
+          - pattern: $LOGGER.LogTrace($VALUE, ...)
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: (?i).*(password|token|refreshToken|authorization|secret).*
+    metadata:
+      category: security
+
+  - id: json-appsettings-sensitive-placeholder
+    message: Do not store real secrets in appsettings files. Use environment variables or secret stores.
+    severity: WARNING
+    languages: [json]
+    paths:
+      include:
+        - "**/appsettings*.json"
+    patterns:
+      - pattern-regex: '"(ConnectionString|Password|JwtKey|Key|Token|RefreshToken|Secret)"\s*:\s*"(?!|__|CHANGE_ME|REPLACE_ME|<|\$\{)[^"]{12,}"'
+    metadata:
+      category: security
