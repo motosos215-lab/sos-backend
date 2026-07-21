@@ -1,0 +1,67 @@
+# =========================
+# Visual Studio
+# =========================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# Build .NET
+# =========================
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+
+# =========================
+# Test results
+# =========================
+TestResults/
+*.trx
+*.coverage
+coverage/
+coverage.cobertura.xml
+**/coverage.cobertura.xml
+
+# =========================
+# NuGet
+# =========================
+*.nupkg
+packages/
+.nuget/
+project.lock.json
+project.assets.json
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Secrets / Environment
+# =========================
+.env
+*.env
+appsettings.Local.json
+appsettings.Production.json
+appsettings.Staging.json
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editors
+# =========================
+.vscode/
+.idea/

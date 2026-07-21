@@ -1,0 +1,6 @@
+@MotoSOS.API_HostAddress = http://localhost:5115
+
+GET {{MotoSOS.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
