@@ -1,3 +1,6 @@
 <Solution>
+  <Project Path="IntegrationTest/IntegrationTest.csproj" />
   <Project Path="MotoSOS.API/MotoSOS.API.csproj" />
+  <Project Path="SecurityTest/SecurityTest.csproj" />
+  <Project Path="UnitTest/UnitTest.csproj" />
 </Solution>
