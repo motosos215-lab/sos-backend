@@ -1,9 +1,9 @@
 namespace MotoSOS.API.Common.Exceptions;
 
-public class ApiException : Exception
+public class ApiException : AppException
 {
     public ApiException(string message)
-        : base(message)
+        : base(message, StatusCodes.Status500InternalServerError, "api_error")
     {
     }
 }

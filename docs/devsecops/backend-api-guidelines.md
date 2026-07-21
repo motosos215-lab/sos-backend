@@ -12,6 +12,9 @@
 - Almacenar refresh tokens con proteccion adecuada y capacidad de revocacion.
 - No registrar tokens, contrasenas, codigos temporales, datos personales sensibles ni cadenas de conexion.
 - Usar rate limiting en endpoints publicos, especialmente autenticacion, recuperacion de cuenta y sincronizacion.
+- Mantener security headers basicos en todas las respuestas HTTP.
+- Usar manejo global de errores para evitar stack traces en produccion.
+- No usar `Console.WriteLine` para datos sensibles.
 
 ## Persistencia
 
@@ -20,6 +23,8 @@
 - No usar SQL Server ni PostgreSQL.
 - No conectar SQLite desde la API.
 - SQLite queda limitado a almacenamiento local en apps moviles y sincronizacion via endpoints.
+- No usar MCP en esta etapa.
+- No implementar multi-provider de base de datos.
 
 ## Pruebas
 
@@ -35,5 +40,14 @@
 - Las ramas `develop` y `main` estan protegidas por rulesets.
 - Build & Test debe pasar antes del merge.
 - Semgrep SAST debe pasar antes del merge.
+- Semgrep debe ejecutar `p/default`, `p/security-audit`, `p/secrets` y reglas custom locales.
+- Dependabot debe revisar paquetes NuGet semanalmente y GitHub Actions mensualmente.
 - Revisar dependencias nuevas antes de aprobar un PR.
 - No aprobar cambios que introduzcan secretos, paquetes innecesarios o bases de datos no permitidas.
+
+## CI/CD
+
+- Build & Test debe ejecutar restore, build Release, pruebas unitarias, integracion y seguridad.
+- Los resultados de pruebas y cobertura deben subirse como artifacts.
+- Los nombres de workflows y jobs requeridos por rulesets no deben cambiarse sin actualizar las protecciones.
+- Los Pull Requests deben revisarse antes de mergear hacia `develop` o `main`.

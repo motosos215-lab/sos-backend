@@ -44,3 +44,4 @@ jobs:
             p/default
             p/security-audit
             p/secrets
+            .semgrep/semgrep.yaml
