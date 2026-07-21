@@ -1,0 +1,121 @@
+name: Build & Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+      - ".dockerignore"
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  ASPNETCORE_ENVIRONMENT: Testing
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      MongoDb__ConnectionString: mongodb://localhost:27017
+      MongoDb__DatabaseName: MotoSOS_Test
+      Jwt__Issuer: MotoSOS
+      Jwt__Audience: MotoSOS.Clients
+      Jwt__Key: CI_TEST_KEY_ONLY_CHANGE_IN_PRODUCTION_123456789_ABC
+      Jwt__AccessTokenMinutes: 15
+      Jwt__RefreshTokenDays: 7
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Show .NET info
+        run: dotnet --info
+
+      - name: Restore dependencies
+        run: dotnet restore MotoSOS.API.slnx
+
+      - name: Check formatting
+        run: dotnet format MotoSOS.API.slnx --verify-no-changes --verbosity diagnostic
+        continue-on-error: true
+
+      - name: Build solution
+        run: dotnet build MotoSOS.API.slnx --configuration Release --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test UnitTest/UnitTest.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=unit-test-results.trx" --collect:"XPlat Code Coverage"
+
+      - name: Run Integration Tests
+        run: dotnet test IntegrationTest/IntegrationTest.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=integration-test-results.trx" --collect:"XPlat Code Coverage"
+
+      - name: Run Security Tests
+        run: dotnet test SecurityTest/SecurityTest.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=security-test-results.trx" --collect:"XPlat Code Coverage"
+
+      - name: Check vulnerable packages
+        run: |
+          echo "# Vulnerable dependencies report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          dotnet list MotoSOS.API.slnx package --vulnerable --include-transitive 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+
+      - name: Check deprecated packages
+        run: |
+          echo "# Deprecated dependencies report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          dotnet list MotoSOS.API.slnx package --deprecated 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/*.trx"
+
+      - name: Upload coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-results
+          path: "**/coverage.cobertura.xml"
