@@ -8,6 +8,11 @@
 - Security headers basicos en respuestas HTTP.
 - Rate limiter global moderado.
 - Politica futura `AuthRateLimit` para endpoints de autenticacion.
+- Autenticacion JWT Bearer con validacion de issuer, audience, lifetime y signing key.
+- Roles base: `Admin`, `Rider` y `Monitor`.
+- Password hashing con BCrypt.
+- Refresh tokens generados con `RandomNumberGenerator` y almacenados como hash.
+- Endpoint protegido `GET /api/v1/users/me`.
 - Health checks excluidos del rate limiter global.
 - Semgrep SAST con reglas administradas y reglas custom locales.
 - Dependabot para NuGet y GitHub Actions.
@@ -29,6 +34,24 @@ La configuracion actual usa capacidades nativas de ASP.NET Core:
 - Limite global moderado por ventana fija.
 - Exclusion de `/health` y `/health/ready`.
 - Politica `AuthRateLimit` preparada para login, refresh token y recuperacion de cuenta cuando existan.
+
+## Autenticacion
+
+La API incluye endpoints base:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/users/me`
+
+Reglas de seguridad:
+
+- No se devuelve `PasswordHash`.
+- No se guardan passwords en texto plano.
+- No se guardan refresh tokens en claro.
+- La JWT key debe venir de configuracion o variables de entorno.
+- Las pruebas usan claves de test, no secretos reales.
 
 ## Persistencia segura
 

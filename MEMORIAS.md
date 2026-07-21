@@ -15,6 +15,7 @@
 - DevSecOps se aplica desde el inicio del proyecto.
 - MotoSOS.API es el unico punto de acceso a datos centrales para Web, apps moviles, smartwatch, notificaciones, analitica y Machine Learning.
 - La API incluye baseline de security headers, rate limiting y manejo global de errores.
+- La base de autenticacion usa JWT Bearer, roles `Admin`, `Rider` y `Monitor`, BCrypt para passwords y refresh tokens hasheados.
 
 ## Restricciones persistentes
 
@@ -26,3 +27,4 @@
 - No guardar secretos reales en `appsettings.json` ni en archivos versionados.
 - No registrar informacion sensible en logs.
 - No exponer stack traces en produccion.
+- No devolver `PasswordHash` ni refresh tokens almacenados en respuestas de API.
