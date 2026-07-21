@@ -18,17 +18,15 @@ rules:
     languages: [csharp]
     patterns:
       - pattern-either:
-          - pattern: $OBJ.Password = "$VALUE"
-          - pattern: $OBJ.Token = "$VALUE"
-          - pattern: $OBJ.RefreshToken = "$VALUE"
-          - pattern: $OBJ.Secret = "$VALUE"
-          - pattern: $OBJ.JwtKey = "$VALUE"
-          - pattern: $PASSWORD = "$VALUE"
-          - pattern: $TOKEN = "$VALUE"
-          - pattern: $SECRET = "$VALUE"
+          - pattern: $SENSITIVE = "$VALUE"
+          - pattern: $TYPE $SENSITIVE = "$VALUE"
+          - pattern: $OBJ.$SENSITIVE = "$VALUE"
+      - metavariable-regex:
+          metavariable: $SENSITIVE
+          regex: (?i).*(password|passwd|pwd|token|accessToken|refreshToken|jwt|secret|apiKey|privateKey|connectionString).*
       - metavariable-regex:
           metavariable: $VALUE
-          regex: .{12,}
+          regex: (?i)^(?!(application/json|content-type|authorization|bearer)$).{12,}$
     metadata:
       category: security
 
