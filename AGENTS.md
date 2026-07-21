@@ -22,6 +22,8 @@ Este repositorio contiene la API central de MotoSOS. OpenCode debe trabajar de f
 - Mantener logs sin secretos, tokens, passwords, refresh tokens ni datos sensibles.
 - Mantener rate limiting, security headers y manejo global de errores como baseline de seguridad.
 - Revisar alertas de Dependabot y reglas custom de Semgrep antes de mergear.
+- Implementar autenticacion con JWT, refresh tokens seguros y hashing de passwords sin secretos hardcodeados.
+- No exponer `PasswordHash`, refresh tokens almacenados ni detalles sensibles en respuestas o logs.
 
 ## Convenciones
 

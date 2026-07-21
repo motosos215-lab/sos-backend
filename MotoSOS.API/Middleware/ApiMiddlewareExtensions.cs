@@ -13,6 +13,7 @@ public static class ApiMiddlewareExtensions
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseHttpsRedirection();
         app.UseRateLimiter();
+        app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
 

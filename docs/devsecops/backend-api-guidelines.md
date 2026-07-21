@@ -7,9 +7,11 @@
 - No exponer secretos en respuestas, logs, excepciones, documentacion o archivos versionados.
 - No guardar contrasenas en texto plano.
 - Usar hashing resistente para contrasenas cuando se implemente autenticacion.
+- Usar BCrypt o Argon2id para passwords; no usar SHA256 simple para contrasenas.
 - Manejar JWT con expiracion corta, issuer y audience validados.
 - Manejar refresh tokens como secretos de alta sensibilidad.
 - Almacenar refresh tokens con proteccion adecuada y capacidad de revocacion.
+- Guardar refresh tokens hasheados, nunca en claro.
 - No registrar tokens, contrasenas, codigos temporales, datos personales sensibles ni cadenas de conexion.
 - Usar rate limiting en endpoints publicos, especialmente autenticacion, recuperacion de cuenta y sincronizacion.
 - Mantener security headers basicos en todas las respuestas HTTP.
@@ -31,6 +33,8 @@
 - Agregar pruebas unitarias cuando se agregue logica de dominio o aplicacion.
 - Agregar pruebas de integracion para endpoints, persistencia e integraciones internas.
 - Agregar pruebas de seguridad para autenticacion, autorizacion, validaciones, rate limiting y manejo de errores.
+- Verificar que endpoints protegidos rechacen requests anonimas.
+- Verificar que `PasswordHash` no aparezca en respuestas.
 - Evitar pruebas que dependan de secretos reales.
 
 ## Pull Requests

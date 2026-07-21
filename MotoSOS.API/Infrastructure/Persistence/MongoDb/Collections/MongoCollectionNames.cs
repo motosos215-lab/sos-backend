@@ -1,0 +1,8 @@
+namespace MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
+
+public static class MongoCollectionNames
+{
+    public const string Users = "users";
+
+    public const string RefreshTokens = "refreshTokens";
+}
