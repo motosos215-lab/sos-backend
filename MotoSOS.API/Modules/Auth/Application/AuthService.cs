@@ -19,6 +19,7 @@ public sealed class AuthService : IAuthService
     private readonly IRefreshTokenGenerator _refreshTokenGenerator;
     private readonly IClock _clock;
     private readonly JwtOptions _jwtOptions;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUserRepository users,
@@ -27,7 +28,8 @@ public sealed class AuthService : IAuthService
         IJwtTokenService jwtTokenService,
         IRefreshTokenGenerator refreshTokenGenerator,
         IClock clock,
-        IOptions<JwtOptions> jwtOptions)
+        IOptions<JwtOptions> jwtOptions,
+        ILogger<AuthService> logger)
     {
         _users = users;
         _refreshTokens = refreshTokens;
@@ -36,17 +38,25 @@ public sealed class AuthService : IAuthService
         _refreshTokenGenerator = refreshTokenGenerator;
         _clock = clock;
         _jwtOptions = jwtOptions.Value;
+        _logger = logger;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
         string normalizedEmail = NormalizeEmail(request.Email);
+        if (!request.AcceptTerms)
+        {
+            throw new TermsNotAcceptedAppException();
+        }
+
         User? existingUser = await _users.GetByEmailAsync(normalizedEmail, cancellationToken);
 
         if (existingUser is not null)
         {
-            throw new ConflictAppException("User registration could not be completed.");
+            throw new UserAlreadyExistsAppException();
         }
+
+        DateTimeOffset now = _clock.UtcNow;
 
         var user = new User
         {
@@ -54,9 +64,10 @@ public sealed class AuthService : IAuthService
             PasswordHash = _passwordHasher.Hash(request.Password),
             FullName = request.FullName.Trim(),
             PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
-            Role = UserRole.Rider,
+            Role = MapPublicAccountType(request.AccountType),
             IsActive = true,
-            CreatedAtUtc = _clock.UtcNow
+            CreatedAtUtc = now,
+            AcceptedTermsAtUtc = now
         };
 
         await _users.AddAsync(user, cancellationToken);
@@ -75,18 +86,31 @@ public sealed class AuthService : IAuthService
         TokenResult accessToken = _jwtTokenService.CreateAccessToken(user);
         string plainRefreshValue = _refreshTokenGenerator.CreateToken();
         string refreshHash = _refreshTokenGenerator.HashToken(plainRefreshValue);
+        int refreshTokenDays = request.RememberMe ? _jwtOptions.RefreshTokenRememberMeDays : _jwtOptions.RefreshTokenDays;
 
         var refreshToken = new RefreshToken
         {
             UserId = user.Id,
             TokenHash = refreshHash,
             CreatedAtUtc = _clock.UtcNow,
-            ExpiresAtUtc = _clock.UtcNow.AddDays(_jwtOptions.RefreshTokenDays)
+            ExpiresAtUtc = _clock.UtcNow.AddDays(refreshTokenDays)
         };
 
         await _refreshTokens.AddAsync(refreshToken, cancellationToken);
 
         return new LoginResponse(accessToken.AccessToken, plainRefreshValue, accessToken.ExpiresAtUtc, ToAuthUser(user));
+    }
+
+    public async Task RequestPasswordResetAsync(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        _ = await _users.GetByEmailAsync(NormalizeEmail(request.Email), cancellationToken);
+        _logger.LogInformation("Password recovery was requested. User existence is intentionally not disclosed.");
+    }
+
+    public async Task RequestAccessCodeAsync(RequestAccessCodeRequest request, CancellationToken cancellationToken)
+    {
+        _ = await _users.GetByEmailAsync(NormalizeEmail(request.Email), cancellationToken);
+        _logger.LogInformation("Access code was requested. User existence is intentionally not disclosed.");
     }
 
     public async Task<RefreshTokenResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken)
@@ -103,7 +127,7 @@ public sealed class AuthService : IAuthService
 
         if (user is null || !user.IsActive)
         {
-            throw new UnauthorizedAppException("Invalid authentication credentials.");
+            throw new InvalidCredentialsAppException();
         }
 
         string plainRefreshValue = _refreshTokenGenerator.CreateToken();
@@ -148,13 +172,25 @@ public sealed class AuthService : IAuthService
 
         if (user is null || !user.IsActive || !_passwordHasher.Verify(password, user.PasswordHash))
         {
-            throw new UnauthorizedAppException("Invalid authentication credentials.");
+            throw new InvalidCredentialsAppException();
         }
 
         return user;
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    private static UserRole MapPublicAccountType(string accountType)
+    {
+        string normalized = accountType.Trim();
+
+        if (string.Equals(normalized, "Monitor", StringComparison.OrdinalIgnoreCase))
+        {
+            return UserRole.Monitor;
+        }
+
+        return UserRole.Rider;
+    }
 
     private static AuthUserResponse ToAuthUser(User user)
     {

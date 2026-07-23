@@ -16,6 +16,10 @@
 - MotoSOS.API es el unico punto de acceso a datos centrales para Web, apps moviles, smartwatch, notificaciones, analitica y Machine Learning.
 - La API incluye baseline de security headers, rate limiting y manejo global de errores.
 - La base de autenticacion usa JWT Bearer, roles `Admin`, `Rider` y `Monitor`, BCrypt para passwords y refresh tokens hasheados.
+- La pantalla de registro requiere `accountType`, `confirmPassword` y `acceptTerms`.
+- El maquetado usa `Conductor`, pero el backend lo mapea a `Rider`.
+- `forgot-password` y `access-code` quedan preparados sin proveedor externo real y sin enumerar usuarios.
+- Login soporta `rememberMe`, que solo extiende la expiracion del refresh token.
 
 ## Restricciones persistentes
 

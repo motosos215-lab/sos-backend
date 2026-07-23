@@ -19,4 +19,7 @@ public sealed class JwtOptions
 
     [Range(1, 365)]
     public int RefreshTokenDays { get; init; } = 7;
+
+    [Range(1, 365)]
+    public int RefreshTokenRememberMeDays { get; init; } = 30;
 }
