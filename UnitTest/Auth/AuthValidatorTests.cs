@@ -10,7 +10,7 @@ public sealed class AuthValidatorTests
     public void RegisterValidatorAcceptsStrongRequest()
     {
         var validator = new RegisterRequestValidator();
-        var request = new RegisterRequest("rider@example.com", "StrongPass1!", "Moto Rider", "+52 555 555 5555");
+        var request = new RegisterRequest("rider@example.com", "StrongPass1!", "StrongPass1!", "Moto Rider", "+52 555 555 5555", "Rider", true);
 
         var result = validator.Validate(request);
 
@@ -21,7 +21,46 @@ public sealed class AuthValidatorTests
     public void RegisterValidatorRejectsWeakPassword()
     {
         var validator = new RegisterRequestValidator();
-        var request = new RegisterRequest("rider@example.com", "password", "Moto Rider", null);
+        var request = new RegisterRequest("rider@example.com", "password", "password", "Moto Rider", null, "Rider", true);
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RegisterValidatorRejectsMismatchedConfirmPassword()
+    {
+        var validator = new RegisterRequestValidator();
+        var request = new RegisterRequest("rider@example.com", "StrongPass1!", "Different1!", "Moto Rider", null, "Rider", true);
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("Rider")]
+    [InlineData("Conductor")]
+    [InlineData("Monitor")]
+    public void RegisterValidatorAcceptsPublicAccountTypes(string accountType)
+    {
+        var validator = new RegisterRequestValidator();
+        var request = new RegisterRequest("rider@example.com", "StrongPass1!", "StrongPass1!", "Moto Rider", null, accountType, true);
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("Administrator")]
+    [InlineData("Administrador")]
+    public void RegisterValidatorRejectsAdminAccountTypes(string accountType)
+    {
+        var validator = new RegisterRequestValidator();
+        var request = new RegisterRequest("rider@example.com", "StrongPass1!", "StrongPass1!", "Moto Rider", null, accountType, true);
 
         var result = validator.Validate(request);
 

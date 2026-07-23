@@ -24,7 +24,7 @@ public sealed class AuthSecurityTests
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             "/api/v1/auth/register",
-            new RegisterRequest("safe@example.com", "StrongPass1!", "Safe Rider", null));
+            CreateRegisterRequest("safe@example.com"));
         string content = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -46,6 +46,7 @@ public sealed class AuthSecurityTests
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         content.Should().Contain("Invalid authentication credentials.");
+        content.Should().Contain("invalid_credentials");
         content.Should().NotContain("missing@example.com");
     }
 
@@ -70,7 +71,7 @@ public sealed class AuthSecurityTests
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             "/api/v1/auth/register",
-            new RegisterRequest("weak@example.com", "password", "Weak Rider", null));
+            new RegisterRequest("weak@example.com", "password", "password", "Weak Rider", null, "Rider", true));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -81,7 +82,7 @@ public sealed class AuthSecurityTests
         var stores = new TestStores();
         await using WebApplicationFactory<Program> factory = CreateFactory(stores);
         HttpClient client = factory.CreateClient();
-        var register = new RegisterRequest("refresh@example.com", "StrongPass1!", "Refresh Rider", null);
+        var register = CreateRegisterRequest("refresh@example.com");
         await client.PostAsJsonAsync("/api/v1/auth/register", register);
 
         HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password));
@@ -90,6 +91,45 @@ public sealed class AuthSecurityTests
         login.Should().NotBeNull();
         stores.RefreshTokens.Tokens.Should().ContainSingle();
         stores.RefreshTokens.Tokens[0].TokenHash.Should().NotBe(login!.Data.RefreshToken);
+    }
+
+    [Fact]
+    public async Task LoginWithCodeDoesNotAcceptHardcodedCode()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/auth/login-with-code",
+            new LoginWithCodeRequest("safe@example.com", "123456"));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
+        content.Should().Contain("feature_not_implemented");
+        content.Should().NotContain("accessToken");
+        content.Should().NotContain("123456");
+    }
+
+    [Fact]
+    public async Task ForgotPasswordDoesNotReturnResetTokens()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/auth/forgot-password",
+            new ForgotPasswordRequest("safe@example.com"));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        content.Should().BeEmpty();
+    }
+
+    private static RegisterRequest CreateRegisterRequest(string email)
+    {
+        return new RegisterRequest(email, "StrongPass1!", "StrongPass1!", "Safe Rider", null, "Rider", true);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(TestStores stores)
@@ -104,7 +144,8 @@ public sealed class AuthSecurityTests
                     ["Jwt:Audience"] = "MotoSOS.Clients",
                     ["Jwt:Key"] = new string('S', 48),
                     ["Jwt:AccessTokenMinutes"] = "15",
-                    ["Jwt:RefreshTokenDays"] = "7"
+                    ["Jwt:RefreshTokenDays"] = "7",
+                    ["Jwt:RefreshTokenRememberMeDays"] = "30"
                 });
             });
 

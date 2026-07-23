@@ -26,4 +26,6 @@ public sealed class User
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 
     public DateTimeOffset? LastLoginAtUtc { get; set; }
+
+    public DateTimeOffset? AcceptedTermsAtUtc { get; set; }
 }
