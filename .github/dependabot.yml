@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    target-branch: "develop"
+    open-pull-requests-limit: 5
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Mexico_City"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    open-pull-requests-limit: 3
+    schedule:
+      interval: "monthly"
+      time: "08:00"
+      timezone: "America/Mexico_City"
