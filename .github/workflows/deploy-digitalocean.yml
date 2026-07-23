@@ -1,0 +1,52 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-digitalocean-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to DigitalOcean
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DO_API_TOKEN }}
+
+      - name: Trigger DigitalOcean deployment
+        run: |
+          doctl apps create-deployment ${{ secrets.DO_APP_ID }} --wait
+
+      - name: Verify health endpoint
+        run: |
+          URL="${{ vars.DO_APP_URL }}"
+
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health/ready" || echo "000")
+
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+
+            echo "Attempt $i: HTTP $STATUS"
+            sleep 10
+          done
+
+          echo "Health check failed"
+          exit 1
