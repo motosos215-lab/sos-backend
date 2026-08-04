@@ -1,3 +1,5 @@
+using MongoDB.Bson;
+using MongoDB.Driver;
 using MotoSOS.API.Configuration.DependencyInjection;
 using MotoSOS.API.Middleware;
 using MotoSOS.API.Modules.Auth.Endpoints;
@@ -8,7 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddApiConfiguration()
     .AddApplicationServices()
-    .AddInfrastructureServices(builder.Configuration)
+    .AddInfrastructureServices(builder.Configuration, builder.Environment)
     .AddSecurityServices(builder.Configuration);
 
 var app = builder.Build();
@@ -21,7 +23,30 @@ if (app.Environment.IsDevelopment())
 app.UseApiMiddleware();
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
-app.MapGet("/health/ready", () => Results.Ok(new { status = "Ready" }));
+app.MapGet("/health/ready", async (IServiceProvider services, IHostEnvironment environment, CancellationToken cancellationToken) =>
+{
+    IMongoDatabase? database = services.GetService<IMongoDatabase>();
+
+    if (database is null)
+    {
+        if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
+        {
+            return Results.Ok(new { status = "Ready", persistence = "NotConfigured" });
+        }
+
+        return Results.Json(new { status = "NotReady", persistence = "NotConfigured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    try
+    {
+        await database.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1), cancellationToken: cancellationToken);
+        return Results.Ok(new { status = "Ready", persistence = "Ready" });
+    }
+    catch
+    {
+        return Results.Json(new { status = "NotReady", persistence = "Unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 

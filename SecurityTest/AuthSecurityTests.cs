@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -136,6 +137,8 @@ public sealed class AuthSecurityTests
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Testing");
+
             builder.ConfigureAppConfiguration((_, configuration) =>
             {
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -145,7 +148,9 @@ public sealed class AuthSecurityTests
                     ["Jwt:Key"] = new string('S', 48),
                     ["Jwt:AccessTokenMinutes"] = "15",
                     ["Jwt:RefreshTokenDays"] = "7",
-                    ["Jwt:RefreshTokenRememberMeDays"] = "30"
+                    ["Jwt:RefreshTokenRememberMeDays"] = "30",
+                    ["MongoDb:ConnectionString"] = string.Empty,
+                    ["MongoDb:DatabaseName"] = "MotoSOS_Test"
                 });
             });
 

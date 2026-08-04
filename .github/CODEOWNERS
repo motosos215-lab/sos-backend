@@ -1,0 +1,11 @@
+# Repository owner inferred from origin: https://github.com/motosos215-lab/sos-backend.
+* @motosos215-lab
+
+.github/workflows/* @motosos215-lab
+.semgrep/* @motosos215-lab
+MotoSOS.API/Dockerfile @motosos215-lab
+MotoSOS.API/Security/* @motosos215-lab
+MotoSOS.API/Middleware/* @motosos215-lab
+MotoSOS.API/Configuration/* @motosos215-lab
+MotoSOS.API/Modules/Auth/* @motosos215-lab
+MotoSOS.API/Infrastructure/Persistence/MongoDb/* @motosos215-lab

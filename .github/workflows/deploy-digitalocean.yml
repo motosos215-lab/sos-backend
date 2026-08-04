@@ -18,6 +18,8 @@ jobs:
     name: Deploy to DigitalOcean
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Configure required reviewers for this environment in GitHub Settings > Environments.
+    environment: production
 
     steps:
       - name: Checkout
