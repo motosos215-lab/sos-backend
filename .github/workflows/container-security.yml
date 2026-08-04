@@ -41,7 +41,7 @@ jobs:
         run: docker build -f MotoSOS.API/Dockerfile -t motosos-api:ci .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           image-ref: motosos-api:ci
@@ -72,7 +72,7 @@ jobs:
           if-no-files-found: error
 
       - name: Fail on high or critical vulnerabilities
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: motosos-api:ci
           format: table
