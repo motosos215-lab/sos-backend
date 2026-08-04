@@ -65,7 +65,7 @@ jobs:
           output-file: motosos-api-sbom.spdx.json
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: motosos-api-sbom
           path: motosos-api-sbom.spdx.json
