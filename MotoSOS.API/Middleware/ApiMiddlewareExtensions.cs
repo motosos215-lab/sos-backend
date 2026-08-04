@@ -8,6 +8,11 @@ public static class ApiMiddlewareExtensions
 {
     public static WebApplication UseApiMiddleware(this WebApplication app)
     {
+        if (app.Environment.IsProduction())
+        {
+            app.UseHsts();
+        }
+
         app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
         app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseMiddleware<RequestLoggingMiddleware>();

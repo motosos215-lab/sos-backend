@@ -1,4 +1,4 @@
-﻿namespace SecurityTest;
+namespace SecurityTest;
 
 public class UnitTest1
 {

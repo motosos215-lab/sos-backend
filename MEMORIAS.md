@@ -8,14 +8,22 @@
 - La sincronizacion desde SQLite hacia datos centrales debe realizarse mediante endpoints de la API.
 - GitHub Actions incluye Build & Test.
 - GitHub Actions incluye Semgrep SAST.
+- GitHub Actions incluye CodeQL como analisis complementario para C#.
+- GitHub Actions incluye escaneo de contenedor con Trivy y generacion de SBOM.
 - Semgrep SAST usa reglas administradas y reglas custom locales en `.semgrep/semgrep.yaml`.
-- Dependabot revisa paquetes NuGet y GitHub Actions.
+- Dependabot revisa paquetes NuGet, GitHub Actions y Docker.
+- NuGet usa `packages.lock.json` versionados y restore bloqueado en CI.
 - El flujo de ramas es `feature/*` -> `develop` -> `main`.
 - Las ramas `main` y `develop` estan protegidas con rulesets.
+- Los cambios sensibles tienen CODEOWNERS asignado al owner del repositorio `@motosos215-lab`.
 - DevSecOps se aplica desde el inicio del proyecto.
 - MotoSOS.API es el unico punto de acceso a datos centrales para Web, apps moviles, smartwatch, notificaciones, analitica y Machine Learning.
 - La API incluye baseline de security headers, rate limiting y manejo global de errores.
+- La API usa HSTS solo en Production.
 - La base de autenticacion usa JWT Bearer, roles `Admin`, `Rider` y `Monitor`, BCrypt para passwords y refresh tokens hasheados.
+- Las opciones JWT se validan al arranque y requieren una key de prueba o produccion con longitud minima.
+- MongoDB Atlas se configura por variables de entorno; cuando esta configurado, se aseguran indices idempotentes al iniciar, incluyendo usuarios por email y refresh tokens por hash, usuario y expiracion.
+- `/health/ready` valida MongoDB Atlas en entornos reales y tolera MongoDB no configurado en Development/Testing.
 - La pantalla de registro requiere `accountType`, `confirmPassword` y `acceptTerms`.
 - El maquetado usa `Conductor`, pero el backend lo mapea a `Rider`.
 - `forgot-password` y `access-code` quedan preparados sin proveedor externo real y sin enumerar usuarios.
@@ -32,3 +40,4 @@
 - No registrar informacion sensible en logs.
 - No exponer stack traces en produccion.
 - No devolver `PasswordHash` ni refresh tokens almacenados en respuestas de API.
+- No publicar imagenes Docker a registry desde CI hasta que exista una decision explicita de release.

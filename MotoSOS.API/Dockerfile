@@ -12,8 +12,10 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+COPY ["Directory.Build.props", "."]
 COPY ["MotoSOS.API/MotoSOS.API.csproj", "MotoSOS.API/"]
-RUN dotnet restore "./MotoSOS.API/MotoSOS.API.csproj"
+COPY ["MotoSOS.API/packages.lock.json", "MotoSOS.API/"]
+RUN dotnet restore "./MotoSOS.API/MotoSOS.API.csproj" --locked-mode
 COPY . .
 WORKDIR "/src/MotoSOS.API"
 RUN dotnet build "./MotoSOS.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
