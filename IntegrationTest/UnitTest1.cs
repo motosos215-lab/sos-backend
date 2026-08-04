@@ -1,4 +1,4 @@
-﻿namespace IntegrationTest;
+namespace IntegrationTest;
 
 public class UnitTest1
 {

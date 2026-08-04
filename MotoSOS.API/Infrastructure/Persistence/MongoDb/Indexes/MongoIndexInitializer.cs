@@ -27,9 +27,11 @@ public sealed class MongoIndexInitializer
         var tokenHashIndex = new CreateIndexModel<RefreshToken>(
             Builders<RefreshToken>.IndexKeys.Ascending(token => token.TokenHash),
             new CreateIndexOptions { Unique = true });
+        var userIdIndex = new CreateIndexModel<RefreshToken>(
+            Builders<RefreshToken>.IndexKeys.Ascending(token => token.UserId));
         var userExpirationIndex = new CreateIndexModel<RefreshToken>(
             Builders<RefreshToken>.IndexKeys.Ascending(token => token.UserId).Ascending(token => token.ExpiresAtUtc));
 
-        await refreshTokens.Indexes.CreateManyAsync([tokenHashIndex, userExpirationIndex], cancellationToken: cancellationToken);
+        await refreshTokens.Indexes.CreateManyAsync([tokenHashIndex, userIdIndex, userExpirationIndex], cancellationToken: cancellationToken);
     }
 }

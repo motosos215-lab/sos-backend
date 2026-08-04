@@ -1,34 +1,56 @@
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Configuration.Options;
 using MotoSOS.API.Infrastructure.DateTime;
+using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Users.Application;
-using MongoDB.Driver;
 
 namespace MotoSOS.API.Configuration.DependencyInjection;
 
 public static class InfrastructureServiceExtensions
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
-        services.Configure<MongoDbOptions>(configuration.GetSection(MongoDbOptions.SectionName));
-        services.AddOptions<MongoDbSettings>()
+        bool isTesting = environment.IsEnvironment("Testing");
+        bool allowUnconfiguredMongoDb = environment.IsDevelopment() || isTesting;
+
+        OptionsBuilder<MongoDbOptions> mongoDbOptionsBuilder = services.AddOptions<MongoDbOptions>()
+            .Bind(configuration.GetSection(MongoDbOptions.SectionName))
+            .ValidateDataAnnotations();
+
+        OptionsBuilder<MongoDbSettings> mongoOptionsBuilder = services.AddOptions<MongoDbSettings>()
             .Bind(configuration.GetSection(MongoDbSettings.SectionName))
-            .Validate(settings =>
-                string.IsNullOrWhiteSpace(settings.ConnectionString) || !string.IsNullOrWhiteSpace(settings.DatabaseName),
-                "MongoDB DatabaseName is required when ConnectionString is configured.");
+            .ValidateDataAnnotations();
+
+        if (!allowUnconfiguredMongoDb)
+        {
+            mongoDbOptionsBuilder.ValidateOnStart();
+            mongoOptionsBuilder.ValidateOnStart();
+        }
 
         services.AddSingleton<IClock, SystemClock>();
 
         var mongoSettings = configuration.GetSection(MongoDbSettings.SectionName).Get<MongoDbSettings>() ?? new MongoDbSettings();
 
-        if (!string.IsNullOrWhiteSpace(mongoSettings.ConnectionString))
+        if (!isTesting && !string.IsNullOrWhiteSpace(mongoSettings.ConnectionString))
         {
+            if (string.IsNullOrWhiteSpace(mongoSettings.DatabaseName))
+            {
+                throw new InvalidOperationException("MongoDB DatabaseName is required when ConnectionString is configured.");
+            }
+
             services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoSettings.ConnectionString));
             services.AddSingleton(serviceProvider =>
                 serviceProvider.GetRequiredService<IMongoClient>().GetDatabase(mongoSettings.DatabaseName));
+            services.AddSingleton<MongoIndexInitializer>();
+            services.AddHostedService<MongoIndexInitializerHostedService>();
             services.AddScoped<IUserRepository, MongoUserRepository>();
             services.AddScoped<IRefreshTokenRepository, MongoRefreshTokenRepository>();
         }

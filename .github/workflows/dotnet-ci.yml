@@ -72,11 +72,10 @@ jobs:
         run: dotnet --info
 
       - name: Restore dependencies
-        run: dotnet restore MotoSOS.API.slnx
+        run: dotnet restore MotoSOS.API.slnx --locked-mode
 
       - name: Check formatting
         run: dotnet format MotoSOS.API.slnx --verify-no-changes --verbosity diagnostic
-        continue-on-error: true
 
       - name: Build solution
         run: dotnet build MotoSOS.API.slnx --configuration Release --no-restore
@@ -91,12 +90,18 @@ jobs:
         run: dotnet test SecurityTest/SecurityTest.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=security-test-results.trx" --collect:"XPlat Code Coverage"
 
       - name: Check vulnerable packages
+        shell: bash
         run: |
           echo "# Vulnerable dependencies report" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          dotnet list MotoSOS.API.slnx package --vulnerable --include-transitive 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          dotnet list MotoSOS.API.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerable-packages.txt
+          cat vulnerable-packages.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-        continue-on-error: true
+
+          if grep -Eiq '\b(high|critical)\b' vulnerable-packages.txt; then
+            echo "High or critical vulnerable packages were found." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
       - name: Check deprecated packages
         run: |

@@ -18,3 +18,13 @@ updates:
       interval: "monthly"
       time: "08:00"
       timezone: "America/Mexico_City"
+
+  - package-ecosystem: "docker"
+    directory: "/MotoSOS.API"
+    target-branch: "develop"
+    open-pull-requests-limit: 3
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Mexico_City"
