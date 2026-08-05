@@ -5,4 +5,10 @@ public static class MongoCollectionNames
     public const string Users = "users";
 
     public const string RefreshTokens = "refreshTokens";
+
+    public const string DriverProfiles = "driverProfiles";
+
+    public const string DriverVehicles = "driverVehicles";
+
+    public const string EmergencyContacts = "emergencyContacts";
 }

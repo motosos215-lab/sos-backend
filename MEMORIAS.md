@@ -28,6 +28,27 @@
 - El maquetado usa `Conductor`, pero el backend lo mapea a `Rider`.
 - `forgot-password` y `access-code` quedan preparados sin proveedor externo real y sin enumerar usuarios.
 - Login soporta `rememberMe`, que solo extiende la expiracion del refresh token.
+- El onboarding inicial de conductor sigue un flujo web-first: registro, login y configuracion inicial ocurren principalmente en portal web.
+- La app movil se vinculara despues mediante codigo o QR y no sustituye el alta inicial del conductor.
+- El smartwatch se vinculara desde la app movil, no desde web.
+- El wizard actual de conductor tiene 7 pasos: cuenta, perfil, motocicleta/motoneta, contactos de emergencia, vinculacion de dispositivos, plan/licencia y confirmacion.
+- En esta etapa solo `Rider` puede usar onboarding de conductor y perfil; `Conductor` del maquetado se guarda como `Rider`.
+- `Monitor` y `Admin` recibiran `403 forbidden` en el flujo de onboarding/perfil de conductor hasta que existan flujos especificos.
+- Los perfiles de conductor se guardan en MongoDB en la coleccion `driverProfiles`, con indice unico por `UserId`.
+- `profiles/me` puede actualizar `fullName` y `phoneNumber` de `User` de forma controlada, pero no permite cambiar `email`, `role`, `isActive`, permisos ni claims.
+- Vehicles API implementa el paso 3 del wizard web-first: Motocicleta / Motoneta.
+- Los vehiculos del conductor se guardan en MongoDB en la coleccion `driverVehicles`.
+- `driverVehicles` tiene indices por `UserId`, `UserId + IsActive` y `CompletionStatus`; los indices unicos parciales por placa/VIN quedan como pendiente futuro.
+- El plan Basico se asume por default hasta que exista modulo Plans y permite solo 1 vehiculo activo por usuario.
+- Vehicles API solo permite `Rider`; `Monitor` y `Admin` reciben `403 forbidden`.
+- Vehicles API no permite consultar, actualizar o eliminar vehiculos de otro usuario y DELETE aplica baja logica con `IsActive = false`.
+- Onboarding avanza a `3/7`, `43%` y `EmergencyContacts` solo cuando Profile esta `Completed` y existe un vehiculo activo `Completed`.
+- EmergencyContacts API implementa el paso 4 del wizard web-first: Contactos de emergencia.
+- Los contactos se guardan en MongoDB en la coleccion `emergencyContacts` con indices por `UserId`, `UserId + IsActive`, `InvitationStatus` y `LinkingCode`.
+- El plan Basico permite solo 1 contacto activo por usuario hasta que exista modulo Plans real.
+- `/invite` genera codigo de vinculacion legible con expiracion de 24 horas y no envia SMS/correo real.
+- La aceptacion real de invitaciones por app monitor queda pendiente; no se setea `LinkedUserId` en esta etapa.
+- Onboarding avanza a `4/7`, `57%` y `Devices` solo cuando Profile y Vehicle estan `Completed` y existe contacto activo `Invited` o `Linked`.
 
 ## Restricciones persistentes
 
