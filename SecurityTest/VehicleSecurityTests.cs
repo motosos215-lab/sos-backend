@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Auth.Contracts;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Application;
@@ -152,6 +154,7 @@ public sealed class VehicleSecurityTests
                 services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens);
                 services.AddSingleton<IDriverProfileRepository>(stores.DriverProfiles);
                 services.AddSingleton<IDriverVehicleRepository>(stores.DriverVehicles);
+                services.AddSingleton<IEmergencyContactRepository>(stores.EmergencyContacts);
             });
         });
     }
@@ -162,6 +165,7 @@ public sealed class VehicleSecurityTests
         public InMemoryRefreshTokenRepository RefreshTokens { get; } = new();
         public InMemoryDriverProfileRepository DriverProfiles { get; } = new();
         public InMemoryDriverVehicleRepository DriverVehicles { get; } = new();
+        public InMemoryEmergencyContactRepository EmergencyContacts { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -196,6 +200,16 @@ public sealed class VehicleSecurityTests
         public Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Vehicles.Count(vehicle => vehicle.UserId == userId && vehicle.IsActive));
         public Task AddAsync(DriverVehicle vehicle, CancellationToken cancellationToken) { Vehicles.Add(vehicle); return Task.CompletedTask; }
         public Task UpdateAsync(DriverVehicle vehicle, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryEmergencyContactRepository : IEmergencyContactRepository
+    {
+        public Task<IReadOnlyList<EmergencyContact>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<EmergencyContact>>([]);
+        public Task<EmergencyContact?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult<EmergencyContact?>(null);
+        public Task<EmergencyContact?> GetByLinkingCodeAsync(string linkingCode, CancellationToken cancellationToken) => Task.FromResult<EmergencyContact?>(null);
+        public Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(0);
+        public Task AddAsync(EmergencyContact contact, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(EmergencyContact contact, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);

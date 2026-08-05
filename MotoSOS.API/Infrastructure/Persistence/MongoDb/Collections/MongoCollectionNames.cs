@@ -9,4 +9,6 @@ public static class MongoCollectionNames
     public const string DriverProfiles = "driverProfiles";
 
     public const string DriverVehicles = "driverVehicles";
+
+    public const string EmergencyContacts = "emergencyContacts";
 }
