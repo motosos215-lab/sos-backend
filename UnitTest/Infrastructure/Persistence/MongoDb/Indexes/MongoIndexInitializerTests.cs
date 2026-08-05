@@ -9,6 +9,7 @@ using Moq;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
@@ -30,7 +31,11 @@ public sealed class MongoIndexInitializerTests
             DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
             DriverVehicleUserIdIndex("legacy_driver_vehicle_user_id"),
             DriverVehicleUserIdIsActiveIndex("legacy_driver_vehicle_user_active"),
-            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"));
+            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"),
+            EmergencyContactUserIdIndex("legacy_emergency_contact_user_id"),
+            EmergencyContactUserIdIsActiveIndex("legacy_emergency_contact_user_active"),
+            EmergencyContactInvitationStatusIndex("legacy_emergency_contact_status"),
+            EmergencyContactLinkingCodeIndex("legacy_emergency_contact_code"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -47,6 +52,9 @@ public sealed class MongoIndexInitializerTests
         indexes.DriverVehicleIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<DriverVehicle>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        indexes.EmergencyContactIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<EmergencyContact>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -59,7 +67,10 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenUserExpirationIndex("legacy_user_expiration"),
             DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
             DriverVehicleUserIdIsActiveIndex("legacy_driver_vehicle_user_active"),
-            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"));
+            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"),
+            EmergencyContactUserIdIsActiveIndex("legacy_emergency_contact_user_active"),
+            EmergencyContactInvitationStatusIndex("legacy_emergency_contact_status"),
+            EmergencyContactLinkingCodeIndex("legacy_emergency_contact_code"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -82,6 +93,12 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.EmergencyContactIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<EmergencyContact>>(model => model.Options.Name == "ix_emergencyContacts_userId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -96,7 +113,11 @@ public sealed class MongoIndexInitializerTests
             DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
             DriverVehicleUserIdIndex("legacy_driver_vehicle_user_id"),
             DriverVehicleUserIdIsActiveIndex("legacy_driver_vehicle_user_active"),
-            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"));
+            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"),
+            EmergencyContactUserIdIndex("legacy_emergency_contact_user_id"),
+            EmergencyContactUserIdIsActiveIndex("legacy_emergency_contact_user_active"),
+            EmergencyContactInvitationStatusIndex("legacy_emergency_contact_status"),
+            EmergencyContactLinkingCodeIndex("legacy_emergency_contact_code"));
         indexes.UserIndexes
             .SetupSequence(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BsonDocumentCursor([]))
@@ -133,15 +154,18 @@ public sealed class MongoIndexInitializerTests
         var refreshTokens = new Mock<IMongoCollection<RefreshToken>>();
         var driverProfiles = new Mock<IMongoCollection<DriverProfile>>();
         var driverVehicles = new Mock<IMongoCollection<DriverVehicle>>();
+        var emergencyContacts = new Mock<IMongoCollection<EmergencyContact>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
         var driverVehicleIndexes = new Mock<IMongoIndexManager<DriverVehicle>>();
+        var emergencyContactIndexes = new Mock<IMongoIndexManager<EmergencyContact>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
         driverProfiles.SetupGet(collection => collection.Indexes).Returns(driverProfileIndexes.Object);
         driverVehicles.SetupGet(collection => collection.Indexes).Returns(driverVehicleIndexes.Object);
+        emergencyContacts.SetupGet(collection => collection.Indexes).Returns(emergencyContactIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -154,6 +178,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<DriverVehicle>(MongoCollectionNames.DriverVehicles, It.IsAny<MongoCollectionSettings>()))
             .Returns(driverVehicles.Object);
+        database
+            .Setup(db => db.GetCollection<EmergencyContact>(MongoCollectionNames.EmergencyContacts, It.IsAny<MongoCollectionSettings>()))
+            .Returns(emergencyContacts.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -167,8 +194,11 @@ public sealed class MongoIndexInitializerTests
         driverVehicleIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.DriverVehicles)));
+        emergencyContactIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.EmergencyContacts)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -233,6 +263,22 @@ public sealed class MongoIndexInitializerTests
 
     private static BsonDocument DriverVehicleCompletionStatusIndex(string name) => Index(MongoCollectionNames.DriverVehicles, name, new BsonDocument(nameof(DriverVehicle.CompletionStatus), 1), unique: false);
 
+    private static BsonDocument EmergencyContactUserIdIndex(string name) => Index(MongoCollectionNames.EmergencyContacts, name, new BsonDocument(nameof(EmergencyContact.UserId), 1), unique: false);
+
+    private static BsonDocument EmergencyContactUserIdIsActiveIndex(string name) => Index(
+        MongoCollectionNames.EmergencyContacts,
+        name,
+        new BsonDocument
+        {
+            [nameof(EmergencyContact.UserId)] = 1,
+            [nameof(EmergencyContact.IsActive)] = 1
+        },
+        unique: false);
+
+    private static BsonDocument EmergencyContactInvitationStatusIndex(string name) => Index(MongoCollectionNames.EmergencyContacts, name, new BsonDocument(nameof(EmergencyContact.InvitationStatus), 1), unique: false);
+
+    private static BsonDocument EmergencyContactLinkingCodeIndex(string name) => Index(MongoCollectionNames.EmergencyContacts, name, new BsonDocument(nameof(EmergencyContact.LinkingCode), 1), unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -255,7 +301,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<User>> UserIndexes,
         Mock<IMongoIndexManager<RefreshToken>> RefreshTokenIndexes,
         Mock<IMongoIndexManager<DriverProfile>> DriverProfileIndexes,
-        Mock<IMongoIndexManager<DriverVehicle>> DriverVehicleIndexes);
+        Mock<IMongoIndexManager<DriverVehicle>> DriverVehicleIndexes,
+        Mock<IMongoIndexManager<EmergencyContact>> EmergencyContactIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

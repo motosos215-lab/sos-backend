@@ -43,6 +43,12 @@
 - Vehicles API solo permite `Rider`; `Monitor` y `Admin` reciben `403 forbidden`.
 - Vehicles API no permite consultar, actualizar o eliminar vehiculos de otro usuario y DELETE aplica baja logica con `IsActive = false`.
 - Onboarding avanza a `3/7`, `43%` y `EmergencyContacts` solo cuando Profile esta `Completed` y existe un vehiculo activo `Completed`.
+- EmergencyContacts API implementa el paso 4 del wizard web-first: Contactos de emergencia.
+- Los contactos se guardan en MongoDB en la coleccion `emergencyContacts` con indices por `UserId`, `UserId + IsActive`, `InvitationStatus` y `LinkingCode`.
+- El plan Basico permite solo 1 contacto activo por usuario hasta que exista modulo Plans real.
+- `/invite` genera codigo de vinculacion legible con expiracion de 24 horas y no envia SMS/correo real.
+- La aceptacion real de invitaciones por app monitor queda pendiente; no se setea `LinkedUserId` en esta etapa.
+- Onboarding avanza a `4/7`, `57%` y `Devices` solo cuando Profile y Vehicle estan `Completed` y existe contacto activo `Invited` o `Linked`.
 
 ## Restricciones persistentes
 

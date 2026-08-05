@@ -2,6 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
@@ -64,6 +65,21 @@ public sealed class MongoIndexInitializer
             unique: false,
             cancellationToken);
         await EnsureIndexAsync(driverVehicles, "ix_driverVehicles_completionStatus", new BsonDocument(nameof(DriverVehicle.CompletionStatus), 1), unique: false, cancellationToken);
+
+        IMongoCollection<EmergencyContact> emergencyContacts = _database.GetCollection<EmergencyContact>(MongoCollectionNames.EmergencyContacts);
+        await EnsureIndexAsync(emergencyContacts, "ix_emergencyContacts_userId", new BsonDocument(nameof(EmergencyContact.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            emergencyContacts,
+            "ix_emergencyContacts_userId_isActive",
+            new BsonDocument
+            {
+                [nameof(EmergencyContact.UserId)] = 1,
+                [nameof(EmergencyContact.IsActive)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(emergencyContacts, "ix_emergencyContacts_invitationStatus", new BsonDocument(nameof(EmergencyContact.InvitationStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyContacts, "ix_emergencyContacts_linkingCode", new BsonDocument(nameof(EmergencyContact.LinkingCode), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
