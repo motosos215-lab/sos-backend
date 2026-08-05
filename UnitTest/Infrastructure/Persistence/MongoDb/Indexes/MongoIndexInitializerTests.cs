@@ -9,6 +9,7 @@ using Moq;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 
 namespace UnitTest.Infrastructure.Persistence.MongoDb.Indexes;
@@ -23,7 +24,9 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenHashIndex("legacy_token_hash_unique"),
             RefreshTokenUserIdIndex("legacy_user_id"),
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
-            RefreshTokenUserExpirationIndex("legacy_user_expiration"));
+            RefreshTokenUserExpirationIndex("legacy_user_expiration"),
+            DriverProfileUserIdIndex("legacy_driver_profile_user_id"),
+            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -34,6 +37,9 @@ public sealed class MongoIndexInitializerTests
         indexes.RefreshTokenIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<RefreshToken>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        indexes.DriverProfileIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<DriverProfile>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -43,7 +49,8 @@ public sealed class MongoIndexInitializerTests
             UserEmailIndex("legacy_email_unique"),
             RefreshTokenUserIdIndex("legacy_user_id"),
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
-            RefreshTokenUserExpirationIndex("legacy_user_expiration"));
+            RefreshTokenUserExpirationIndex("legacy_user_expiration"),
+            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -51,6 +58,12 @@ public sealed class MongoIndexInitializerTests
         indexes.RefreshTokenIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(
                 It.Is<CreateIndexModel<RefreshToken>>(model => model.Options.Name == "ux_refreshTokens_tokenHash" && model.Options.Unique == true),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        indexes.DriverProfileIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<DriverProfile>>(model => model.Options.Name == "ux_driverProfiles_userId" && model.Options.Unique == true),
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -63,7 +76,9 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenHashIndex("legacy_token_hash_unique"),
             RefreshTokenUserIdIndex("legacy_user_id"),
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
-            RefreshTokenUserExpirationIndex("legacy_user_expiration"));
+            RefreshTokenUserExpirationIndex("legacy_user_expiration"),
+            DriverProfileUserIdIndex("legacy_driver_profile_user_id"),
+            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"));
         indexes.UserIndexes
             .SetupSequence(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BsonDocumentCursor([]))
@@ -98,17 +113,23 @@ public sealed class MongoIndexInitializerTests
         var database = new Mock<IMongoDatabase>();
         var users = new Mock<IMongoCollection<User>>();
         var refreshTokens = new Mock<IMongoCollection<RefreshToken>>();
+        var driverProfiles = new Mock<IMongoCollection<DriverProfile>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
+        var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
+        driverProfiles.SetupGet(collection => collection.Indexes).Returns(driverProfileIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
         database
             .Setup(db => db.GetCollection<RefreshToken>(MongoCollectionNames.RefreshTokens, It.IsAny<MongoCollectionSettings>()))
             .Returns(refreshTokens.Object);
+        database
+            .Setup(db => db.GetCollection<DriverProfile>(MongoCollectionNames.DriverProfiles, It.IsAny<MongoCollectionSettings>()))
+            .Returns(driverProfiles.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -116,8 +137,11 @@ public sealed class MongoIndexInitializerTests
         refreshTokenIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.RefreshTokens)));
+        driverProfileIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.DriverProfiles)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -164,6 +188,10 @@ public sealed class MongoIndexInitializerTests
         },
         unique: false);
 
+    private static BsonDocument DriverProfileUserIdIndex(string name) => Index(MongoCollectionNames.DriverProfiles, name, new BsonDocument(nameof(DriverProfile.UserId), 1), unique: true);
+
+    private static BsonDocument DriverProfileCompletionStatusIndex(string name) => Index(MongoCollectionNames.DriverProfiles, name, new BsonDocument(nameof(DriverProfile.CompletionStatus), 1), unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -184,7 +212,8 @@ public sealed class MongoIndexInitializerTests
     private sealed record TestMongoIndexes(
         Mock<IMongoDatabase> Database,
         Mock<IMongoIndexManager<User>> UserIndexes,
-        Mock<IMongoIndexManager<RefreshToken>> RefreshTokenIndexes);
+        Mock<IMongoIndexManager<RefreshToken>> RefreshTokenIndexes,
+        Mock<IMongoIndexManager<DriverProfile>> DriverProfileIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {
