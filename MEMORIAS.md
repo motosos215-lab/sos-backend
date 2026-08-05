@@ -36,6 +36,13 @@
 - `Monitor` y `Admin` recibiran `403 forbidden` en el flujo de onboarding/perfil de conductor hasta que existan flujos especificos.
 - Los perfiles de conductor se guardan en MongoDB en la coleccion `driverProfiles`, con indice unico por `UserId`.
 - `profiles/me` puede actualizar `fullName` y `phoneNumber` de `User` de forma controlada, pero no permite cambiar `email`, `role`, `isActive`, permisos ni claims.
+- Vehicles API implementa el paso 3 del wizard web-first: Motocicleta / Motoneta.
+- Los vehiculos del conductor se guardan en MongoDB en la coleccion `driverVehicles`.
+- `driverVehicles` tiene indices por `UserId`, `UserId + IsActive` y `CompletionStatus`; los indices unicos parciales por placa/VIN quedan como pendiente futuro.
+- El plan Basico se asume por default hasta que exista modulo Plans y permite solo 1 vehiculo activo por usuario.
+- Vehicles API solo permite `Rider`; `Monitor` y `Admin` reciben `403 forbidden`.
+- Vehicles API no permite consultar, actualizar o eliminar vehiculos de otro usuario y DELETE aplica baja logica con `IsActive = false`.
+- Onboarding avanza a `3/7`, `43%` y `EmergencyContacts` solo cuando Profile esta `Completed` y existe un vehiculo activo `Completed`.
 
 ## Restricciones persistentes
 

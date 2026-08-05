@@ -16,6 +16,8 @@ using MotoSOS.API.Modules.Profiles.Contracts;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
+using MotoSOS.API.Modules.Vehicles.Application;
+using MotoSOS.API.Modules.Vehicles.Domain;
 
 namespace IntegrationTest;
 
@@ -168,6 +170,50 @@ public sealed class OnboardingProfileEndpointsTests
     }
 
     [Fact]
+    public async Task OnboardingStatusAfterDraftVehicleReturnsVehicleInProgress()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "draft-vehicle-onboarding@example.com", "Rider");
+        User user = stores.Users.Users.Single(user => user.Email == "draft-vehicle-onboarding@example.com");
+        stores.DriverProfiles.Profiles.Add(new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed });
+        stores.DriverVehicles.Vehicles.Add(new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Draft });
+
+        HttpResponseMessage response = await client.GetAsync("/api/v1/onboarding/status");
+        OnboardingEnvelope? envelope = await response.Content.ReadFromJsonAsync<OnboardingEnvelope>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope.Should().NotBeNull();
+        envelope!.Data.CompletedSteps.Should().Be(2);
+        envelope.Data.ProgressPercentage.Should().Be(29);
+        envelope.Data.CurrentStep.Should().Be("Vehicle");
+        envelope.Data.Steps.Should().Contain(step => step.Key == "Vehicle" && step.Status == "InProgress");
+    }
+
+    [Fact]
+    public async Task OnboardingStatusAfterCompletedVehicleReturnsThreeStepsAndEmergencyContacts()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "completed-vehicle-onboarding@example.com", "Rider");
+        User user = stores.Users.Users.Single(user => user.Email == "completed-vehicle-onboarding@example.com");
+        stores.DriverProfiles.Profiles.Add(new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed });
+        stores.DriverVehicles.Vehicles.Add(new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed });
+
+        HttpResponseMessage response = await client.GetAsync("/api/v1/onboarding/status");
+        OnboardingEnvelope? envelope = await response.Content.ReadFromJsonAsync<OnboardingEnvelope>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope.Should().NotBeNull();
+        envelope!.Data.CompletedSteps.Should().Be(3);
+        envelope.Data.ProgressPercentage.Should().Be(43);
+        envelope.Data.CurrentStep.Should().Be("EmergencyContacts");
+        envelope.Data.Steps.Should().Contain(step => step.Key == "Vehicle" && step.Status == "Completed");
+    }
+
+    [Fact]
     public async Task MonitorCannotUseDriverOnboardingOrCompleteProfile()
     {
         var stores = new TestStores();
@@ -272,6 +318,7 @@ public sealed class OnboardingProfileEndpointsTests
                 services.AddSingleton<IUserRepository>(stores.Users);
                 services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens);
                 services.AddSingleton<IDriverProfileRepository>(stores.DriverProfiles);
+                services.AddSingleton<IDriverVehicleRepository>(stores.DriverVehicles);
             });
         });
     }
@@ -283,6 +330,8 @@ public sealed class OnboardingProfileEndpointsTests
         public InMemoryRefreshTokenRepository RefreshTokens { get; } = new();
 
         public InMemoryDriverProfileRepository DriverProfiles { get; } = new();
+
+        public InMemoryDriverVehicleRepository DriverVehicles { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -334,6 +383,28 @@ public sealed class OnboardingProfileEndpointsTests
         }
 
         public Task UpdateAsync(DriverProfile profile, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryDriverVehicleRepository : IDriverVehicleRepository
+    {
+        public List<DriverVehicle> Vehicles { get; } = [];
+
+        public Task<IReadOnlyList<DriverVehicle>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<DriverVehicle>>(Vehicles.Where(vehicle => vehicle.UserId == userId && vehicle.IsActive).ToArray());
+
+        public Task<DriverVehicle?> GetByIdAsync(string id, CancellationToken cancellationToken) =>
+            Task.FromResult(Vehicles.FirstOrDefault(vehicle => vehicle.Id == id));
+
+        public Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(Vehicles.Count(vehicle => vehicle.UserId == userId && vehicle.IsActive));
+
+        public Task AddAsync(DriverVehicle vehicle, CancellationToken cancellationToken)
+        {
+            Vehicles.Add(vehicle);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(DriverVehicle vehicle, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);

@@ -11,6 +11,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
+using MotoSOS.API.Modules.Vehicles.Domain;
 
 namespace UnitTest.Infrastructure.Persistence.MongoDb.Indexes;
 
@@ -26,7 +27,10 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
             RefreshTokenUserExpirationIndex("legacy_user_expiration"),
             DriverProfileUserIdIndex("legacy_driver_profile_user_id"),
-            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"));
+            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
+            DriverVehicleUserIdIndex("legacy_driver_vehicle_user_id"),
+            DriverVehicleUserIdIsActiveIndex("legacy_driver_vehicle_user_active"),
+            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -40,6 +44,9 @@ public sealed class MongoIndexInitializerTests
         indexes.DriverProfileIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<DriverProfile>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        indexes.DriverVehicleIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<DriverVehicle>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -50,7 +57,9 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenUserIdIndex("legacy_user_id"),
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
             RefreshTokenUserExpirationIndex("legacy_user_expiration"),
-            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"));
+            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
+            DriverVehicleUserIdIsActiveIndex("legacy_driver_vehicle_user_active"),
+            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -67,6 +76,12 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.DriverVehicleIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<DriverVehicle>>(model => model.Options.Name == "ix_driverVehicles_userId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -78,7 +93,10 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
             RefreshTokenUserExpirationIndex("legacy_user_expiration"),
             DriverProfileUserIdIndex("legacy_driver_profile_user_id"),
-            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"));
+            DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
+            DriverVehicleUserIdIndex("legacy_driver_vehicle_user_id"),
+            DriverVehicleUserIdIsActiveIndex("legacy_driver_vehicle_user_active"),
+            DriverVehicleCompletionStatusIndex("legacy_driver_vehicle_completion"));
         indexes.UserIndexes
             .SetupSequence(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BsonDocumentCursor([]))
@@ -114,13 +132,16 @@ public sealed class MongoIndexInitializerTests
         var users = new Mock<IMongoCollection<User>>();
         var refreshTokens = new Mock<IMongoCollection<RefreshToken>>();
         var driverProfiles = new Mock<IMongoCollection<DriverProfile>>();
+        var driverVehicles = new Mock<IMongoCollection<DriverVehicle>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
+        var driverVehicleIndexes = new Mock<IMongoIndexManager<DriverVehicle>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
         driverProfiles.SetupGet(collection => collection.Indexes).Returns(driverProfileIndexes.Object);
+        driverVehicles.SetupGet(collection => collection.Indexes).Returns(driverVehicleIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -130,6 +151,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<DriverProfile>(MongoCollectionNames.DriverProfiles, It.IsAny<MongoCollectionSettings>()))
             .Returns(driverProfiles.Object);
+        database
+            .Setup(db => db.GetCollection<DriverVehicle>(MongoCollectionNames.DriverVehicles, It.IsAny<MongoCollectionSettings>()))
+            .Returns(driverVehicles.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -140,8 +164,11 @@ public sealed class MongoIndexInitializerTests
         driverProfileIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.DriverProfiles)));
+        driverVehicleIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.DriverVehicles)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -192,6 +219,20 @@ public sealed class MongoIndexInitializerTests
 
     private static BsonDocument DriverProfileCompletionStatusIndex(string name) => Index(MongoCollectionNames.DriverProfiles, name, new BsonDocument(nameof(DriverProfile.CompletionStatus), 1), unique: false);
 
+    private static BsonDocument DriverVehicleUserIdIndex(string name) => Index(MongoCollectionNames.DriverVehicles, name, new BsonDocument(nameof(DriverVehicle.UserId), 1), unique: false);
+
+    private static BsonDocument DriverVehicleUserIdIsActiveIndex(string name) => Index(
+        MongoCollectionNames.DriverVehicles,
+        name,
+        new BsonDocument
+        {
+            [nameof(DriverVehicle.UserId)] = 1,
+            [nameof(DriverVehicle.IsActive)] = 1
+        },
+        unique: false);
+
+    private static BsonDocument DriverVehicleCompletionStatusIndex(string name) => Index(MongoCollectionNames.DriverVehicles, name, new BsonDocument(nameof(DriverVehicle.CompletionStatus), 1), unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -213,7 +254,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoDatabase> Database,
         Mock<IMongoIndexManager<User>> UserIndexes,
         Mock<IMongoIndexManager<RefreshToken>> RefreshTokenIndexes,
-        Mock<IMongoIndexManager<DriverProfile>> DriverProfileIndexes);
+        Mock<IMongoIndexManager<DriverProfile>> DriverProfileIndexes,
+        Mock<IMongoIndexManager<DriverVehicle>> DriverVehicleIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {
