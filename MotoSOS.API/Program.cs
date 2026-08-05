@@ -6,6 +6,7 @@ using MotoSOS.API.Modules.Auth.Endpoints;
 using MotoSOS.API.Modules.Onboarding.Endpoints;
 using MotoSOS.API.Modules.Profiles.Endpoints;
 using MotoSOS.API.Modules.Users.Endpoints;
+using MotoSOS.API.Modules.Vehicles.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +53,7 @@ app.MapGet("/health/ready", async (IServiceProvider services, IHostEnvironment e
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapProfileEndpoints();
+app.MapVehicleEndpoints();
 app.MapOnboardingEndpoints();
 
 app.Run();

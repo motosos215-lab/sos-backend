@@ -15,21 +15,23 @@ using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Application;
+using MotoSOS.API.Modules.Vehicles.Contracts;
 using MotoSOS.API.Modules.Vehicles.Domain;
 
 namespace SecurityTest;
 
-public sealed class OnboardingProfileSecurityTests
+public sealed class VehicleSecurityTests
 {
     [Fact]
-    public async Task ProfileDoesNotExposePasswordHashOrRefreshToken()
+    public async Task VehiclesDoNotExposePasswordHashOrRefreshToken()
     {
         var stores = new TestStores();
         await using WebApplicationFactory<Program> factory = CreateFactory(stores);
         HttpClient client = factory.CreateClient();
-        await AuthenticateAsync(client, "profile-safe@example.com", stores);
+        await AuthenticateAsync(client, "vehicle-safe@example.com", stores);
+        await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
 
-        HttpResponseMessage response = await client.GetAsync("/api/v1/profiles/me");
+        HttpResponseMessage response = await client.GetAsync("/api/v1/vehicles");
         string content = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -39,61 +41,27 @@ public sealed class OnboardingProfileSecurityTests
     }
 
     [Fact]
-    public async Task OnboardingDoesNotExposePasswordHashOrRefreshToken()
+    public async Task VehicleUnexpectedFieldsDoNotChangeUserSecurityFields()
     {
         var stores = new TestStores();
         await using WebApplicationFactory<Program> factory = CreateFactory(stores);
         HttpClient client = factory.CreateClient();
-        await AuthenticateAsync(client, "onboarding-safe@example.com", stores);
+        User user = await AuthenticateAsync(client, "vehicle-immutable@example.com", stores);
 
-        HttpResponseMessage response = await client.GetAsync("/api/v1/onboarding/status");
-        string content = await response.Content.ReadAsStringAsync();
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        content.Should().NotContain("PasswordHash");
-        content.Should().NotContain("passwordHash");
-        content.Should().NotContain("refreshToken");
-    }
-
-    [Fact]
-    public async Task ProfileEndpointsUseAuthenticatedUserOnly()
-    {
-        var stores = new TestStores();
-        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
-        HttpClient firstClient = factory.CreateClient();
-        HttpClient secondClient = factory.CreateClient();
-        await AuthenticateAsync(firstClient, "first@example.com", stores);
-        await firstClient.PutAsJsonAsync("/api/v1/profiles/me", ValidContinuePayload("First Rider"));
-        await AuthenticateAsync(secondClient, "second@example.com", stores);
-
-        HttpResponseMessage response = await secondClient.GetAsync("/api/v1/profiles/me");
-        string content = await response.Content.ReadAsStringAsync();
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        content.Should().Contain("second@example.com");
-        content.Should().NotContain("first@example.com");
-        content.Should().NotContain("First Rider");
-    }
-
-    [Fact]
-    public async Task ProfileDoesNotAllowChangingEmailRoleOrActiveStateFromUnexpectedFields()
-    {
-        var stores = new TestStores();
-        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
-        HttpClient client = factory.CreateClient();
-        User user = await AuthenticateAsync(client, "immutable@example.com", stores);
-
-        HttpResponseMessage response = await client.PutAsJsonAsync(
-            "/api/v1/profiles/me",
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/vehicles",
             new
             {
-                fullName = "Changed Name",
-                phoneNumber = "+52 555 555 5555",
-                dateOfBirth = "1995-01-15",
-                addressOrZone = "Centro",
-                primaryCity = "Toluca",
-                provisionalEmergencyContactName = "Contacto",
-                provisionalEmergencyContactPhone = "+52 555 111 2233",
+                vehicleType = "Motorcycle",
+                brand = "Yamaha",
+                model = "FZ 2.0",
+                year = 2022,
+                alias = "Mi moto",
+                primaryUse = "Personal",
+                color = "Rojo",
+                plateNumber = "ABC1234",
+                vin = "VIN123456789",
+                usageFrequency = "Daily",
                 saveMode = "Continue",
                 email = "attacker@example.com",
                 role = "Admin",
@@ -101,11 +69,49 @@ public sealed class OnboardingProfileSecurityTests
                 permissions = "admin"
             });
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        user.Email.Should().Be("immutable@example.com");
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        user.Email.Should().Be("vehicle-immutable@example.com");
         user.Role.Should().Be(UserRole.Rider);
         user.IsActive.Should().BeTrue();
-        user.FullName.Should().Be("Changed Name");
+    }
+
+    [Fact]
+    public async Task CannotAccessOtherUsersVehicle()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient firstClient = factory.CreateClient();
+        HttpClient secondClient = factory.CreateClient();
+        await AuthenticateAsync(firstClient, "vehicle-owner-security@example.com", stores);
+        VehicleEnvelope created = await CreateVehicleAsync(firstClient);
+        await AuthenticateAsync(secondClient, "vehicle-other-security@example.com", stores);
+
+        HttpResponseMessage response = await secondClient.GetAsync($"/api/v1/vehicles/{created.Data.Vehicle.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteDoesNotPhysicallyRemoveVehicle()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-delete-security@example.com", stores);
+        VehicleEnvelope created = await CreateVehicleAsync(client);
+
+        HttpResponseMessage response = await client.DeleteAsync($"/api/v1/vehicles/{created.Data.Vehicle.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        stores.DriverVehicles.Vehicles.Should().ContainSingle(vehicle => vehicle.Id == created.Data.Vehicle.Id && !vehicle.IsActive);
+    }
+
+    private static async Task<VehicleEnvelope> CreateVehicleAsync(HttpClient client)
+    {
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
+        VehicleEnvelope? envelope = await response.Content.ReadFromJsonAsync<VehicleEnvelope>();
+        envelope.Should().NotBeNull();
+        return envelope!;
     }
 
     private static async Task<User> AuthenticateAsync(HttpClient client, string email, TestStores stores)
@@ -119,31 +125,20 @@ public sealed class OnboardingProfileSecurityTests
         return stores.Users.Users.Single(user => user.Email == email);
     }
 
-    private static object ValidContinuePayload(string fullName) => new
-    {
-        fullName,
-        phoneNumber = "+52 555 555 5555",
-        dateOfBirth = "1995-01-15",
-        addressOrZone = "Centro",
-        primaryCity = "Toluca",
-        provisionalEmergencyContactName = "Contacto",
-        provisionalEmergencyContactPhone = "+52 555 111 2233",
-        saveMode = "Continue"
-    };
+    private static CreateVehicleRequest ValidCreateRequest() => new("Motorcycle", "Yamaha", "FZ 2.0", 2022, "Mi moto", "Personal", "Rojo", "ABC1234", "VIN123456789", "Daily", "Continue");
 
     private static WebApplicationFactory<Program> CreateFactory(TestStores stores)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
-
             builder.ConfigureAppConfiguration((_, configuration) =>
             {
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Jwt:Issuer"] = "MotoSOS",
                     ["Jwt:Audience"] = "MotoSOS.Clients",
-                    ["Jwt:Key"] = new string('R', 48),
+                    ["Jwt:Key"] = new string('W', 48),
                     ["Jwt:AccessTokenMinutes"] = "15",
                     ["Jwt:RefreshTokenDays"] = "7",
                     ["Jwt:RefreshTokenRememberMeDays"] = "30",
@@ -151,7 +146,6 @@ public sealed class OnboardingProfileSecurityTests
                     ["MongoDb:DatabaseName"] = "MotoSOS_Test"
                 });
             });
-
             builder.ConfigureTestServices(services =>
             {
                 services.AddSingleton<IUserRepository>(stores.Users);
@@ -165,80 +159,46 @@ public sealed class OnboardingProfileSecurityTests
     private sealed class TestStores
     {
         public InMemoryUserRepository Users { get; } = new();
-
         public InMemoryRefreshTokenRepository RefreshTokens { get; } = new();
-
         public InMemoryDriverProfileRepository DriverProfiles { get; } = new();
-
         public InMemoryDriverVehicleRepository DriverVehicles { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
     {
         public List<User> Users { get; } = [];
-
-        public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) =>
-            Task.FromResult(Users.FirstOrDefault(user => user.Id == id));
-
-        public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
-            Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.Email, email.Trim(), StringComparison.OrdinalIgnoreCase)));
-
-        public Task AddAsync(User user, CancellationToken cancellationToken)
-        {
-            Users.Add(user);
-            return Task.CompletedTask;
-        }
-
+        public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Users.FirstOrDefault(user => user.Id == id));
+        public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.Email, email.Trim(), StringComparison.OrdinalIgnoreCase)));
+        public Task AddAsync(User user, CancellationToken cancellationToken) { Users.Add(user); return Task.CompletedTask; }
         public Task UpdateAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
     {
         public List<RefreshToken> Tokens { get; } = [];
-
-        public Task<RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
-            Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash));
-
-        public Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
-        {
-            Tokens.Add(refreshToken);
-            return Task.CompletedTask;
-        }
-
+        public Task<RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken cancellationToken) => Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash));
+        public Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken) { Tokens.Add(refreshToken); return Task.CompletedTask; }
         public Task UpdateAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class InMemoryDriverProfileRepository : IDriverProfileRepository
     {
-        public List<DriverProfile> Profiles { get; } = [];
-
-        public Task<DriverProfile?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) =>
-            Task.FromResult(Profiles.FirstOrDefault(profile => profile.UserId == userId));
-
-        public Task AddAsync(DriverProfile profile, CancellationToken cancellationToken)
-        {
-            Profiles.Add(profile);
-            return Task.CompletedTask;
-        }
-
+        public Task<DriverProfile?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<DriverProfile?>(null);
+        public Task AddAsync(DriverProfile profile, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task UpdateAsync(DriverProfile profile, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class InMemoryDriverVehicleRepository : IDriverVehicleRepository
     {
-        public Task<IReadOnlyList<DriverVehicle>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<DriverVehicle>>([]);
-
-        public Task<DriverVehicle?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult<DriverVehicle?>(null);
-
-        public Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(0);
-
-        public Task AddAsync(DriverVehicle vehicle, CancellationToken cancellationToken) => Task.CompletedTask;
-
+        public List<DriverVehicle> Vehicles { get; } = [];
+        public Task<IReadOnlyList<DriverVehicle>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<DriverVehicle>>(Vehicles.Where(vehicle => vehicle.UserId == userId && vehicle.IsActive).ToArray());
+        public Task<DriverVehicle?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Vehicles.FirstOrDefault(vehicle => vehicle.Id == id));
+        public Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Vehicles.Count(vehicle => vehicle.UserId == userId && vehicle.IsActive));
+        public Task AddAsync(DriverVehicle vehicle, CancellationToken cancellationToken) { Vehicles.Add(vehicle); return Task.CompletedTask; }
         public Task UpdateAsync(DriverVehicle vehicle, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);
-
     private sealed record LoginData(string AccessToken, string RefreshToken);
+    private sealed record VehicleEnvelope(bool Success, CreateVehicleResponse Data);
 }

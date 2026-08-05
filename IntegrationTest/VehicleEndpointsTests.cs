@@ -1,0 +1,332 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.Auth.Contracts;
+using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.Users.Application;
+using MotoSOS.API.Modules.Users.Domain;
+using MotoSOS.API.Modules.Vehicles.Application;
+using MotoSOS.API.Modules.Vehicles.Contracts;
+using MotoSOS.API.Modules.Vehicles.Domain;
+
+namespace IntegrationTest;
+
+public sealed class VehicleEndpointsTests
+{
+    [Fact]
+    public async Task VehiclesRequireAuthentication()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage getResponse = await client.GetAsync("/api/v1/vehicles");
+        HttpResponseMessage postResponse = await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
+
+        getResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        postResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RiderCanCreateDraft()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-draft@example.com", "Rider");
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/vehicles", DraftCreateRequest());
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        content.Should().Contain("\"completionStatus\":\"Draft\"");
+        stores.DriverVehicles.Vehicles.Should().ContainSingle(vehicle => vehicle.CompletionStatus == VehicleCompletionStatus.Draft);
+    }
+
+    [Fact]
+    public async Task RiderCanCreateCompletedAndListVehicles()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-complete@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
+
+        HttpResponseMessage response = await client.GetAsync("/api/v1/vehicles");
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        content.Should().Contain("Yamaha");
+        content.Should().Contain("\"completionStatus\":\"Completed\"");
+        content.Should().Contain("\"isPrimary\":true");
+    }
+
+    [Fact]
+    public async Task RiderCanGetOwnVehicle()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-get@example.com", "Rider");
+        VehicleEnvelope created = await CreateVehicleAsync(client);
+
+        HttpResponseMessage response = await client.GetAsync($"/api/v1/vehicles/{created.Data.Vehicle.Id}");
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        content.Should().Contain(created.Data.Vehicle.Id);
+    }
+
+    [Fact]
+    public async Task RiderCannotGetOtherUsersVehicle()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient firstClient = factory.CreateClient();
+        HttpClient secondClient = factory.CreateClient();
+        await AuthenticateAsync(firstClient, "vehicle-owner@example.com", "Rider");
+        VehicleEnvelope created = await CreateVehicleAsync(firstClient);
+        await AuthenticateAsync(secondClient, "vehicle-other@example.com", "Rider");
+
+        HttpResponseMessage response = await secondClient.GetAsync($"/api/v1/vehicles/{created.Data.Vehicle.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RiderCanUpdateOwnVehicle()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-update@example.com", "Rider");
+        VehicleEnvelope created = await CreateVehicleAsync(client);
+
+        HttpResponseMessage response = await client.PutAsJsonAsync($"/api/v1/vehicles/{created.Data.Vehicle.Id}", ValidUpdateRequest());
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        content.Should().Contain("Italika");
+        content.Should().Contain("\"usageFrequency\":\"Weekly\"");
+    }
+
+    [Fact]
+    public async Task RiderCanDeleteVehicleLogically()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-delete@example.com", "Rider");
+        VehicleEnvelope created = await CreateVehicleAsync(client);
+
+        HttpResponseMessage response = await client.DeleteAsync($"/api/v1/vehicles/{created.Data.Vehicle.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        stores.DriverVehicles.Vehicles.Single(vehicle => vehicle.Id == created.Data.Vehicle.Id).IsActive.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("Monitor")]
+    [InlineData("Admin")]
+    public async Task NonRidersReceiveForbidden(string role)
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+
+        if (role == "Admin")
+        {
+            RegisterRequest register = CreateRegisterRequest("vehicle-admin@example.com", "Rider");
+            await client.PostAsJsonAsync("/api/v1/auth/register", register);
+            stores.Users.Users.Single(user => user.Email == register.Email).Role = UserRole.Admin;
+            await LoginAsync(client, register.Email, register.Password);
+        }
+        else
+        {
+            await AuthenticateAsync(client, "vehicle-monitor@example.com", "Monitor");
+        }
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task InvalidContinueReturnsValidationError()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-invalid@example.com", "Rider");
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/vehicles",
+            new CreateVehicleRequest(null, null, null, null, null, null, null, null, null, null, "Continue"));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        content.Should().Contain("validation_error");
+    }
+
+    [Fact]
+    public async Task BasicPlanLimitReturnsControlledError()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        await AuthenticateAsync(client, "vehicle-limit@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest() with { Alias = "Otra moto" });
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        content.Should().Contain("plan_limit_exceeded");
+    }
+
+    private static async Task<VehicleEnvelope> CreateVehicleAsync(HttpClient client)
+    {
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/vehicles", ValidCreateRequest());
+        VehicleEnvelope? envelope = await response.Content.ReadFromJsonAsync<VehicleEnvelope>();
+        envelope.Should().NotBeNull();
+        return envelope!;
+    }
+
+    private static async Task AuthenticateAsync(HttpClient client, string email, string accountType)
+    {
+        RegisterRequest register = CreateRegisterRequest(email, accountType);
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+        await LoginAsync(client, register.Email, register.Password);
+    }
+
+    private static async Task LoginAsync(HttpClient client, string email, string password)
+    {
+        HttpResponseMessage loginResponse = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(email, password));
+        LoginEnvelope? login = await loginResponse.Content.ReadFromJsonAsync<LoginEnvelope>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Data.AccessToken);
+    }
+
+    private static RegisterRequest CreateRegisterRequest(string email, string accountType) =>
+        new(email, "StrongPass1!", "StrongPass1!", "Moto Rider", "+52 555 555 5555", accountType, true);
+
+    private static CreateVehicleRequest DraftCreateRequest() => new("Motorcycle", "Yamaha", null, null, "Mi moto", null, null, null, null, null, "Draft");
+
+    private static CreateVehicleRequest ValidCreateRequest() => new("Motorcycle", "Yamaha", "FZ 2.0", 2022, "Mi moto", "Personal", "Rojo", "ABC1234", "VIN123456789", "Daily", "Continue");
+
+    private static UpdateVehicleRequest ValidUpdateRequest() => new("Scooter", "Italika", "WS", 2021, "Motoneta", "Work", "Negro", "XYZ1234", "VIN987654321", "Weekly", "Continue");
+
+    private static WebApplicationFactory<Program> CreateFactory(TestStores stores)
+    {
+        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Jwt:Issuer"] = "MotoSOS",
+                    ["Jwt:Audience"] = "MotoSOS.Clients",
+                    ["Jwt:Key"] = new string('V', 48),
+                    ["Jwt:AccessTokenMinutes"] = "15",
+                    ["Jwt:RefreshTokenDays"] = "7",
+                    ["Jwt:RefreshTokenRememberMeDays"] = "30",
+                    ["MongoDb:ConnectionString"] = string.Empty,
+                    ["MongoDb:DatabaseName"] = "MotoSOS_Test"
+                });
+            });
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton<IUserRepository>(stores.Users);
+                services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens);
+                services.AddSingleton<IDriverProfileRepository>(stores.DriverProfiles);
+                services.AddSingleton<IDriverVehicleRepository>(stores.DriverVehicles);
+            });
+        });
+    }
+
+    private sealed class TestStores
+    {
+        public InMemoryUserRepository Users { get; } = new();
+
+        public InMemoryRefreshTokenRepository RefreshTokens { get; } = new();
+
+        public InMemoryDriverProfileRepository DriverProfiles { get; } = new();
+
+        public InMemoryDriverVehicleRepository DriverVehicles { get; } = new();
+    }
+
+    private sealed class InMemoryUserRepository : IUserRepository
+    {
+        public List<User> Users { get; } = [];
+
+        public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Users.FirstOrDefault(user => user.Id == id));
+
+        public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.Email, email.Trim(), StringComparison.OrdinalIgnoreCase)));
+
+        public Task AddAsync(User user, CancellationToken cancellationToken)
+        {
+            Users.Add(user);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
+    {
+        public List<RefreshToken> Tokens { get; } = [];
+
+        public Task<RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken cancellationToken) => Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash));
+
+        public Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
+        {
+            Tokens.Add(refreshToken);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryDriverProfileRepository : IDriverProfileRepository
+    {
+        public Task<DriverProfile?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<DriverProfile?>(null);
+
+        public Task AddAsync(DriverProfile profile, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UpdateAsync(DriverProfile profile, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryDriverVehicleRepository : IDriverVehicleRepository
+    {
+        public List<DriverVehicle> Vehicles { get; } = [];
+
+        public Task<IReadOnlyList<DriverVehicle>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<DriverVehicle>>(Vehicles.Where(vehicle => vehicle.UserId == userId && vehicle.IsActive).ToArray());
+
+        public Task<DriverVehicle?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Vehicles.FirstOrDefault(vehicle => vehicle.Id == id));
+
+        public Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Vehicles.Count(vehicle => vehicle.UserId == userId && vehicle.IsActive));
+
+        public Task AddAsync(DriverVehicle vehicle, CancellationToken cancellationToken)
+        {
+            Vehicles.Add(vehicle);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(DriverVehicle vehicle, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed record LoginEnvelope(bool Success, LoginData Data);
+
+    private sealed record LoginData(string AccessToken, string RefreshToken);
+
+    private sealed record VehicleEnvelope(bool Success, CreateVehicleResponse Data);
+}

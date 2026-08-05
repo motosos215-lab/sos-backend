@@ -3,6 +3,7 @@ using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Users.Application;
+using MotoSOS.API.Modules.Vehicles.Application;
 
 namespace MotoSOS.API.Configuration.DependencyInjection;
 
@@ -15,6 +16,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IOnboardingService, OnboardingService>();
+        services.AddScoped<IVehicleService, VehicleService>();
 
         return services;
     }

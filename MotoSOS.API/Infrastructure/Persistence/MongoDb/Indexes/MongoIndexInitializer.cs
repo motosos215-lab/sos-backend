@@ -4,6 +4,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
+using MotoSOS.API.Modules.Vehicles.Domain;
 
 namespace MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 
@@ -49,6 +50,20 @@ public sealed class MongoIndexInitializer
         IMongoCollection<DriverProfile> driverProfiles = _database.GetCollection<DriverProfile>(MongoCollectionNames.DriverProfiles);
         await EnsureIndexAsync(driverProfiles, "ux_driverProfiles_userId", new BsonDocument(nameof(DriverProfile.UserId), 1), unique: true, cancellationToken);
         await EnsureIndexAsync(driverProfiles, "ix_driverProfiles_completionStatus", new BsonDocument(nameof(DriverProfile.CompletionStatus), 1), unique: false, cancellationToken);
+
+        IMongoCollection<DriverVehicle> driverVehicles = _database.GetCollection<DriverVehicle>(MongoCollectionNames.DriverVehicles);
+        await EnsureIndexAsync(driverVehicles, "ix_driverVehicles_userId", new BsonDocument(nameof(DriverVehicle.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            driverVehicles,
+            "ix_driverVehicles_userId_isActive",
+            new BsonDocument
+            {
+                [nameof(DriverVehicle.UserId)] = 1,
+                [nameof(DriverVehicle.IsActive)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(driverVehicles, "ix_driverVehicles_completionStatus", new BsonDocument(nameof(DriverVehicle.CompletionStatus), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
