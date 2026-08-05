@@ -7,7 +7,10 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Users.Application;
+using MotoSOS.API.Modules.Vehicles.Application;
 
 namespace MotoSOS.API.Configuration.DependencyInjection;
 
@@ -53,11 +56,17 @@ public static class InfrastructureServiceExtensions
             services.AddHostedService<MongoIndexInitializerHostedService>();
             services.AddScoped<IUserRepository, MongoUserRepository>();
             services.AddScoped<IRefreshTokenRepository, MongoRefreshTokenRepository>();
+            services.AddScoped<IDriverProfileRepository, MongoDriverProfileRepository>();
+            services.AddScoped<IDriverVehicleRepository, MongoDriverVehicleRepository>();
+            services.AddScoped<IEmergencyContactRepository, MongoEmergencyContactRepository>();
         }
         else
         {
             services.AddScoped<IUserRepository, UnconfiguredUserRepository>();
             services.AddScoped<IRefreshTokenRepository, UnconfiguredRefreshTokenRepository>();
+            services.AddScoped<IDriverProfileRepository, UnconfiguredDriverProfileRepository>();
+            services.AddScoped<IDriverVehicleRepository, UnconfiguredDriverVehicleRepository>();
+            services.AddScoped<IEmergencyContactRepository, UnconfiguredEmergencyContactRepository>();
         }
 
         return services;

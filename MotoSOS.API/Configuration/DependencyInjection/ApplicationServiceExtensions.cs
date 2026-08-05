@@ -1,6 +1,10 @@
 using FluentValidation;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.Onboarding.Application;
+using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Users.Application;
+using MotoSOS.API.Modules.Vehicles.Application;
 
 namespace MotoSOS.API.Configuration.DependencyInjection;
 
@@ -11,6 +15,11 @@ public static class ApplicationServiceExtensions
         services.AddValidatorsFromAssemblyContaining<AuthService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<IOnboardingService, OnboardingService>();
+        services.AddScoped<IVehicleService, VehicleService>();
+        services.AddScoped<IEmergencyContactService, EmergencyContactService>();
+        services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
 
         return services;
     }
