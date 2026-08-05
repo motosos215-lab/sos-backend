@@ -28,6 +28,14 @@
 - El maquetado usa `Conductor`, pero el backend lo mapea a `Rider`.
 - `forgot-password` y `access-code` quedan preparados sin proveedor externo real y sin enumerar usuarios.
 - Login soporta `rememberMe`, que solo extiende la expiracion del refresh token.
+- El onboarding inicial de conductor sigue un flujo web-first: registro, login y configuracion inicial ocurren principalmente en portal web.
+- La app movil se vinculara despues mediante codigo o QR y no sustituye el alta inicial del conductor.
+- El smartwatch se vinculara desde la app movil, no desde web.
+- El wizard actual de conductor tiene 7 pasos: cuenta, perfil, motocicleta/motoneta, contactos de emergencia, vinculacion de dispositivos, plan/licencia y confirmacion.
+- En esta etapa solo `Rider` puede usar onboarding de conductor y perfil; `Conductor` del maquetado se guarda como `Rider`.
+- `Monitor` y `Admin` recibiran `403 forbidden` en el flujo de onboarding/perfil de conductor hasta que existan flujos especificos.
+- Los perfiles de conductor se guardan en MongoDB en la coleccion `driverProfiles`, con indice unico por `UserId`.
+- `profiles/me` puede actualizar `fullName` y `phoneNumber` de `User` de forma controlada, pero no permite cambiar `email`, `role`, `isActive`, permisos ni claims.
 
 ## Restricciones persistentes
 

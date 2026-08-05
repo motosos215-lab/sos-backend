@@ -7,6 +7,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Users.Application;
 
 namespace MotoSOS.API.Configuration.DependencyInjection;
@@ -53,11 +54,13 @@ public static class InfrastructureServiceExtensions
             services.AddHostedService<MongoIndexInitializerHostedService>();
             services.AddScoped<IUserRepository, MongoUserRepository>();
             services.AddScoped<IRefreshTokenRepository, MongoRefreshTokenRepository>();
+            services.AddScoped<IDriverProfileRepository, MongoDriverProfileRepository>();
         }
         else
         {
             services.AddScoped<IUserRepository, UnconfiguredUserRepository>();
             services.AddScoped<IRefreshTokenRepository, UnconfiguredRefreshTokenRepository>();
+            services.AddScoped<IDriverProfileRepository, UnconfiguredDriverProfileRepository>();
         }
 
         return services;
