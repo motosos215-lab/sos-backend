@@ -12,6 +12,7 @@ Este modulo no envia push notifications reales, SMS, WhatsApp, correo, llamadas,
 - El backend expone el contrato HTTP final para persistir esa solicitud como registro remoto.
 - Cada solicitud debe apuntar a un `incidentId` existente, propio y en estado `Open`.
 - Los datos operativos `tripId`, `vehicleId`, `mobileDeviceId` y `smartwatchDeviceId` se derivan del incidente, no del request.
+- Si el disparo original involucra Wear OS, Android movil debe resolverlo localmente y enviar la solicitud usando la sesion del Rider. La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del smartwatch.
 
 ## Endpoints
 

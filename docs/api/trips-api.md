@@ -18,7 +18,9 @@ Este modulo no implementa todavia ingesta offline, minor events, sensor batches,
 - Para iniciar viaje, onboarding debe estar completo: `completedSteps = 7`, `currentStep = Completed`, `isOperational = true`.
 - El vehiculo debe ser propio, activo y `CompletionStatus = Completed`.
 - El `MobileApp` debe ser propio, activo, `Linked` y tipo `MobileApp`.
-- `Smartwatch` es opcional. Si se envia, debe ser propio, activo, `Linked`, tipo `Smartwatch` y depender del `MobileApp` por `ParentDeviceId`.
+- Decision vigente Wear OS: el smartwatch se vincula localmente con Android mediante Wear OS Data Layer. El telefono es el gateway de viaje hacia la API.
+- La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del reloj.
+- `Smartwatch` remoto asociado al viaje queda como compatibilidad historica; nuevas implementaciones deben iniciar viajes desde el telefono usando `mobileDeviceId`.
 - Solo puede existir un viaje `Active` por usuario.
 - `POST /api/v1/trips/start` es idempotente si ya existe un viaje activo con el mismo `vehicleId` y `mobileDeviceId`.
 - Si ya existe un viaje activo con datos distintos, devuelve `active_trip_exists`.

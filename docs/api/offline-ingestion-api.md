@@ -6,6 +6,8 @@ Offline Ingestion API recibe elementos de la cola offline cifrada de la app movi
 
 Este modulo es receptor de datos operativos offline. No procesa incidentes reales, no crea SOS real, no envia alertas reales, no envia push notifications, SMS, WhatsApp ni correo, y no alimenta live monitoring, dashboard operativo ni Machine Learning en esta etapa.
 
+Para Wear OS, la app Android actua como gateway: recibe datos del smartwatch mediante Wear OS Data Layer, combina senales localmente y envia a la API solo batches resumidos usando la sesion del Rider. La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del reloj.
+
 ## Endpoint
 
 `POST /api/v1/mobile/offline-ingestion/batch`
@@ -18,6 +20,7 @@ Requiere JWT Bearer y solo permite `Rider`.
 - El body no acepta `userId`.
 - `mobileDeviceId` debe ser remoto y provenir de Devices API.
 - `tripId` debe ser remoto y provenir de Trips API.
+- El origen de datos del smartwatch, si existe, debe venir resumido en el payload del item; no se envia ni persiste nodeId.
 - `batchId` debe ser UUID.
 - `clientEventId` debe ser UUID por item.
 - No se confia en event IDs locales como IDs globales.

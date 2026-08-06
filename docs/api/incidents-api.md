@@ -6,6 +6,8 @@ Incidents API registra incidentes operativos asociados a viajes de MotoSOS y per
 
 Este modulo no envia alertas reales, no envia push notifications, SMS, WhatsApp ni correo, no ejecuta escalamiento, no alimenta live monitoring, dashboard operativo ni Machine Learning en esta etapa.
 
+Para Wear OS, el telefono Android es el gateway: puede combinar senales del smartwatch y del movil localmente, pero Incidents API recibe un incidente resumido usando la sesion del Rider. La API no administra pairing de smartwatch, QR, codigos, nodeId, Bluetooth, Wear OS Data Layer ni estado Connected/Disconnected del reloj.
+
 ## Endpoints
 
 - `POST /api/v1/incidents`
@@ -22,6 +24,7 @@ Todos requieren JWT Bearer y solo permiten `Rider`.
 - El body no acepta `userId`.
 - `tripId` debe ser remoto y provenir de Trips API.
 - `clientIncidentId` debe ser UUID y estable en reintentos del cliente.
+- La evidencia puede indicar senales resumidas de telefono y smartwatch, pero no debe incluir nodeId ni estado remoto de pairing.
 - No se confia en IDs locales como IDs globales.
 
 Idempotency key oficial:
