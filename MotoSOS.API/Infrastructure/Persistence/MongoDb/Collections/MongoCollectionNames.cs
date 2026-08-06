@@ -19,4 +19,6 @@ public static class MongoCollectionNames
     public const string UserSubscriptions = "userSubscriptions";
 
     public const string OnboardingConfirmations = "onboardingConfirmations";
+
+    public const string Trips = "trips";
 }
