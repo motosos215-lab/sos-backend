@@ -6,6 +6,8 @@ Emergency Location Sharing API permite que la app movil del Rider comparta la ul
 
 Este modulo no es live tracking. No implementa streaming, sockets en tiempo real, mapa en vivo, historial de ruta, chat, llamadas, escalamiento ni proveedores reales de notificacion.
 
+Para Wear OS, el telefono Android es el unico gateway de ubicacion compartida hacia la API. El smartwatch puede aportar contexto local al telefono, pero la API no administra pairing, QR, codigos, nodeId, Bluetooth, Wear OS Data Layer ni estado Connected/Disconnected del reloj.
+
 ## Privacidad
 
 - Se guarda solo la ultima ubicacion conocida por incidente.

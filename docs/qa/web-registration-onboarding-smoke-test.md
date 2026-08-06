@@ -349,6 +349,10 @@ Validar onboarding:
 
 ### 12. Optional Smartwatch Link
 
+Estado: legado / no aplicable para la decision vigente de Wear OS.
+
+La vinculacion del smartwatch ahora es local entre Android y Wear OS mediante Wear OS Data Layer. MotoSOS.API no debe administrar pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del reloj. Este paso queda documentado solo como contexto historico de la propuesta anterior y no debe usarse para validar nuevas implementaciones.
+
 `POST {{baseUrl}}/api/v1/devices/smartwatch/link`
 
 Request:

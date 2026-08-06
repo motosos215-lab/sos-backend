@@ -4,9 +4,11 @@
 
 Devices API implementa el paso 5 del wizard web-first de MotoSOS: Vinculacion de dispositivos.
 
-El portal web genera un codigo de activacion que puede mostrarse como texto o QR. La app movil, ya autenticada, usa ese codigo para vincular el telefono del conductor. El smartwatch no se vincula desde web; se empareja desde la app movil por Bluetooth/Wear OS y la API solo recibe el reporte de estado.
+El portal web genera un codigo de activacion que puede mostrarse como texto o QR. La app movil, ya autenticada, usa ese codigo para vincular el telefono del conductor.
 
-No hay Bluetooth real, Wear OS real, viajes, SOS, notificaciones, pagos ni sincronizacion offline real en esta etapa.
+Decision vigente para Wear OS: el smartwatch se vincula unicamente local entre Android y Wear OS mediante Wear OS Data Layer. La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del reloj. El telefono actua como gateway y envia datos resumidos usando la sesion del Rider.
+
+Devices API no implementa Bluetooth real, Wear OS Data Layer, viajes, SOS, notificaciones, pagos ni sincronizacion offline; esos flujos pertenecen a otros modulos o a la app movil.
 
 ## Reglas
 
@@ -17,8 +19,8 @@ No hay Bluetooth real, Wear OS real, viajes, SOS, notificaciones, pagos ni sincr
 - Un codigo usado, expirado, revocado, inexistente o ajeno devuelve `activation_code_invalid`.
 - El plan Basico se asume por default y permite 1 `MobileApp` activa/vinculada por usuario.
 - `Smartwatch` es opcional para completar Devices.
-- `Smartwatch` requiere una `MobileApp` propia, activa y `Linked` como `parentDeviceId`.
-- Revocar una `MobileApp` tambien revoca sus smartwatches dependientes.
+- La administracion remota de smartwatch por la API queda reemplazada por vinculacion local Android + Wear OS.
+- La regla historica de `Smartwatch` dependiente de `MobileApp` por `parentDeviceId` queda como contexto legado, no como direccion para nuevas implementaciones.
 - `deviceIdentifier` se guarda como hash y no se devuelve en responses.
 
 ## Onboarding
@@ -90,6 +92,10 @@ Request:
 ```
 
 ### POST /api/v1/devices/smartwatch/link
+
+Estado: legado / decision reemplazada.
+
+Este endpoint pertenece a la propuesta anterior donde la API recibia el reporte remoto de vinculacion del smartwatch. La decision vigente es no crear ni extender pairing API de smartwatch: Android movil administra localmente el pairing Wear OS mediante Wear OS Data Layer y la API no guarda nodeId, no administra Bluetooth, no administra QR ni codigos de smartwatch y no registra estado Connected/Disconnected del reloj.
 
 Uso principal: app movil despues de emparejar smartwatch.
 

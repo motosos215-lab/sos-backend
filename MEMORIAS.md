@@ -31,6 +31,7 @@
 - El onboarding inicial de conductor sigue un flujo web-first: registro, login y configuracion inicial ocurren principalmente en portal web.
 - La app movil se vinculara despues mediante codigo o QR y no sustituye el alta inicial del conductor.
 - El smartwatch se vinculara desde la app movil, no desde web.
+- Decision final Wear OS: el smartwatch se vincula unicamente local entre Android y Wear OS mediante Wear OS Data Layer. La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado del reloj. El telefono actua como gateway y envia a la API batches resumidos, eventos, incidentes, alertas y ubicacion usando la sesion del Rider.
 - El wizard actual de conductor tiene 7 pasos: cuenta, perfil, motocicleta/motoneta, contactos de emergencia, vinculacion de dispositivos, plan/licencia y confirmacion.
 - En esta etapa solo `Rider` puede usar onboarding de conductor y perfil; `Conductor` del maquetado se guarda como `Rider`.
 - `Monitor` y `Admin` recibiran `403 forbidden` en el flujo de onboarding/perfil de conductor hasta que existan flujos especificos.
@@ -53,12 +54,12 @@
 - Los codigos de activacion movil se guardan en MongoDB en la coleccion `deviceActivationCodes` y expiran en 15 minutos.
 - Los dispositivos vinculados se guardan en MongoDB en la coleccion `userDevices`.
 - El portal web genera o consulta el codigo vigente; la app movil autenticada usa el codigo para vincularse.
-- El smartwatch no se vincula desde web; la app movil reporta la vinculacion y estado del smartwatch.
+- El smartwatch no se vincula desde web ni desde la API; la vinculacion Wear OS queda local en la app movil mediante Wear OS Data Layer.
 - El plan Basico permite 1 `MobileApp` activa/vinculada por usuario hasta que exista modulo Plans real.
 - `deviceIdentifier` se guarda hasheado y no se devuelve en responses.
-- Revocar una `MobileApp` revoca tambien smartwatches dependientes por `ParentDeviceId`.
+- El modelo historico de smartwatches dependientes por `ParentDeviceId` queda como contexto legado; nuevas implementaciones no deben crear pairing API de smartwatch.
 - Onboarding avanza a `5/7`, `71%` y `Plan` cuando existe una `MobileApp` activa con `LinkStatus = Linked`; smartwatch queda opcional en esta etapa.
-- Pendientes futuros de Devices: planes reales, push notifications, sincronizacion offline real, viajes, SOS, incidentes, Bluetooth/Wear OS real y dashboard operativo.
+- Pendientes futuros de Devices: planes reales, push notifications, sincronizacion offline real, viajes, SOS, incidentes, compatibilidad legado de smartwatch documentada y dashboard operativo.
 - Plans API implementa el paso 6 del wizard web-first: Plan y licencia.
 - El catalogo de planes se maneja en memoria con Basic, Plus y FamilyPro; solo Basic es seleccionable desde web en esta etapa.
 - Las suscripciones del usuario se guardan en MongoDB en la coleccion `userSubscriptions`.
