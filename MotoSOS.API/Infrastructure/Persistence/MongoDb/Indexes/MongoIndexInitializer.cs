@@ -6,6 +6,7 @@ using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
+using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
@@ -200,6 +201,20 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_createdAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CreatedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_cancelledAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CancelledAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_completedAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CompletedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<NotificationDeliveryAttempt> notificationDeliveryAttempts = _database.GetCollection<NotificationDeliveryAttempt>(MongoCollectionNames.NotificationDeliveryAttempts);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_userId", new BsonDocument(nameof(NotificationDeliveryAttempt.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_alertDispatchId", new BsonDocument(nameof(NotificationDeliveryAttempt.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_incidentId", new BsonDocument(nameof(NotificationDeliveryAttempt.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_emergencyContactId", new BsonDocument(nameof(NotificationDeliveryAttempt.EmergencyContactId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_userId_status", new BsonDocument { [nameof(NotificationDeliveryAttempt.UserId)] = 1, [nameof(NotificationDeliveryAttempt.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_channel", new BsonDocument(nameof(NotificationDeliveryAttempt.Channel), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ux_notificationDeliveryAttempts_idempotencyKey", new BsonDocument(nameof(NotificationDeliveryAttempt.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_preparedAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.PreparedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_simulatedSentAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.SimulatedSentAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_failedAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.FailedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_cancelledAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CancelledAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_createdAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CreatedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
