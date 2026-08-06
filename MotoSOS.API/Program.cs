@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using MotoSOS.API.Configuration.DependencyInjection;
 using MotoSOS.API.Middleware;
 using MotoSOS.API.Modules.Auth.Endpoints;
+using MotoSOS.API.Modules.Devices.Endpoints;
 using MotoSOS.API.Modules.EmergencyContacts.Endpoints;
 using MotoSOS.API.Modules.Onboarding.Endpoints;
 using MotoSOS.API.Modules.Profiles.Endpoints;
@@ -56,6 +57,7 @@ app.MapUserEndpoints();
 app.MapProfileEndpoints();
 app.MapVehicleEndpoints();
 app.MapEmergencyContactEndpoints();
+app.MapDeviceEndpoints();
 app.MapOnboardingEndpoints();
 
 app.Run();

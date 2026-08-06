@@ -49,6 +49,16 @@
 - `/invite` genera codigo de vinculacion legible con expiracion de 24 horas y no envia SMS/correo real.
 - La aceptacion real de invitaciones por app monitor queda pendiente; no se setea `LinkedUserId` en esta etapa.
 - Onboarding avanza a `4/7`, `57%` y `Devices` solo cuando Profile y Vehicle estan `Completed` y existe contacto activo `Invited` o `Linked`.
+- Devices API implementa el paso 5 del wizard web-first: Vinculacion de dispositivos.
+- Los codigos de activacion movil se guardan en MongoDB en la coleccion `deviceActivationCodes` y expiran en 15 minutos.
+- Los dispositivos vinculados se guardan en MongoDB en la coleccion `userDevices`.
+- El portal web genera o consulta el codigo vigente; la app movil autenticada usa el codigo para vincularse.
+- El smartwatch no se vincula desde web; la app movil reporta la vinculacion y estado del smartwatch.
+- El plan Basico permite 1 `MobileApp` activa/vinculada por usuario hasta que exista modulo Plans real.
+- `deviceIdentifier` se guarda hasheado y no se devuelve en responses.
+- Revocar una `MobileApp` revoca tambien smartwatches dependientes por `ParentDeviceId`.
+- Onboarding avanza a `5/7`, `71%` y `Plan` cuando existe una `MobileApp` activa con `LinkStatus = Linked`; smartwatch queda opcional en esta etapa.
+- Pendientes futuros de Devices: planes reales, push notifications, sincronizacion offline real, viajes, SOS, incidentes, Bluetooth/Wear OS real y dashboard operativo.
 
 ## Restricciones persistentes
 

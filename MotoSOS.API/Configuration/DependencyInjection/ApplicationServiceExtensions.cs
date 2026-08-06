@@ -1,5 +1,6 @@
 using FluentValidation;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Profiles.Application;
@@ -19,7 +20,10 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IOnboardingService, OnboardingService>();
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IEmergencyContactService, EmergencyContactService>();
+        services.AddScoped<IDeviceService, DeviceService>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
+        services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
+        services.AddSingleton<IDeviceIdentifierHasher, DeviceIdentifierHasher>();
 
         return services;
     }

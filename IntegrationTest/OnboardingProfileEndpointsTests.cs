@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Auth.Contracts;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Devices.Application;
+using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Contracts;
@@ -322,6 +324,7 @@ public sealed class OnboardingProfileEndpointsTests
                 services.AddSingleton<IDriverProfileRepository>(stores.DriverProfiles);
                 services.AddSingleton<IDriverVehicleRepository>(stores.DriverVehicles);
                 services.AddSingleton<IEmergencyContactRepository>(stores.EmergencyContacts);
+                services.AddSingleton<IUserDeviceRepository>(stores.Devices);
             });
         });
     }
@@ -337,6 +340,8 @@ public sealed class OnboardingProfileEndpointsTests
         public InMemoryDriverVehicleRepository DriverVehicles { get; } = new();
 
         public InMemoryEmergencyContactRepository EmergencyContacts { get; } = new();
+
+        public InMemoryUserDeviceRepository Devices { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -435,6 +440,19 @@ public sealed class OnboardingProfileEndpointsTests
         }
 
         public Task UpdateAsync(EmergencyContact contact, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryUserDeviceRepository : IUserDeviceRepository
+    {
+        public List<UserDevice> Devices { get; } = [];
+        public Task<IReadOnlyList<UserDevice>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<UserDevice>>(Devices.Where(device => device.UserId == userId && device.IsActive).ToArray());
+        public Task<IReadOnlyList<UserDevice>> GetActiveByParentDeviceIdAsync(string parentDeviceId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<UserDevice>>([]);
+        public Task<UserDevice?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult<UserDevice?>(null);
+        public Task<UserDevice?> GetByDeviceIdentifierHashAsync(string userId, string hash, DeviceType deviceType, CancellationToken cancellationToken) => Task.FromResult<UserDevice?>(null);
+        public Task<int> CountActiveLinkedByUserIdAndTypeAsync(string userId, DeviceType deviceType, CancellationToken cancellationToken) => Task.FromResult(0);
+        public Task<bool> HasActiveLinkedMobileAppAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Devices.Any(device => device.UserId == userId && device.DeviceType == DeviceType.MobileApp && device.IsActive && device.LinkStatus == DeviceLinkStatus.Linked));
+        public Task AddAsync(UserDevice device, CancellationToken cancellationToken) { Devices.Add(device); return Task.CompletedTask; }
+        public Task UpdateAsync(UserDevice device, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);
