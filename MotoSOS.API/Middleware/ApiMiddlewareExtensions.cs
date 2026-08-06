@@ -1,3 +1,4 @@
+using MotoSOS.API.Configuration.DependencyInjection;
 using MotoSOS.API.Middleware.ExceptionHandling;
 using MotoSOS.API.Middleware.RequestLogging;
 using MotoSOS.API.Middleware.SecurityHeaders;
@@ -17,6 +18,7 @@ public static class ApiMiddlewareExtensions
         app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseHttpsRedirection();
+        app.UseCors(ApiConfigurationExtensions.CorsPolicyName);
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();

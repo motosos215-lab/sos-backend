@@ -12,7 +12,7 @@ using MotoSOS.API.Modules.Vehicles.Endpoints;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
-    .AddApiConfiguration()
+    .AddApiConfiguration(builder.Configuration)
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration, builder.Environment)
     .AddSecurityServices(builder.Configuration);
