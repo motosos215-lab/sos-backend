@@ -127,6 +127,13 @@
 - Monitor puede listar, ver, marcar vista, confirmar o declinar solo intentos asociados a sus contactos vinculados; intentos ajenos devuelven `not_found`.
 - Rider puede consultar acknowledgements asociados a sus propias alertas pero no responder como Monitor.
 - Pendientes futuros de Alert Acknowledgements: live monitoring, mapa en tiempo real, streaming de ubicacion, chat, llamadas, proveedores reales, escalamiento, dashboard operativo y ML.
+- Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
+- Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.
+- Location Sharing agrega `POST /api/v1/mobile/location-sharing/snapshot`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/location` y `GET /api/v1/rider/incidents/{incidentId}/location`.
+- Publicar ubicacion hace upsert por `UserId + IncidentId`; ubicaciones antiguas o duplicadas por `ClientLocationUpdateId` no reemplazan la ultima ubicacion.
+- Monitor consulta ubicacion solo cuando el intento de notificacion pertenece a un `EmergencyContact` vinculado por `LinkedUserId`.
+- Rider consulta solo ubicacion de incidentes propios; `isStale` indica si la ultima ubicacion supera 5 minutos respecto al reloj del servidor.
+- Pendientes futuros de Location Sharing: live monitoring completo, sockets en tiempo real, mapa en vivo, historial controlado, frecuencia configurable, escalamiento, dashboard operativo y ML.
 
 ## Restricciones persistentes
 
