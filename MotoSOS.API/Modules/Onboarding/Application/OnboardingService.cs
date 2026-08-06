@@ -1,4 +1,5 @@
 using MotoSOS.API.Common.Exceptions;
+using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Contracts;
@@ -20,13 +21,15 @@ public sealed class OnboardingService : IOnboardingService
     private readonly IDriverProfileRepository _profiles;
     private readonly IDriverVehicleRepository _vehicles;
     private readonly IEmergencyContactRepository _emergencyContacts;
+    private readonly IUserDeviceRepository _devices;
 
-    public OnboardingService(IUserRepository users, IDriverProfileRepository profiles, IDriverVehicleRepository vehicles, IEmergencyContactRepository emergencyContacts)
+    public OnboardingService(IUserRepository users, IDriverProfileRepository profiles, IDriverVehicleRepository vehicles, IEmergencyContactRepository emergencyContacts, IUserDeviceRepository devices)
     {
         _users = users;
         _profiles = profiles;
         _vehicles = vehicles;
         _emergencyContacts = emergencyContacts;
+        _devices = devices;
     }
 
     public async Task<OnboardingStatusResponse> GetStatusAsync(string userId, CancellationToken cancellationToken)
@@ -49,8 +52,10 @@ public sealed class OnboardingService : IOnboardingService
         OnboardingStepStatus vehicleStatus = GetVehicleStatus(profileStatus, vehicles);
         IReadOnlyList<EmergencyContact> emergencyContacts = await _emergencyContacts.GetActiveByUserIdAsync(user.Id, cancellationToken);
         OnboardingStepStatus emergencyContactsStatus = GetEmergencyContactsStatus(vehicleStatus, emergencyContacts);
-        int completedSteps = GetCompletedSteps(profileStatus, vehicleStatus, emergencyContactsStatus);
-        string currentStep = GetCurrentStep(profileStatus, vehicleStatus, emergencyContactsStatus);
+        bool hasMobileApp = await _devices.HasActiveLinkedMobileAppAsync(user.Id, cancellationToken);
+        OnboardingStepStatus devicesStatus = GetDevicesStatus(emergencyContactsStatus, hasMobileApp);
+        int completedSteps = GetCompletedSteps(profileStatus, vehicleStatus, emergencyContactsStatus, devicesStatus);
+        string currentStep = GetCurrentStep(profileStatus, vehicleStatus, emergencyContactsStatus, devicesStatus);
 
         IReadOnlyList<OnboardingStepResponse> steps =
         [
@@ -58,7 +63,7 @@ public sealed class OnboardingService : IOnboardingService
             Step(OnboardingStepKey.Profile, 2, "Perfil", profileStatus),
             Step(OnboardingStepKey.Vehicle, 3, "Motocicleta / Motoneta", vehicleStatus),
             Step(OnboardingStepKey.EmergencyContacts, 4, "Contactos de emergencia", emergencyContactsStatus),
-            Step(OnboardingStepKey.Devices, 5, "Vinculación de dispositivos", OnboardingStepStatus.Pending),
+            Step(OnboardingStepKey.Devices, 5, "Vinculación de dispositivos", devicesStatus),
             Step(OnboardingStepKey.Plan, 6, "Plan y licencia", OnboardingStepStatus.Pending),
             Step(OnboardingStepKey.Confirmation, 7, "Confirmación", OnboardingStepStatus.Pending)
         ];
@@ -114,7 +119,17 @@ public sealed class OnboardingService : IOnboardingService
         return emergencyContacts.Count > 0 ? OnboardingStepStatus.InProgress : OnboardingStepStatus.Pending;
     }
 
-    private static int GetCompletedSteps(OnboardingStepStatus profileStatus, OnboardingStepStatus vehicleStatus, OnboardingStepStatus emergencyContactsStatus)
+    private static OnboardingStepStatus GetDevicesStatus(OnboardingStepStatus emergencyContactsStatus, bool hasMobileApp)
+    {
+        if (emergencyContactsStatus != OnboardingStepStatus.Completed)
+        {
+            return OnboardingStepStatus.Pending;
+        }
+
+        return hasMobileApp ? OnboardingStepStatus.Completed : OnboardingStepStatus.Pending;
+    }
+
+    private static int GetCompletedSteps(OnboardingStepStatus profileStatus, OnboardingStepStatus vehicleStatus, OnboardingStepStatus emergencyContactsStatus, OnboardingStepStatus devicesStatus)
     {
         if (profileStatus != OnboardingStepStatus.Completed)
         {
@@ -126,10 +141,15 @@ public sealed class OnboardingService : IOnboardingService
             return 2;
         }
 
-        return emergencyContactsStatus == OnboardingStepStatus.Completed ? 4 : 3;
+        if (emergencyContactsStatus != OnboardingStepStatus.Completed)
+        {
+            return 3;
+        }
+
+        return devicesStatus == OnboardingStepStatus.Completed ? 5 : 4;
     }
 
-    private static string GetCurrentStep(OnboardingStepStatus profileStatus, OnboardingStepStatus vehicleStatus, OnboardingStepStatus emergencyContactsStatus)
+    private static string GetCurrentStep(OnboardingStepStatus profileStatus, OnboardingStepStatus vehicleStatus, OnboardingStepStatus emergencyContactsStatus, OnboardingStepStatus devicesStatus)
     {
         if (profileStatus != OnboardingStepStatus.Completed)
         {
@@ -141,9 +161,14 @@ public sealed class OnboardingService : IOnboardingService
             return OnboardingStepKey.Vehicle.ToString();
         }
 
-        return emergencyContactsStatus == OnboardingStepStatus.Completed
-            ? OnboardingStepKey.Devices.ToString()
-            : OnboardingStepKey.EmergencyContacts.ToString();
+        if (emergencyContactsStatus != OnboardingStepStatus.Completed)
+        {
+            return OnboardingStepKey.EmergencyContacts.ToString();
+        }
+
+        return devicesStatus == OnboardingStepStatus.Completed
+            ? OnboardingStepKey.Plan.ToString()
+            : OnboardingStepKey.Devices.ToString();
     }
 
     private static int CalculateProgressPercentage(int completedSteps) =>

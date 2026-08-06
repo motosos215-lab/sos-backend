@@ -2,6 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
@@ -80,6 +81,48 @@ public sealed class MongoIndexInitializer
             cancellationToken);
         await EnsureIndexAsync(emergencyContacts, "ix_emergencyContacts_invitationStatus", new BsonDocument(nameof(EmergencyContact.InvitationStatus), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(emergencyContacts, "ix_emergencyContacts_linkingCode", new BsonDocument(nameof(EmergencyContact.LinkingCode), 1), unique: false, cancellationToken);
+
+        IMongoCollection<DeviceActivationCode> activationCodes = _database.GetCollection<DeviceActivationCode>(MongoCollectionNames.DeviceActivationCodes);
+        await EnsureIndexAsync(activationCodes, "ix_deviceActivationCodes_userId", new BsonDocument(nameof(DeviceActivationCode.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(activationCodes, "ix_deviceActivationCodes_code", new BsonDocument(nameof(DeviceActivationCode.Code), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            activationCodes,
+            "ix_deviceActivationCodes_userId_isUsed_isRevoked",
+            new BsonDocument
+            {
+                [nameof(DeviceActivationCode.UserId)] = 1,
+                [nameof(DeviceActivationCode.IsUsed)] = 1,
+                [nameof(DeviceActivationCode.IsRevoked)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(activationCodes, "ix_deviceActivationCodes_expiresAtUtc", new BsonDocument(nameof(DeviceActivationCode.ExpiresAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<UserDevice> userDevices = _database.GetCollection<UserDevice>(MongoCollectionNames.UserDevices);
+        await EnsureIndexAsync(userDevices, "ix_userDevices_userId", new BsonDocument(nameof(UserDevice.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            userDevices,
+            "ix_userDevices_userId_isActive",
+            new BsonDocument
+            {
+                [nameof(UserDevice.UserId)] = 1,
+                [nameof(UserDevice.IsActive)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(
+            userDevices,
+            "ix_userDevices_userId_deviceType",
+            new BsonDocument
+            {
+                [nameof(UserDevice.UserId)] = 1,
+                [nameof(UserDevice.DeviceType)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(userDevices, "ix_userDevices_parentDeviceId", new BsonDocument(nameof(UserDevice.ParentDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(userDevices, "ix_userDevices_linkStatus", new BsonDocument(nameof(UserDevice.LinkStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(userDevices, "ix_userDevices_deviceIdentifierHash", new BsonDocument(nameof(UserDevice.DeviceIdentifierHash), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

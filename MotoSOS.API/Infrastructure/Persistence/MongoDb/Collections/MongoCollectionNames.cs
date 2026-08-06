@@ -11,4 +11,8 @@ public static class MongoCollectionNames
     public const string DriverVehicles = "driverVehicles";
 
     public const string EmergencyContacts = "emergencyContacts";
+
+    public const string DeviceActivationCodes = "deviceActivationCodes";
+
+    public const string UserDevices = "userDevices";
 }
