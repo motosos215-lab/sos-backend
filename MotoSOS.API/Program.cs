@@ -2,6 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MotoSOS.API.Configuration.DependencyInjection;
 using MotoSOS.API.Middleware;
+using MotoSOS.API.Modules.AlertAcknowledgements.Endpoints;
 using MotoSOS.API.Modules.AlertDispatch.Endpoints;
 using MotoSOS.API.Modules.Auth.Endpoints;
 using MotoSOS.API.Modules.Devices.Endpoints;
@@ -71,6 +72,7 @@ app.MapOfflineIngestionEndpoints();
 app.MapIncidentEndpoints();
 app.MapAlertDispatchEndpoints();
 app.MapNotificationEndpoints();
+app.MapAlertAcknowledgementEndpoints();
 
 app.Run();
 
