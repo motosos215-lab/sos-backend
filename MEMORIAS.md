@@ -99,6 +99,18 @@
 - Nuevos incidentes se crean con `Status = Open`; cancelar falso positivo aplica `Open -> FalsePositiveCancelled` y cerrar aplica `Open` o `FalsePositiveCancelled -> Closed`.
 - No se borran incidentes fisicamente y cancelar falso positivo sobre `Closed` devuelve `incident_already_closed`.
 - Pendientes futuros de Incidents: Alert Dispatch API real, notificaciones, escalamiento, live monitoring, dashboard operativo, ML, processor real de Offline Ingestion y sensor batches completos.
+- Alert Dispatch API implementa la preparacion y persistencia de solicitudes de alerta asociadas a incidentes existentes, sin envio real de notificaciones todavia.
+- Los alert dispatches se guardan en MongoDB en la coleccion `alertDispatchRequests` con indice unico por `IdempotencyKey`.
+- Alert Dispatch API agrega `POST /api/v1/alert-dispatches`, `GET /api/v1/alert-dispatches`, `GET /api/v1/alert-dispatches/{id}` y `POST /api/v1/alert-dispatches/{id}/cancel`.
+- La idempotency key oficial de Alert Dispatch es `userId + incidentId + clientAlertRequestId`; duplicados no devuelven `409` y responden la solicitud existente como exito estable.
+- Alert Dispatch API requiere JWT Bearer, solo permite `Rider`, toma `userId` exclusivamente del token y no acepta `userId` en el body.
+- Alert Dispatch API requiere onboarding completo y solo permite crear solicitudes para incidentes propios en `Status = Open`.
+- Incidentes `Closed` devuelven `incident_not_ready`; incidentes `FalsePositiveCancelled` devuelven `alert_not_allowed`.
+- `TripId`, `VehicleId`, `MobileDeviceId` y `SmartwatchDeviceId` se derivan desde el incidente y no desde el request.
+- Al crear una solicitud se guarda snapshot de contactos de emergencia elegibles: activos con `InvitationStatus = Invited` o `Linked`.
+- Si no existe al menos un contacto elegible, Alert Dispatch devuelve `alert_not_allowed`.
+- Nuevas solicitudes se crean con `Status = PendingDispatch`; cancelar aplica `PendingDispatch -> Cancelled`, `Cancelled` es idempotente y `Completed` devuelve `alert_dispatch_already_completed`.
+- Pendientes futuros de Alert Dispatch: Notifications API, push, SMS, mensajeria instantanea, correo, escalamiento real, acknowledgement de contacto/monitor, live monitoring, dashboard operativo y ML.
 
 ## Restricciones persistentes
 

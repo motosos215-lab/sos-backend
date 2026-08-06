@@ -1,4 +1,5 @@
 using FluentValidation;
+using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
@@ -32,12 +33,14 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IIncidentService, IncidentService>();
+        services.AddScoped<IAlertDispatchService, AlertDispatchService>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
         services.AddSingleton<IDeviceIdentifierHasher, DeviceIdentifierHasher>();
         services.AddSingleton<IOfflineIngestionIdempotencyKeyFactory, OfflineIngestionIdempotencyKeyFactory>();
         services.AddSingleton<IPayloadHasher, PayloadHasher>();
         services.AddSingleton<IIncidentIdempotencyKeyFactory, IncidentIdempotencyKeyFactory>();
+        services.AddSingleton<IAlertDispatchIdempotencyKeyFactory, AlertDispatchIdempotencyKeyFactory>();
 
         return services;
     }
