@@ -6,6 +6,7 @@ using MotoSOS.API.Infrastructure.DateTime;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
+using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
@@ -72,6 +73,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<ITripRepository, MongoTripRepository>();
             services.AddScoped<IOfflineIngestionRepository, MongoOfflineIngestionRepository>();
             services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
+            services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
         }
         else
         {
@@ -87,6 +89,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<ITripRepository, UnconfiguredTripRepository>();
             services.AddScoped<IOfflineIngestionRepository, UnconfiguredOfflineIngestionRepository>();
             services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
+            services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();
         }
 
         return services;

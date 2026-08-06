@@ -25,4 +25,6 @@ public static class MongoCollectionNames
     public const string OfflineIngestionRecords = "offlineIngestionRecords";
 
     public const string Incidents = "incidents";
+
+    public const string AlertDispatchRequests = "alertDispatchRequests";
 }

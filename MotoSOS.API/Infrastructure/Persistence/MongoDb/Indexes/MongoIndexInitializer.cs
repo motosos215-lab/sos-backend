@@ -1,6 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
+using MotoSOS.API.Modules.AlertDispatch.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
@@ -188,6 +189,17 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(incidents, "ix_incidents_occurredAtUtc", new BsonDocument(nameof(Incident.OccurredAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(incidents, "ix_incidents_createdAtUtc", new BsonDocument(nameof(Incident.CreatedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(incidents, "ix_incidents_closedAtUtc", new BsonDocument(nameof(Incident.ClosedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<AlertDispatchRequest> alertDispatchRequests = _database.GetCollection<AlertDispatchRequest>(MongoCollectionNames.AlertDispatchRequests);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_userId", new BsonDocument(nameof(AlertDispatchRequest.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_incidentId", new BsonDocument(nameof(AlertDispatchRequest.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_userId_status", new BsonDocument { [nameof(AlertDispatchRequest.UserId)] = 1, [nameof(AlertDispatchRequest.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_clientAlertRequestId", new BsonDocument(nameof(AlertDispatchRequest.ClientAlertRequestId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ux_alertDispatchRequests_idempotencyKey", new BsonDocument(nameof(AlertDispatchRequest.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_requestedAtUtc", new BsonDocument(nameof(AlertDispatchRequest.RequestedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_createdAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_cancelledAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CancelledAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_completedAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CompletedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
