@@ -17,7 +17,6 @@ using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Application;
-using MotoSOS.API.Modules.Plans.Contracts;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Profiles.Domain;
@@ -28,57 +27,16 @@ using MotoSOS.API.Modules.Vehicles.Domain;
 
 namespace IntegrationTest;
 
-public sealed class PlanEndpointsTests
+public sealed class OnboardingConfirmationEndpointsTests
 {
     [Fact]
-    public async Task PlansAndSubscriptionsRequireAuthentication()
+    public async Task SummaryAndConfirmRequireAuthentication()
     {
-        var stores = new TestStores();
-        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        await using WebApplicationFactory<Program> factory = CreateFactory(new TestStores());
         HttpClient client = factory.CreateClient();
 
-        (await client.GetAsync("/api/v1/plans")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await client.GetAsync("/api/v1/subscriptions/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await client.PostAsync("/api/v1/subscriptions/select-basic", null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task RiderCanGetPlansAndDefaultSubscriptionState()
-    {
-        var stores = new TestStores();
-        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
-        HttpClient client = factory.CreateClient();
-        await AuthenticateAsync(client, "plans-rider@example.com", "Rider", stores);
-
-        string plans = await (await client.GetAsync("/api/v1/plans")).Content.ReadAsStringAsync();
-        string subscription = await (await client.GetAsync("/api/v1/subscriptions/me")).Content.ReadAsStringAsync();
-
-        plans.Should().Contain("\"tier\":\"Basic\"");
-        plans.Should().Contain("\"tier\":\"Plus\"");
-        plans.Should().Contain("\"tier\":\"FamilyPro\"");
-        subscription.Should().Contain("\"subscription\":null");
-        subscription.Should().Contain("\"defaultPlan\":");
-        subscription.Should().Contain("\"tier\":\"Basic\"");
-    }
-
-    [Fact]
-    public async Task RiderCanSelectBasicIdempotently()
-    {
-        var stores = new TestStores();
-        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
-        HttpClient client = factory.CreateClient();
-        await AuthenticateAsync(client, "plans-basic@example.com", "Rider", stores);
-
-        HttpResponseMessage first = await client.PostAsync("/api/v1/subscriptions/select-basic", null);
-        HttpResponseMessage second = await client.PostAsync("/api/v1/subscriptions/select-basic", null);
-        SubscriptionEnvelope body = (await second.Content.ReadFromJsonAsync<SubscriptionEnvelope>())!;
-
-        first.StatusCode.Should().Be(HttpStatusCode.OK);
-        second.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.Data.Subscription.PlanTier.Should().Be("Basic");
-        body.Data.Subscription.Status.Should().Be("Active");
-        body.Data.Subscription.Source.Should().Be("WebBasic");
-        stores.Subscriptions.Subscriptions.Should().ContainSingle();
+        (await client.GetAsync("/api/v1/onboarding/summary")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.PostAsync("/api/v1/onboarding/confirm", null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Theory]
@@ -89,37 +47,62 @@ public sealed class PlanEndpointsTests
         var stores = new TestStores();
         await using WebApplicationFactory<Program> factory = CreateFactory(stores);
         HttpClient client = factory.CreateClient();
-        await AuthenticateAsync(client, $"plans-{role}@example.com", role, stores);
+        await AuthenticateAsync(client, $"confirm-{role}@example.com", role, stores);
 
-        (await client.GetAsync("/api/v1/plans")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await client.GetAsync("/api/v1/subscriptions/me")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await client.PostAsync("/api/v1/subscriptions/select-basic", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await client.GetAsync("/api/v1/onboarding/summary")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await client.PostAsync("/api/v1/onboarding/confirm", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
-    public async Task OnboardingAdvancesToConfirmationAfterSelectingBasic()
+    public async Task SummaryWithIncompleteStepsReturnsCanConfirmFalseAndConfirmReturnsNotReady()
     {
         var stores = new TestStores();
         await using WebApplicationFactory<Program> factory = CreateFactory(stores);
         HttpClient client = factory.CreateClient();
-        User user = await AuthenticateAsync(client, "plans-onboarding@example.com", "Rider", stores);
-        stores.Profiles.Profiles.Add(new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed });
-        stores.Vehicles.Vehicles.Add(new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed });
-        stores.Contacts.Contacts.Add(new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited });
-        stores.Devices.Devices.Add(new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked });
+        await AuthenticateAsync(client, "confirm-incomplete@example.com", "Rider", stores);
 
-        string before = await (await client.GetAsync("/api/v1/onboarding/status")).Content.ReadAsStringAsync();
-        await client.PostAsync("/api/v1/subscriptions/select-basic", null);
-        string after = await (await client.GetAsync("/api/v1/onboarding/status")).Content.ReadAsStringAsync();
+        string summary = await (await client.GetAsync("/api/v1/onboarding/summary")).Content.ReadAsStringAsync();
+        HttpResponseMessage confirm = await client.PostAsync("/api/v1/onboarding/confirm", null);
+        string confirmBody = await confirm.Content.ReadAsStringAsync();
 
-        before.Should().Contain("\"completedSteps\":5");
-        before.Should().Contain("\"progressPercentage\":71");
-        before.Should().Contain("\"currentStep\":\"Plan\"");
-        after.Should().Contain("\"completedSteps\":6");
-        after.Should().Contain("\"progressPercentage\":86");
-        after.Should().Contain("\"currentStep\":\"Confirmation\"");
-        after.Should().Contain("\"key\":\"Confirmation\"");
-        after.Should().Contain("\"status\":\"Pending\"");
+        summary.Should().Contain("\"canConfirm\":false");
+        confirm.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        confirmBody.Should().Contain("onboarding_not_ready");
+    }
+
+    [Fact]
+    public async Task CompleteFlowCanConfirmAndConfirmIsIdempotent()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        User user = await AuthenticateAsync(client, "confirm-ready@example.com", "Rider", stores);
+        SeedReadyState(stores, user.Id);
+
+        string beforeSummary = await (await client.GetAsync("/api/v1/onboarding/summary")).Content.ReadAsStringAsync();
+        HttpResponseMessage first = await client.PostAsync("/api/v1/onboarding/confirm", null);
+        HttpResponseMessage second = await client.PostAsync("/api/v1/onboarding/confirm", null);
+        string status = await (await client.GetAsync("/api/v1/onboarding/status")).Content.ReadAsStringAsync();
+        string afterSummary = await (await client.GetAsync("/api/v1/onboarding/summary")).Content.ReadAsStringAsync();
+
+        beforeSummary.Should().Contain("\"canConfirm\":true");
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        stores.Confirmations.Confirmations.Should().ContainSingle(confirmation => confirmation.UserId == user.Id && confirmation.IsOperational);
+        status.Should().Contain("\"completedSteps\":7");
+        status.Should().Contain("\"progressPercentage\":100");
+        status.Should().Contain("\"currentStep\":\"Completed\"");
+        status.Should().Contain("\"isOperational\":true");
+        afterSummary.Should().Contain("\"isConfirmed\":true");
+    }
+
+    private static void SeedReadyState(TestStores stores, string userId)
+    {
+        stores.Profiles.Profiles.Add(new DriverProfile { UserId = userId, CompletionStatus = ProfileCompletionStatus.Completed, PrimaryCity = "Toluca", AddressOrZone = "Zona Centro" });
+        stores.Vehicles.Vehicles.Add(new DriverVehicle { UserId = userId, IsActive = true, IsPrimary = true, CompletionStatus = VehicleCompletionStatus.Completed, VehicleType = VehicleType.Motorcycle, Brand = "Yamaha", Model = "FZ", Year = 2024, Alias = "Mi moto" });
+        stores.Contacts.Contacts.Add(new EmergencyContact { UserId = userId, IsActive = true, IsPrimary = true, FullName = "Contacto Uno", PhoneNumber = "+52 5511111111", Relationship = "Hermano", InvitationStatus = EmergencyContactInvitationStatus.Invited });
+        stores.Devices.Devices.Add(new UserDevice { UserId = userId, DeviceType = DeviceType.MobileApp, IsActive = true, DeviceName = "Motorola Edge", Platform = DevicePlatform.Android, LinkStatus = DeviceLinkStatus.Linked, ConnectionStatus = DeviceConnectionStatus.Online, BatteryLevel = 87 });
+        stores.Subscriptions.Subscriptions.Add(new UserSubscription { UserId = userId, PlanTier = PlanTier.Basic, Status = SubscriptionStatus.Active, Source = SubscriptionSource.WebBasic });
     }
 
     private static async Task<User> AuthenticateAsync(HttpClient client, string email, string accountType, TestStores stores)
@@ -140,7 +123,7 @@ public sealed class PlanEndpointsTests
         {
             ["Jwt:Issuer"] = "MotoSOS",
             ["Jwt:Audience"] = "MotoSOS.Clients",
-            ["Jwt:Key"] = new string('L', 48),
+            ["Jwt:Key"] = new string('O', 48),
             ["Jwt:AccessTokenMinutes"] = "15",
             ["Jwt:RefreshTokenDays"] = "7",
             ["Jwt:RefreshTokenRememberMeDays"] = "30",
@@ -170,5 +153,4 @@ public sealed class PlanEndpointsTests
     private sealed class InMemoryUserSubscriptionRepository : IUserSubscriptionRepository { public List<UserSubscription> Subscriptions { get; } = []; public Task<UserSubscription?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.FirstOrDefault(subscription => subscription.UserId == userId)); public Task<bool> HasActiveSubscriptionAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.Any(subscription => subscription.UserId == userId && subscription.Status == SubscriptionStatus.Active)); public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) { Subscriptions.Add(subscription); return Task.CompletedTask; } public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryOnboardingConfirmationRepository : IOnboardingConfirmationRepository { public List<OnboardingConfirmation> Confirmations { get; } = []; public Task<OnboardingConfirmation?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Confirmations.FirstOrDefault(confirmation => confirmation.UserId == userId)); public Task AddAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) { Confirmations.Add(confirmation); return Task.CompletedTask; } public Task UpdateAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
-    private sealed record SubscriptionEnvelope(bool Success, SelectBasicSubscriptionResponse Data);
 }

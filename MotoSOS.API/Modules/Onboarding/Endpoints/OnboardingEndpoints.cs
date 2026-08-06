@@ -29,6 +29,33 @@ public static class OnboardingEndpoints
             return Results.Ok(ApiResponse<OnboardingStatusResponse>.Ok(response));
         });
 
+        group.MapGet("/summary", async (
+            ClaimsPrincipal principal,
+            IOnboardingSummaryService summaryService,
+            CancellationToken cancellationToken) =>
+        {
+            string? userId = GetUserId(principal);
+            if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+
+            OnboardingSummaryResponse response = await summaryService.GetSummaryAsync(userId, cancellationToken);
+            return Results.Ok(ApiResponse<OnboardingSummaryResponse>.Ok(response));
+        });
+
+        group.MapPost("/confirm", async (
+            ClaimsPrincipal principal,
+            IOnboardingConfirmationService confirmationService,
+            CancellationToken cancellationToken) =>
+        {
+            string? userId = GetUserId(principal);
+            if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+
+            ConfirmOnboardingResponse response = await confirmationService.ConfirmAsync(userId, cancellationToken);
+            return Results.Ok(ApiResponse<ConfirmOnboardingResponse>.Ok(response));
+        });
+
         return endpoints;
     }
+
+    private static string? GetUserId(ClaimsPrincipal principal) =>
+        principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.FindFirstValue("sub");
 }

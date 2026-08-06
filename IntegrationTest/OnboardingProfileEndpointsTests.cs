@@ -14,7 +14,9 @@ using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Contracts;
+using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
@@ -328,6 +330,7 @@ public sealed class OnboardingProfileEndpointsTests
                 services.AddSingleton<IEmergencyContactRepository>(stores.EmergencyContacts);
                 services.AddSingleton<IUserDeviceRepository>(stores.Devices);
                 services.AddSingleton<IUserSubscriptionRepository>(stores.Subscriptions);
+                services.AddSingleton<IOnboardingConfirmationRepository>(stores.Confirmations);
             });
         });
     }
@@ -347,6 +350,8 @@ public sealed class OnboardingProfileEndpointsTests
         public InMemoryUserDeviceRepository Devices { get; } = new();
 
         public InMemoryUserSubscriptionRepository Subscriptions { get; } = new();
+
+        public InMemoryOnboardingConfirmationRepository Confirmations { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -467,6 +472,14 @@ public sealed class OnboardingProfileEndpointsTests
         public Task<bool> HasActiveSubscriptionAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.Any(subscription => subscription.UserId == userId && subscription.Status == SubscriptionStatus.Active));
         public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) { Subscriptions.Add(subscription); return Task.CompletedTask; }
         public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryOnboardingConfirmationRepository : IOnboardingConfirmationRepository
+    {
+        public List<OnboardingConfirmation> Confirmations { get; } = [];
+        public Task<OnboardingConfirmation?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Confirmations.FirstOrDefault(confirmation => confirmation.UserId == userId));
+        public Task AddAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) { Confirmations.Add(confirmation); return Task.CompletedTask; }
+        public Task UpdateAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);

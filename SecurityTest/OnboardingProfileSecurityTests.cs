@@ -14,6 +14,8 @@ using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Onboarding.Application;
+using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
@@ -167,6 +169,7 @@ public sealed class OnboardingProfileSecurityTests
                 services.AddSingleton<IEmergencyContactRepository>(stores.EmergencyContacts);
                 services.AddSingleton<IUserDeviceRepository>(stores.Devices);
                 services.AddSingleton<IUserSubscriptionRepository>(stores.Subscriptions);
+                services.AddSingleton<IOnboardingConfirmationRepository>(stores.Confirmations);
             });
         });
     }
@@ -186,6 +189,8 @@ public sealed class OnboardingProfileSecurityTests
         public InMemoryUserDeviceRepository Devices { get; } = new();
 
         public InMemoryUserSubscriptionRepository Subscriptions { get; } = new();
+
+        public InMemoryOnboardingConfirmationRepository Confirmations { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -281,6 +286,13 @@ public sealed class OnboardingProfileSecurityTests
         public Task<bool> HasActiveSubscriptionAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryOnboardingConfirmationRepository : IOnboardingConfirmationRepository
+    {
+        public Task<OnboardingConfirmation?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<OnboardingConfirmation?>(null);
+        public Task AddAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);
