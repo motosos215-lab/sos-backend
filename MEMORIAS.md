@@ -89,6 +89,16 @@
 - Offline Ingestion acepta inicialmente `minor-event`, `local-incident` y `alert-dispatch-request`, y guarda nuevos registros con `ProcessingStatus = PendingProcessing`.
 - Offline Ingestion no procesa incidentes reales, SOS, alertas, notificaciones, live monitoring, dashboard ni ML todavia.
 - Pendientes futuros de Offline Ingestion: processor real, Incidents API, Alert Dispatch API, Notifications, Live Monitoring, Dashboard, ML y sensor batches completos.
+- Incidents API implementa el registro remoto de incidentes asociados a viajes, sin alertas ni notificaciones reales todavia.
+- Los incidentes se guardan en MongoDB en la coleccion `incidents` con indice unico por `IdempotencyKey`.
+- La idempotency key oficial de Incidents es `userId + tripId + clientIncidentId`; duplicados no devuelven `409` y responden el incidente existente como exito estable.
+- Incidents API requiere JWT Bearer, solo permite `Rider`, toma `userId` exclusivamente del token y no acepta `userId` en el body.
+- Incidents API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
+- `tripId` debe existir y pertenecer al Rider autenticado; puede estar `Active` o `Finished` para sincronizacion tardia.
+- `VehicleId`, `MobileDeviceId` y `SmartwatchDeviceId` del incidente se derivan desde el viaje y no desde el request.
+- Nuevos incidentes se crean con `Status = Open`; cancelar falso positivo aplica `Open -> FalsePositiveCancelled` y cerrar aplica `Open` o `FalsePositiveCancelled -> Closed`.
+- No se borran incidentes fisicamente y cancelar falso positivo sobre `Closed` devuelve `incident_already_closed`.
+- Pendientes futuros de Incidents: Alert Dispatch API real, notificaciones, escalamiento, live monitoring, dashboard operativo, ML, processor real de Offline Ingestion y sensor batches completos.
 
 ## Restricciones persistentes
 
