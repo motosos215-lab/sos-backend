@@ -6,6 +6,7 @@ using MotoSOS.API.Infrastructure.DateTime;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
+using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
@@ -76,6 +77,9 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IMonitorLinkedContactRepository, MongoEmergencyContactRepository>();
+            services.AddScoped<INotificationAttemptMonitorRepository, MongoNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IAlertAcknowledgementRepository, MongoAlertAcknowledgementRepository>();
         }
         else
         {
@@ -93,6 +97,9 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IMonitorLinkedContactRepository, UnconfiguredMonitorLinkedContactRepository>();
+            services.AddScoped<INotificationAttemptMonitorRepository, UnconfiguredNotificationAttemptMonitorRepository>();
+            services.AddScoped<IAlertAcknowledgementRepository, UnconfiguredAlertAcknowledgementRepository>();
         }
 
         return services;

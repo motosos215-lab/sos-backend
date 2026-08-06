@@ -1,11 +1,12 @@
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
+using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Domain;
 
 namespace MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 
-public sealed class MongoNotificationDeliveryAttemptRepository : INotificationDeliveryAttemptRepository
+public sealed class MongoNotificationDeliveryAttemptRepository : INotificationDeliveryAttemptRepository, INotificationAttemptMonitorRepository
 {
     private readonly IMongoCollection<NotificationDeliveryAttempt> _attempts;
     public MongoNotificationDeliveryAttemptRepository(IMongoDatabase database) => _attempts = database.GetCollection<NotificationDeliveryAttempt>(MongoCollectionNames.NotificationDeliveryAttempts);
@@ -27,6 +28,10 @@ public sealed class MongoNotificationDeliveryAttemptRepository : INotificationDe
         await _attempts.Find(BuildFilter(userId, alertDispatchId, incidentId, status)).SortByDescending(a => a.CreatedAtUtc).Skip((pageNumber - 1) * pageSize).Limit(pageSize).ToListAsync(cancellationToken);
     public async Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken cancellationToken) =>
         await _attempts.CountDocumentsAsync(BuildFilter(userId, alertDispatchId, incidentId, status), cancellationToken: cancellationToken);
+    public async Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByEmergencyContactIdsAsync(IReadOnlyCollection<string> emergencyContactIds, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
+        await _attempts.Find(Builders<NotificationDeliveryAttempt>.Filter.In(a => a.EmergencyContactId, emergencyContactIds)).SortByDescending(a => a.CreatedAtUtc).Skip((pageNumber - 1) * pageSize).Limit(pageSize).ToListAsync(cancellationToken);
+    public async Task<long> CountByEmergencyContactIdsAsync(IReadOnlyCollection<string> emergencyContactIds, CancellationToken cancellationToken) =>
+        await _attempts.CountDocumentsAsync(Builders<NotificationDeliveryAttempt>.Filter.In(a => a.EmergencyContactId, emergencyContactIds), cancellationToken: cancellationToken);
     public async Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken cancellationToken) => await _attempts.ReplaceOneAsync(existing => existing.Id == attempt.Id, attempt, cancellationToken: cancellationToken);
     private static FilterDefinition<NotificationDeliveryAttempt> BuildFilter(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status)
     {

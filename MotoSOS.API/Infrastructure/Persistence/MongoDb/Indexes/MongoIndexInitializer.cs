@@ -1,6 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
+using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
@@ -215,6 +216,23 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_failedAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.FailedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_cancelledAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CancelledAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_createdAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CreatedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<AlertAcknowledgement> alertAcknowledgements = _database.GetCollection<AlertAcknowledgement>(MongoCollectionNames.AlertAcknowledgements);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_userId", new BsonDocument(nameof(AlertAcknowledgement.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_monitorUserId", new BsonDocument(nameof(AlertAcknowledgement.MonitorUserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_emergencyContactId", new BsonDocument(nameof(AlertAcknowledgement.EmergencyContactId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_alertDispatchId", new BsonDocument(nameof(AlertAcknowledgement.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_notificationDeliveryAttemptId", new BsonDocument(nameof(AlertAcknowledgement.NotificationDeliveryAttemptId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_incidentId", new BsonDocument(nameof(AlertAcknowledgement.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_tripId", new BsonDocument(nameof(AlertAcknowledgement.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_status", new BsonDocument(nameof(AlertAcknowledgement.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_monitorUserId_status", new BsonDocument { [nameof(AlertAcknowledgement.MonitorUserId)] = 1, [nameof(AlertAcknowledgement.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_userId_status", new BsonDocument { [nameof(AlertAcknowledgement.UserId)] = 1, [nameof(AlertAcknowledgement.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ux_alertAcknowledgements_idempotencyKey", new BsonDocument(nameof(AlertAcknowledgement.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_createdAtUtc", new BsonDocument(nameof(AlertAcknowledgement.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_viewedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.ViewedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_acknowledgedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.AcknowledgedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_declinedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.DeclinedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

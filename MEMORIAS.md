@@ -120,6 +120,13 @@
 - Los intentos nuevos quedan `Prepared` y `Provider = None`; `SimulatedSent` existe solo para pruebas internas.
 - No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
 - Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
+- Alert Acknowledgements API implementa la respuesta del contacto/monitor ante alertas preparadas, sin live monitoring ni notificaciones reales todavia.
+- Los acknowledgements se guardan en MongoDB en la coleccion `alertAcknowledgements` con indice unico por `IdempotencyKey`.
+- Alert Acknowledgements API usa `EmergencyContact.LinkedUserId == monitorUserId` como relacion segura para asignar alertas al Monitor.
+- El documento unico de acknowledgement usa `monitorUserId + notificationDeliveryAttemptId`; las acciones repetidas son idempotentes por transicion de estado.
+- Monitor puede listar, ver, marcar vista, confirmar o declinar solo intentos asociados a sus contactos vinculados; intentos ajenos devuelven `not_found`.
+- Rider puede consultar acknowledgements asociados a sus propias alertas pero no responder como Monitor.
+- Pendientes futuros de Alert Acknowledgements: live monitoring, mapa en tiempo real, streaming de ubicacion, chat, llamadas, proveedores reales, escalamiento, dashboard operativo y ML.
 
 ## Restricciones persistentes
 
