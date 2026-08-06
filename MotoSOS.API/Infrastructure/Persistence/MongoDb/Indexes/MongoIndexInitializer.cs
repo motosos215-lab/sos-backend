@@ -4,6 +4,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
@@ -123,6 +124,21 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(userDevices, "ix_userDevices_parentDeviceId", new BsonDocument(nameof(UserDevice.ParentDeviceId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(userDevices, "ix_userDevices_linkStatus", new BsonDocument(nameof(UserDevice.LinkStatus), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(userDevices, "ix_userDevices_deviceIdentifierHash", new BsonDocument(nameof(UserDevice.DeviceIdentifierHash), 1), unique: false, cancellationToken);
+
+        IMongoCollection<UserSubscription> userSubscriptions = _database.GetCollection<UserSubscription>(MongoCollectionNames.UserSubscriptions);
+        await EnsureIndexAsync(userSubscriptions, "ix_userSubscriptions_userId", new BsonDocument(nameof(UserSubscription.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            userSubscriptions,
+            "ix_userSubscriptions_userId_status",
+            new BsonDocument
+            {
+                [nameof(UserSubscription.UserId)] = 1,
+                [nameof(UserSubscription.Status)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(userSubscriptions, "ix_userSubscriptions_planTier", new BsonDocument(nameof(UserSubscription.PlanTier), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(userSubscriptions, "ix_userSubscriptions_source", new BsonDocument(nameof(UserSubscription.Source), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
