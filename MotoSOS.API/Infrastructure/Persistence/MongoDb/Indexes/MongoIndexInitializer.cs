@@ -7,6 +7,7 @@ using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
+using MotoSOS.API.Modules.LocationSharing.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
@@ -233,6 +234,17 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_viewedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.ViewedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_acknowledgedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.AcknowledgedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_declinedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.DeclinedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<EmergencyLocationSnapshot> emergencyLocationSnapshots = _database.GetCollection<EmergencyLocationSnapshot>(MongoCollectionNames.EmergencyLocationSnapshots);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_userId", new BsonDocument(nameof(EmergencyLocationSnapshot.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_incidentId", new BsonDocument(nameof(EmergencyLocationSnapshot.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_tripId", new BsonDocument(nameof(EmergencyLocationSnapshot.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ux_emergencyLocationSnapshots_userId_incidentId", new BsonDocument { [nameof(EmergencyLocationSnapshot.UserId)] = 1, [nameof(EmergencyLocationSnapshot.IncidentId)] = 1 }, unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_incidentId_isActive", new BsonDocument { [nameof(EmergencyLocationSnapshot.IncidentId)] = 1, [nameof(EmergencyLocationSnapshot.IsActive)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_recordedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.RecordedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_receivedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.ReceivedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_updatedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_isActive", new BsonDocument(nameof(EmergencyLocationSnapshot.IsActive), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
