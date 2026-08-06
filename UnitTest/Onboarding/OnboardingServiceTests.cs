@@ -1,8 +1,13 @@
 using FluentAssertions;
+using MotoSOS.API.Modules.Devices.Application;
+using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Contracts;
+using MotoSOS.API.Modules.Onboarding.Domain;
+using MotoSOS.API.Modules.Plans.Application;
+using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Application;
@@ -159,6 +164,170 @@ public sealed class OnboardingServiceTests
         response.Steps.Should().Contain(step => step.Key == "EmergencyContacts" && step.Status == "Pending");
     }
 
+    [Fact]
+    public async Task StatusWithCompletedPreviousStepsAndNoMobileAppKeepsDevicesPending()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var service = CreateService(user, profile, [vehicle], [contact]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(4);
+        response.ProgressPercentage.Should().Be(57);
+        response.CurrentStep.Should().Be("Devices");
+        response.Steps.Should().Contain(step => step.Key == "Devices" && step.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task StatusWithCompletedPreviousStepsAndLinkedMobileAppAdvancesToPlan()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var mobile = new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var service = CreateService(user, profile, [vehicle], [contact], [mobile]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(5);
+        response.ProgressPercentage.Should().Be(71);
+        response.CurrentStep.Should().Be("Plan");
+        response.Steps.Should().Contain(step => step.Key == "Devices" && step.Status == "Completed");
+    }
+
+    [Fact]
+    public async Task StatusDoesNotAdvanceDevicesWhenEmergencyContactsAreNotCompleted()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Pending };
+        var mobile = new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var service = CreateService(user, profile, [vehicle], [contact], [mobile]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(3);
+        response.CurrentStep.Should().Be("EmergencyContacts");
+        response.Steps.Should().Contain(step => step.Key == "Devices" && step.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task StatusDoesNotCompleteDevicesWithSmartwatchOnly()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var smartwatch = new UserDevice { UserId = user.Id, DeviceType = DeviceType.Smartwatch, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var service = CreateService(user, profile, [vehicle], [contact], [smartwatch]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(4);
+        response.CurrentStep.Should().Be("Devices");
+        response.Steps.Should().Contain(step => step.Key == "Devices" && step.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task StatusWithCompletedPreviousStepsAndNoSubscriptionKeepsPlanPending()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var mobile = new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var service = CreateService(user, profile, [vehicle], [contact], [mobile]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(5);
+        response.ProgressPercentage.Should().Be(71);
+        response.CurrentStep.Should().Be("Plan");
+        response.Steps.Should().Contain(step => step.Key == "Plan" && step.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task StatusWithCompletedPreviousStepsAndActiveSubscriptionAdvancesToConfirmation()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var mobile = new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var subscription = new UserSubscription { UserId = user.Id, Status = SubscriptionStatus.Active, PlanTier = PlanTier.Basic };
+        var service = CreateService(user, profile, [vehicle], [contact], [mobile], [subscription]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(6);
+        response.ProgressPercentage.Should().Be(86);
+        response.CurrentStep.Should().Be("Confirmation");
+        response.Steps.Should().Contain(step => step.Key == "Plan" && step.Status == "Completed");
+        response.Steps.Should().Contain(step => step.Key == "Confirmation" && step.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task StatusDoesNotAdvancePlanWhenDevicesAreNotCompleted()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var subscription = new UserSubscription { UserId = user.Id, Status = SubscriptionStatus.Active, PlanTier = PlanTier.Basic };
+        var service = CreateService(user, profile, [vehicle], [contact], devices: [], subscriptions: [subscription]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(4);
+        response.CurrentStep.Should().Be("Devices");
+        response.Steps.Should().Contain(step => step.Key == "Plan" && step.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task StatusWithConfirmationCompletesWizardAndSetsOperational()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var mobile = new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var subscription = new UserSubscription { UserId = user.Id, Status = SubscriptionStatus.Active, PlanTier = PlanTier.Basic };
+        var confirmation = new OnboardingConfirmation { UserId = user.Id, IsOperational = true };
+        var service = CreateService(user, profile, [vehicle], [contact], [mobile], [subscription], [confirmation]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(7);
+        response.ProgressPercentage.Should().Be(100);
+        response.CurrentStep.Should().Be("Completed");
+        response.IsOperational.Should().BeTrue();
+        response.Steps.Should().Contain(step => step.Key == "Confirmation" && step.Status == "Completed");
+    }
+
+    [Fact]
+    public async Task StatusDoesNotReportOperationalWhenPreviousStepIsMissingEvenWithConfirmation()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var subscription = new UserSubscription { UserId = user.Id, Status = SubscriptionStatus.Active, PlanTier = PlanTier.Basic };
+        var confirmation = new OnboardingConfirmation { UserId = user.Id, IsOperational = true };
+        var service = CreateService(user, profile, [vehicle], [contact], devices: [], subscriptions: [subscription], confirmations: [confirmation]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(4);
+        response.CurrentStep.Should().Be("Devices");
+        response.IsOperational.Should().BeFalse();
+        response.Steps.Should().Contain(step => step.Key == "Confirmation" && step.Status == "Pending");
+    }
+
     private static void AssertWizardSteps(IReadOnlyList<OnboardingStepResponse> steps)
     {
         steps.Should().NotBeEmpty();
@@ -181,8 +350,8 @@ public sealed class OnboardingServiceTests
         IsActive = true
     };
 
-    private static OnboardingService CreateService(User user, DriverProfile? profile, IReadOnlyList<DriverVehicle> vehicles, IReadOnlyList<EmergencyContact> contacts) =>
-        new(new InMemoryUserRepository(user), new InMemoryDriverProfileRepository(profile), new InMemoryDriverVehicleRepository(vehicles), new InMemoryEmergencyContactRepository(contacts));
+    private static OnboardingService CreateService(User user, DriverProfile? profile, IReadOnlyList<DriverVehicle> vehicles, IReadOnlyList<EmergencyContact> contacts, IReadOnlyList<UserDevice>? devices = null, IReadOnlyList<UserSubscription>? subscriptions = null, IReadOnlyList<OnboardingConfirmation>? confirmations = null) =>
+        new(new InMemoryUserRepository(user), new InMemoryDriverProfileRepository(profile), new InMemoryDriverVehicleRepository(vehicles), new InMemoryEmergencyContactRepository(contacts), new InMemoryUserDeviceRepository(devices ?? []), new InMemoryUserSubscriptionRepository(subscriptions ?? []), new InMemoryOnboardingConfirmationRepository(confirmations ?? []));
 
     private sealed class InMemoryUserRepository : IUserRepository
     {
@@ -261,5 +430,64 @@ public sealed class OnboardingServiceTests
         public Task AddAsync(EmergencyContact contact, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task UpdateAsync(EmergencyContact contact, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryUserDeviceRepository : IUserDeviceRepository
+    {
+        private readonly IReadOnlyList<UserDevice> _devices;
+
+        public InMemoryUserDeviceRepository(IReadOnlyList<UserDevice> devices)
+        {
+            _devices = devices;
+        }
+
+        public Task<IReadOnlyList<UserDevice>> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<UserDevice>>(_devices.Where(device => device.UserId == userId && device.IsActive).ToArray());
+
+        public Task<IReadOnlyList<UserDevice>> GetActiveByParentDeviceIdAsync(string parentDeviceId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<UserDevice>>([]);
+        public Task<UserDevice?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult<UserDevice?>(null);
+        public Task<UserDevice?> GetByDeviceIdentifierHashAsync(string userId, string hash, DeviceType deviceType, CancellationToken cancellationToken) => Task.FromResult<UserDevice?>(null);
+        public Task<int> CountActiveLinkedByUserIdAndTypeAsync(string userId, DeviceType deviceType, CancellationToken cancellationToken) => Task.FromResult(0);
+
+        public Task<bool> HasActiveLinkedMobileAppAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_devices.Any(device => device.UserId == userId && device.DeviceType == DeviceType.MobileApp && device.IsActive && device.LinkStatus == DeviceLinkStatus.Linked));
+
+        public Task AddAsync(UserDevice device, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(UserDevice device, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryUserSubscriptionRepository : IUserSubscriptionRepository
+    {
+        private readonly IReadOnlyList<UserSubscription> _subscriptions;
+
+        public InMemoryUserSubscriptionRepository(IReadOnlyList<UserSubscription> subscriptions)
+        {
+            _subscriptions = subscriptions;
+        }
+
+        public Task<UserSubscription?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_subscriptions.FirstOrDefault(subscription => subscription.UserId == userId));
+
+        public Task<bool> HasActiveSubscriptionAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_subscriptions.Any(subscription => subscription.UserId == userId && subscription.Status == SubscriptionStatus.Active));
+
+        public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryOnboardingConfirmationRepository : IOnboardingConfirmationRepository
+    {
+        private readonly IReadOnlyList<OnboardingConfirmation> _confirmations;
+
+        public InMemoryOnboardingConfirmationRepository(IReadOnlyList<OnboardingConfirmation> confirmations)
+        {
+            _confirmations = confirmations;
+        }
+
+        public Task<OnboardingConfirmation?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_confirmations.FirstOrDefault(confirmation => confirmation.UserId == userId));
+
+        public Task AddAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

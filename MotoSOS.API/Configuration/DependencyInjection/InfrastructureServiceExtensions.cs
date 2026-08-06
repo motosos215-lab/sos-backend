@@ -7,7 +7,10 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.Onboarding.Application;
+using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Vehicles.Application;
@@ -59,6 +62,10 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IDriverProfileRepository, MongoDriverProfileRepository>();
             services.AddScoped<IDriverVehicleRepository, MongoDriverVehicleRepository>();
             services.AddScoped<IEmergencyContactRepository, MongoEmergencyContactRepository>();
+            services.AddScoped<IDeviceActivationCodeRepository, MongoDeviceActivationCodeRepository>();
+            services.AddScoped<IUserDeviceRepository, MongoUserDeviceRepository>();
+            services.AddScoped<IUserSubscriptionRepository, MongoUserSubscriptionRepository>();
+            services.AddScoped<IOnboardingConfirmationRepository, MongoOnboardingConfirmationRepository>();
         }
         else
         {
@@ -67,6 +74,10 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IDriverProfileRepository, UnconfiguredDriverProfileRepository>();
             services.AddScoped<IDriverVehicleRepository, UnconfiguredDriverVehicleRepository>();
             services.AddScoped<IEmergencyContactRepository, UnconfiguredEmergencyContactRepository>();
+            services.AddScoped<IDeviceActivationCodeRepository, UnconfiguredDeviceActivationCodeRepository>();
+            services.AddScoped<IUserDeviceRepository, UnconfiguredUserDeviceRepository>();
+            services.AddScoped<IUserSubscriptionRepository, UnconfiguredUserSubscriptionRepository>();
+            services.AddScoped<IOnboardingConfirmationRepository, UnconfiguredOnboardingConfirmationRepository>();
         }
 
         return services;
