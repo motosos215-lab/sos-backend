@@ -4,6 +4,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
@@ -163,6 +164,19 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(trips, "ix_trips_mobileDeviceId", new BsonDocument(nameof(Trip.MobileDeviceId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(trips, "ix_trips_startedAtUtc", new BsonDocument(nameof(Trip.StartedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(trips, "ix_trips_finishedAtUtc", new BsonDocument(nameof(Trip.FinishedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<OfflineIngestionRecord> offlineIngestionRecords = _database.GetCollection<OfflineIngestionRecord>(MongoCollectionNames.OfflineIngestionRecords);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_userId", new BsonDocument(nameof(OfflineIngestionRecord.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_mobileDeviceId", new BsonDocument(nameof(OfflineIngestionRecord.MobileDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_tripId", new BsonDocument(nameof(OfflineIngestionRecord.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_batchId", new BsonDocument(nameof(OfflineIngestionRecord.BatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_clientEventId", new BsonDocument(nameof(OfflineIngestionRecord.ClientEventId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_type", new BsonDocument(nameof(OfflineIngestionRecord.Type), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ux_offlineIngestionRecords_idempotencyKey", new BsonDocument(nameof(OfflineIngestionRecord.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_ackId", new BsonDocument(nameof(OfflineIngestionRecord.AckId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_processingStatus", new BsonDocument(nameof(OfflineIngestionRecord.ProcessingStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_receivedAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.ReceivedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_occurredAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.OccurredAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

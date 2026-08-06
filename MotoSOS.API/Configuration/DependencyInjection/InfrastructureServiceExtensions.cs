@@ -9,6 +9,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
@@ -68,6 +69,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IUserSubscriptionRepository, MongoUserSubscriptionRepository>();
             services.AddScoped<IOnboardingConfirmationRepository, MongoOnboardingConfirmationRepository>();
             services.AddScoped<ITripRepository, MongoTripRepository>();
+            services.AddScoped<IOfflineIngestionRepository, MongoOfflineIngestionRepository>();
         }
         else
         {
@@ -81,6 +83,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IUserSubscriptionRepository, UnconfiguredUserSubscriptionRepository>();
             services.AddScoped<IOnboardingConfirmationRepository, UnconfiguredOnboardingConfirmationRepository>();
             services.AddScoped<ITripRepository, UnconfiguredTripRepository>();
+            services.AddScoped<IOfflineIngestionRepository, UnconfiguredOfflineIngestionRepository>();
         }
 
         return services;
