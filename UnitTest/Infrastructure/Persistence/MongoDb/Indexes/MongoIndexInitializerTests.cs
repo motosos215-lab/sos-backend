@@ -14,6 +14,7 @@ using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.Trips.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
 
@@ -55,7 +56,13 @@ public sealed class MongoIndexInitializerTests
             UserSubscriptionSourceIndex("legacy_user_subscription_source"),
             OnboardingConfirmationUserIdIndex("legacy_onboarding_confirmation_user"),
             OnboardingConfirmationIsOperationalIndex("legacy_onboarding_confirmation_operational"),
-            OnboardingConfirmationConfirmedAtIndex("legacy_onboarding_confirmation_confirmed"));
+            OnboardingConfirmationConfirmedAtIndex("legacy_onboarding_confirmation_confirmed"),
+            TripUserIdIndex("legacy_trip_user"),
+            TripUserIdStatusIndex("legacy_trip_user_status"),
+            TripVehicleIdIndex("legacy_trip_vehicle"),
+            TripMobileDeviceIdIndex("legacy_trip_mobile"),
+            TripStartedAtIndex("legacy_trip_started"),
+            TripFinishedAtIndex("legacy_trip_finished"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -86,6 +93,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.OnboardingConfirmationIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<OnboardingConfirmation>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.TripIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<Trip>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -128,6 +138,12 @@ public sealed class MongoIndexInitializerTests
         indexes.EmergencyContactIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(
                 It.Is<CreateIndexModel<EmergencyContact>>(model => model.Options.Name == "ix_emergencyContacts_userId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        indexes.TripIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<Trip>>(model => model.Options.Name == "ix_trips_userId" && model.Options.Unique == false),
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -191,6 +207,7 @@ public sealed class MongoIndexInitializerTests
         var userDevices = new Mock<IMongoCollection<UserDevice>>();
         var userSubscriptions = new Mock<IMongoCollection<UserSubscription>>();
         var onboardingConfirmations = new Mock<IMongoCollection<OnboardingConfirmation>>();
+        var trips = new Mock<IMongoCollection<Trip>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -200,6 +217,7 @@ public sealed class MongoIndexInitializerTests
         var userDeviceIndexes = new Mock<IMongoIndexManager<UserDevice>>();
         var userSubscriptionIndexes = new Mock<IMongoIndexManager<UserSubscription>>();
         var onboardingConfirmationIndexes = new Mock<IMongoIndexManager<OnboardingConfirmation>>();
+        var tripIndexes = new Mock<IMongoIndexManager<Trip>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -210,6 +228,7 @@ public sealed class MongoIndexInitializerTests
         userDevices.SetupGet(collection => collection.Indexes).Returns(userDeviceIndexes.Object);
         userSubscriptions.SetupGet(collection => collection.Indexes).Returns(userSubscriptionIndexes.Object);
         onboardingConfirmations.SetupGet(collection => collection.Indexes).Returns(onboardingConfirmationIndexes.Object);
+        trips.SetupGet(collection => collection.Indexes).Returns(tripIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -237,6 +256,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<OnboardingConfirmation>(MongoCollectionNames.OnboardingConfirmations, It.IsAny<MongoCollectionSettings>()))
             .Returns(onboardingConfirmations.Object);
+        database
+            .Setup(db => db.GetCollection<Trip>(MongoCollectionNames.Trips, It.IsAny<MongoCollectionSettings>()))
+            .Returns(trips.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -265,8 +287,11 @@ public sealed class MongoIndexInitializerTests
         onboardingConfirmationIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.OnboardingConfirmations)));
+        tripIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.Trips)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -401,6 +426,21 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument OnboardingConfirmationIsOperationalIndex(string name) => Index(MongoCollectionNames.OnboardingConfirmations, name, new BsonDocument(nameof(OnboardingConfirmation.IsOperational), 1), unique: false);
     private static BsonDocument OnboardingConfirmationConfirmedAtIndex(string name) => Index(MongoCollectionNames.OnboardingConfirmations, name, new BsonDocument(nameof(OnboardingConfirmation.ConfirmedAtUtc), 1), unique: false);
 
+    private static BsonDocument TripUserIdIndex(string name) => Index(MongoCollectionNames.Trips, name, new BsonDocument(nameof(Trip.UserId), 1), unique: false);
+    private static BsonDocument TripVehicleIdIndex(string name) => Index(MongoCollectionNames.Trips, name, new BsonDocument(nameof(Trip.VehicleId), 1), unique: false);
+    private static BsonDocument TripMobileDeviceIdIndex(string name) => Index(MongoCollectionNames.Trips, name, new BsonDocument(nameof(Trip.MobileDeviceId), 1), unique: false);
+    private static BsonDocument TripStartedAtIndex(string name) => Index(MongoCollectionNames.Trips, name, new BsonDocument(nameof(Trip.StartedAtUtc), 1), unique: false);
+    private static BsonDocument TripFinishedAtIndex(string name) => Index(MongoCollectionNames.Trips, name, new BsonDocument(nameof(Trip.FinishedAtUtc), 1), unique: false);
+    private static BsonDocument TripUserIdStatusIndex(string name) => Index(
+        MongoCollectionNames.Trips,
+        name,
+        new BsonDocument
+        {
+            [nameof(Trip.UserId)] = 1,
+            [nameof(Trip.Status)] = 1
+        },
+        unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -428,7 +468,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<DeviceActivationCode>> DeviceActivationCodeIndexes,
         Mock<IMongoIndexManager<UserDevice>> UserDeviceIndexes,
         Mock<IMongoIndexManager<UserSubscription>> UserSubscriptionIndexes,
-        Mock<IMongoIndexManager<OnboardingConfirmation>> OnboardingConfirmationIndexes);
+        Mock<IMongoIndexManager<OnboardingConfirmation>> OnboardingConfirmationIndexes,
+        Mock<IMongoIndexManager<Trip>> TripIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

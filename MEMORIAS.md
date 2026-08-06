@@ -74,6 +74,14 @@
 - Onboarding avanza a `7/7`, `100%`, `currentStep = Completed` e `isOperational = true` solo si existe confirmacion y los pasos previos siguen completos.
 - Si un paso previo queda incompleto despues de confirmar, `isOperational` vuelve a `false` aunque exista confirmacion previa.
 - Pendientes futuros tras cerrar wizard: Trips, SOS, Incidents, Notifications, Live Monitoring, Dashboard operativo y Machine Learning.
+- Trips API implementa el primer modulo operativo despues del onboarding web-first completo.
+- Los viajes se guardan en MongoDB en la coleccion `trips` con indices por `UserId`, `UserId + Status`, `VehicleId`, `MobileDeviceId`, `StartedAtUtc` y `FinishedAtUtc`.
+- Trips API agrega `GET /api/v1/trips/active`, `POST /api/v1/trips/start`, `POST /api/v1/trips/{id}/finish`, `GET /api/v1/trips/{id}` y `GET /api/v1/trips`.
+- Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
+- Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
+- Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.
+- Sin indice unico parcial o control atomico fuerte, dos requests simultaneos extremos podrian crear dos viajes activos; queda como mejora futura una garantia fuerte con operacion atomica o indice parcial.
+- Pendientes futuros de Trips: Offline ingestion, Minor events, Sensor batches, Incidents, SOS, Alerts, Notifications, Live Monitoring, Dashboard y ML.
 
 ## Restricciones persistentes
 

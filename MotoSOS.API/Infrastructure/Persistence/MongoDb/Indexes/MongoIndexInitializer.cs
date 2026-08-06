@@ -7,6 +7,7 @@ using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.Trips.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
 
@@ -145,6 +146,23 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_userId", new BsonDocument(nameof(OnboardingConfirmation.UserId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_isOperational", new BsonDocument(nameof(OnboardingConfirmation.IsOperational), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_confirmedAtUtc", new BsonDocument(nameof(OnboardingConfirmation.ConfirmedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<Trip> trips = _database.GetCollection<Trip>(MongoCollectionNames.Trips);
+        await EnsureIndexAsync(trips, "ix_trips_userId", new BsonDocument(nameof(Trip.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            trips,
+            "ix_trips_userId_status",
+            new BsonDocument
+            {
+                [nameof(Trip.UserId)] = 1,
+                [nameof(Trip.Status)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_vehicleId", new BsonDocument(nameof(Trip.VehicleId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_mobileDeviceId", new BsonDocument(nameof(Trip.MobileDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_startedAtUtc", new BsonDocument(nameof(Trip.StartedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_finishedAtUtc", new BsonDocument(nameof(Trip.FinishedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
