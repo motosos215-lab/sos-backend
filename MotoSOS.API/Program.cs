@@ -5,6 +5,7 @@ using MotoSOS.API.Middleware;
 using MotoSOS.API.Modules.Auth.Endpoints;
 using MotoSOS.API.Modules.Devices.Endpoints;
 using MotoSOS.API.Modules.EmergencyContacts.Endpoints;
+using MotoSOS.API.Modules.OfflineIngestion.Endpoints;
 using MotoSOS.API.Modules.Onboarding.Endpoints;
 using MotoSOS.API.Modules.Plans.Endpoints;
 using MotoSOS.API.Modules.Profiles.Endpoints;
@@ -63,6 +64,7 @@ app.MapDeviceEndpoints();
 app.MapPlanEndpoints();
 app.MapOnboardingEndpoints();
 app.MapTripEndpoints();
+app.MapOfflineIngestionEndpoints();
 
 app.Run();
 

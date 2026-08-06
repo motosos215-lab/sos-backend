@@ -82,6 +82,13 @@
 - Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.
 - Sin indice unico parcial o control atomico fuerte, dos requests simultaneos extremos podrian crear dos viajes activos; queda como mejora futura una garantia fuerte con operacion atomica o indice parcial.
 - Pendientes futuros de Trips: Offline ingestion, Minor events, Sensor batches, Incidents, SOS, Alerts, Notifications, Live Monitoring, Dashboard y ML.
+- Offline Ingestion API implementa `POST /api/v1/mobile/offline-ingestion/batch` para recibir cola offline movil y devolver ACK durable despues de persistir.
+- Los registros offline se guardan en MongoDB en la coleccion `offlineIngestionRecords`.
+- La idempotency key oficial es `userId + mobileDeviceId + tripId + item.type + item.clientEventId + item.payloadVersion` y tiene indice unico.
+- Duplicados de Offline Ingestion no devuelven `409`; responden `Duplicate` como exito estable con el mismo `AckId` y `remoteRecordId`.
+- Offline Ingestion acepta inicialmente `minor-event`, `local-incident` y `alert-dispatch-request`, y guarda nuevos registros con `ProcessingStatus = PendingProcessing`.
+- Offline Ingestion no procesa incidentes reales, SOS, alertas, notificaciones, live monitoring, dashboard ni ML todavia.
+- Pendientes futuros de Offline Ingestion: processor real, Incidents API, Alert Dispatch API, Notifications, Live Monitoring, Dashboard, ML y sensor batches completos.
 
 ## Restricciones persistentes
 
