@@ -15,6 +15,8 @@ using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Contracts;
+using MotoSOS.API.Modules.Plans.Application;
+using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Profiles.Contracts;
 using MotoSOS.API.Modules.Profiles.Domain;
@@ -325,6 +327,7 @@ public sealed class OnboardingProfileEndpointsTests
                 services.AddSingleton<IDriverVehicleRepository>(stores.DriverVehicles);
                 services.AddSingleton<IEmergencyContactRepository>(stores.EmergencyContacts);
                 services.AddSingleton<IUserDeviceRepository>(stores.Devices);
+                services.AddSingleton<IUserSubscriptionRepository>(stores.Subscriptions);
             });
         });
     }
@@ -342,6 +345,8 @@ public sealed class OnboardingProfileEndpointsTests
         public InMemoryEmergencyContactRepository EmergencyContacts { get; } = new();
 
         public InMemoryUserDeviceRepository Devices { get; } = new();
+
+        public InMemoryUserSubscriptionRepository Subscriptions { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -453,6 +458,15 @@ public sealed class OnboardingProfileEndpointsTests
         public Task<bool> HasActiveLinkedMobileAppAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Devices.Any(device => device.UserId == userId && device.DeviceType == DeviceType.MobileApp && device.IsActive && device.LinkStatus == DeviceLinkStatus.Linked));
         public Task AddAsync(UserDevice device, CancellationToken cancellationToken) { Devices.Add(device); return Task.CompletedTask; }
         public Task UpdateAsync(UserDevice device, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryUserSubscriptionRepository : IUserSubscriptionRepository
+    {
+        public List<UserSubscription> Subscriptions { get; } = [];
+        public Task<UserSubscription?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.FirstOrDefault(subscription => subscription.UserId == userId));
+        public Task<bool> HasActiveSubscriptionAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.Any(subscription => subscription.UserId == userId && subscription.Status == SubscriptionStatus.Active));
+        public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) { Subscriptions.Add(subscription); return Task.CompletedTask; }
+        public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);

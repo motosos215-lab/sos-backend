@@ -11,6 +11,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
@@ -46,7 +47,11 @@ public sealed class MongoIndexInitializerTests
             UserDeviceUserIdDeviceTypeIndex("legacy_user_device_user_type"),
             UserDeviceParentDeviceIdIndex("legacy_user_device_parent"),
             UserDeviceLinkStatusIndex("legacy_user_device_link_status"),
-            UserDeviceIdentifierHashIndex("legacy_user_device_identifier"));
+            UserDeviceIdentifierHashIndex("legacy_user_device_identifier"),
+            UserSubscriptionUserIdIndex("legacy_user_subscription_user_id"),
+            UserSubscriptionUserIdStatusIndex("legacy_user_subscription_user_status"),
+            UserSubscriptionPlanTierIndex("legacy_user_subscription_plan"),
+            UserSubscriptionSourceIndex("legacy_user_subscription_source"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -71,6 +76,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.UserDeviceIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<UserDevice>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.UserSubscriptionIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<UserSubscription>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -174,6 +182,7 @@ public sealed class MongoIndexInitializerTests
         var emergencyContacts = new Mock<IMongoCollection<EmergencyContact>>();
         var deviceActivationCodes = new Mock<IMongoCollection<DeviceActivationCode>>();
         var userDevices = new Mock<IMongoCollection<UserDevice>>();
+        var userSubscriptions = new Mock<IMongoCollection<UserSubscription>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -181,6 +190,7 @@ public sealed class MongoIndexInitializerTests
         var emergencyContactIndexes = new Mock<IMongoIndexManager<EmergencyContact>>();
         var deviceActivationCodeIndexes = new Mock<IMongoIndexManager<DeviceActivationCode>>();
         var userDeviceIndexes = new Mock<IMongoIndexManager<UserDevice>>();
+        var userSubscriptionIndexes = new Mock<IMongoIndexManager<UserSubscription>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -189,6 +199,7 @@ public sealed class MongoIndexInitializerTests
         emergencyContacts.SetupGet(collection => collection.Indexes).Returns(emergencyContactIndexes.Object);
         deviceActivationCodes.SetupGet(collection => collection.Indexes).Returns(deviceActivationCodeIndexes.Object);
         userDevices.SetupGet(collection => collection.Indexes).Returns(userDeviceIndexes.Object);
+        userSubscriptions.SetupGet(collection => collection.Indexes).Returns(userSubscriptionIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -210,6 +221,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<UserDevice>(MongoCollectionNames.UserDevices, It.IsAny<MongoCollectionSettings>()))
             .Returns(userDevices.Object);
+        database
+            .Setup(db => db.GetCollection<UserSubscription>(MongoCollectionNames.UserSubscriptions, It.IsAny<MongoCollectionSettings>()))
+            .Returns(userSubscriptions.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -232,8 +246,11 @@ public sealed class MongoIndexInitializerTests
         userDeviceIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.UserDevices)));
+        userSubscriptionIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.UserSubscriptions)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -351,6 +368,19 @@ public sealed class MongoIndexInitializerTests
         },
         unique: false);
 
+    private static BsonDocument UserSubscriptionUserIdIndex(string name) => Index(MongoCollectionNames.UserSubscriptions, name, new BsonDocument(nameof(UserSubscription.UserId), 1), unique: false);
+    private static BsonDocument UserSubscriptionPlanTierIndex(string name) => Index(MongoCollectionNames.UserSubscriptions, name, new BsonDocument(nameof(UserSubscription.PlanTier), 1), unique: false);
+    private static BsonDocument UserSubscriptionSourceIndex(string name) => Index(MongoCollectionNames.UserSubscriptions, name, new BsonDocument(nameof(UserSubscription.Source), 1), unique: false);
+    private static BsonDocument UserSubscriptionUserIdStatusIndex(string name) => Index(
+        MongoCollectionNames.UserSubscriptions,
+        name,
+        new BsonDocument
+        {
+            [nameof(UserSubscription.UserId)] = 1,
+            [nameof(UserSubscription.Status)] = 1
+        },
+        unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -376,7 +406,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<DriverVehicle>> DriverVehicleIndexes,
         Mock<IMongoIndexManager<EmergencyContact>> EmergencyContactIndexes,
         Mock<IMongoIndexManager<DeviceActivationCode>> DeviceActivationCodeIndexes,
-        Mock<IMongoIndexManager<UserDevice>> UserDeviceIndexes);
+        Mock<IMongoIndexManager<UserDevice>> UserDeviceIndexes,
+        Mock<IMongoIndexManager<UserSubscription>> UserSubscriptionIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

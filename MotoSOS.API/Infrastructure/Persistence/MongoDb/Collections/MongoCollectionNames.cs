@@ -15,4 +15,6 @@ public static class MongoCollectionNames
     public const string DeviceActivationCodes = "deviceActivationCodes";
 
     public const string UserDevices = "userDevices";
+
+    public const string UserSubscriptions = "userSubscriptions";
 }

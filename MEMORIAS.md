@@ -59,6 +59,14 @@
 - Revocar una `MobileApp` revoca tambien smartwatches dependientes por `ParentDeviceId`.
 - Onboarding avanza a `5/7`, `71%` y `Plan` cuando existe una `MobileApp` activa con `LinkStatus = Linked`; smartwatch queda opcional en esta etapa.
 - Pendientes futuros de Devices: planes reales, push notifications, sincronizacion offline real, viajes, SOS, incidentes, Bluetooth/Wear OS real y dashboard operativo.
+- Plans API implementa el paso 6 del wizard web-first: Plan y licencia.
+- El catalogo de planes se maneja en memoria con Basic, Plus y FamilyPro; solo Basic es seleccionable desde web en esta etapa.
+- Las suscripciones del usuario se guardan en MongoDB en la coleccion `userSubscriptions`.
+- `subscriptions/me` devuelve `subscription = null` y `defaultPlan = Basic` cuando el usuario aun no confirma plan.
+- `subscriptions/select-basic` crea o actualiza de forma idempotente una suscripcion `Basic` con `Status = Active` y `Source = WebBasic`.
+- Onboarding avanza a `6/7`, `86%` y `Confirmation` cuando existe suscripcion activa; Confirmation sigue pendiente e `isOperational` sigue `false`.
+- Vehicles y EmergencyContacts mantienen por ahora sus limites Basic hardcoded de 1 vehiculo y 1 contacto activo; Plans sera la fuente central de limites en una etapa futura.
+- Pendientes futuros de Plans: Google Play Billing real, pagos reales, renovaciones, facturacion, cupones, upgrades y licenciamiento empresarial.
 
 ## Restricciones persistentes
 
