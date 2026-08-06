@@ -4,6 +4,7 @@ using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.Incidents.Application;
+using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Plans.Application;
@@ -34,6 +35,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<IAlertDispatchService, AlertDispatchService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
         services.AddSingleton<IDeviceIdentifierHasher, DeviceIdentifierHasher>();
@@ -41,6 +43,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IPayloadHasher, PayloadHasher>();
         services.AddSingleton<IIncidentIdempotencyKeyFactory, IncidentIdempotencyKeyFactory>();
         services.AddSingleton<IAlertDispatchIdempotencyKeyFactory, AlertDispatchIdempotencyKeyFactory>();
+        services.AddSingleton<INotificationIdempotencyKeyFactory, NotificationIdempotencyKeyFactory>();
 
         return services;
     }

@@ -111,6 +111,15 @@
 - Si no existe al menos un contacto elegible, Alert Dispatch devuelve `alert_not_allowed`.
 - Nuevas solicitudes se crean con `Status = PendingDispatch`; cancelar aplica `PendingDispatch -> Cancelled`, `Cancelled` es idempotente y `Completed` devuelve `alert_dispatch_already_completed`.
 - Pendientes futuros de Alert Dispatch: Notifications API, push, SMS, mensajeria instantanea, correo, escalamiento real, acknowledgement de contacto/monitor, live monitoring, dashboard operativo y ML.
+- Notifications API implementa la preparacion y persistencia de intentos de notificacion asociados a `AlertDispatchRequest`, sin envio real todavia.
+- Los intentos se guardan en MongoDB en la coleccion `notificationDeliveryAttempts` con indice unico por `IdempotencyKey`.
+- Notifications API agrega `POST /api/v1/notifications/delivery-attempts/prepare`, `GET /api/v1/notifications/delivery-attempts`, `GET /api/v1/notifications/delivery-attempts/{id}`, `POST /mark-simulated-sent`, `POST /mark-failed` y `POST /cancel`.
+- La idempotency key oficial de Notifications es `userId + alertDispatchId + emergencyContactId + channel + attemptNumber`, con `attemptNumber = 1` en esta etapa.
+- Notifications API usa exclusivamente `ContactsSnapshot` de Alert Dispatch y no consulta contactos vivos para generar intentos.
+- Se crea un intento por contacto: `Sms` si hay telefono y `Email` como fallback si solo hay correo; contactos sin canal se omiten.
+- Los intentos nuevos quedan `Prepared` y `Provider = None`; `SimulatedSent` existe solo para pruebas internas.
+- No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
+- Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
 
 ## Restricciones persistentes
 

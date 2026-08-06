@@ -27,4 +27,6 @@ public static class MongoCollectionNames
     public const string Incidents = "incidents";
 
     public const string AlertDispatchRequests = "alertDispatchRequests";
+
+    public const string NotificationDeliveryAttempts = "notificationDeliveryAttempts";
 }

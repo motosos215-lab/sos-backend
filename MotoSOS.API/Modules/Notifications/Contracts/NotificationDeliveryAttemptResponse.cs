@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.Notifications.Contracts;
+
+public sealed record NotificationDeliveryAttemptResponse(string Id, string AlertDispatchId, string IncidentId, string TripId, string EmergencyContactId, string? ContactFullName, string? ContactRelationship, int? ContactPriority, string Channel, string Status, string Provider, int AttemptNumber, DateTimeOffset PreparedAtUtc, DateTimeOffset? SimulatedSentAtUtc, DateTimeOffset? FailedAtUtc, DateTimeOffset? CancelledAtUtc, DateTimeOffset? LastStatusChangedAtUtc, string? FailureReason, string? Notes, DateTimeOffset CreatedAtUtc, DateTimeOffset? UpdatedAtUtc);

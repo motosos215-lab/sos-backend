@@ -11,6 +11,7 @@ using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.Incidents.Application;
+using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Plans.Application;
@@ -74,6 +75,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IOfflineIngestionRepository, MongoOfflineIngestionRepository>();
             services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
+            services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
         }
         else
         {
@@ -90,6 +92,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IOfflineIngestionRepository, UnconfiguredOfflineIngestionRepository>();
             services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();
+            services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
         }
 
         return services;

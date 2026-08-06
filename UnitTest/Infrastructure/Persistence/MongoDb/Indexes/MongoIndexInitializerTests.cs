@@ -13,6 +13,7 @@ using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
+using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
@@ -93,7 +94,19 @@ public sealed class MongoIndexInitializerTests
             AlertDispatchRequestedAtIndex("legacy_alert_requested"),
             AlertDispatchCreatedAtIndex("legacy_alert_created"),
             AlertDispatchCancelledAtIndex("legacy_alert_cancelled"),
-            AlertDispatchCompletedAtIndex("legacy_alert_completed"));
+            AlertDispatchCompletedAtIndex("legacy_alert_completed"),
+            NotificationUserIdIndex("legacy_notification_user"),
+            NotificationAlertDispatchIdIndex("legacy_notification_alert"),
+            NotificationIncidentIdIndex("legacy_notification_incident"),
+            NotificationEmergencyContactIdIndex("legacy_notification_contact"),
+            NotificationUserIdStatusIndex("legacy_notification_user_status"),
+            NotificationChannelIndex("legacy_notification_channel"),
+            NotificationIdempotencyKeyIndex("legacy_notification_idempotency"),
+            NotificationPreparedAtIndex("legacy_notification_prepared"),
+            NotificationSimulatedSentAtIndex("legacy_notification_sent"),
+            NotificationFailedAtIndex("legacy_notification_failed"),
+            NotificationCancelledAtIndex("legacy_notification_cancelled"),
+            NotificationCreatedAtIndex("legacy_notification_created"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -136,6 +149,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.AlertDispatchIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<AlertDispatchRequest>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.NotificationIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<NotificationDeliveryAttempt>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -205,6 +221,12 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.NotificationIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<NotificationDeliveryAttempt>>(model => model.Options.Name == "ux_notificationDeliveryAttempts_idempotencyKey" && model.Options.Unique == true),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -269,6 +291,7 @@ public sealed class MongoIndexInitializerTests
         var offlineIngestionRecords = new Mock<IMongoCollection<OfflineIngestionRecord>>();
         var incidents = new Mock<IMongoCollection<Incident>>();
         var alertDispatchRequests = new Mock<IMongoCollection<AlertDispatchRequest>>();
+        var notificationDeliveryAttempts = new Mock<IMongoCollection<NotificationDeliveryAttempt>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -282,6 +305,7 @@ public sealed class MongoIndexInitializerTests
         var offlineIngestionIndexes = new Mock<IMongoIndexManager<OfflineIngestionRecord>>();
         var incidentIndexes = new Mock<IMongoIndexManager<Incident>>();
         var alertDispatchIndexes = new Mock<IMongoIndexManager<AlertDispatchRequest>>();
+        var notificationIndexes = new Mock<IMongoIndexManager<NotificationDeliveryAttempt>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -296,6 +320,7 @@ public sealed class MongoIndexInitializerTests
         offlineIngestionRecords.SetupGet(collection => collection.Indexes).Returns(offlineIngestionIndexes.Object);
         incidents.SetupGet(collection => collection.Indexes).Returns(incidentIndexes.Object);
         alertDispatchRequests.SetupGet(collection => collection.Indexes).Returns(alertDispatchIndexes.Object);
+        notificationDeliveryAttempts.SetupGet(collection => collection.Indexes).Returns(notificationIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -335,6 +360,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<AlertDispatchRequest>(MongoCollectionNames.AlertDispatchRequests, It.IsAny<MongoCollectionSettings>()))
             .Returns(alertDispatchRequests.Object);
+        database
+            .Setup(db => db.GetCollection<NotificationDeliveryAttempt>(MongoCollectionNames.NotificationDeliveryAttempts, It.IsAny<MongoCollectionSettings>()))
+            .Returns(notificationDeliveryAttempts.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -375,8 +403,11 @@ public sealed class MongoIndexInitializerTests
         alertDispatchIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.AlertDispatchRequests)));
+        notificationIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.NotificationDeliveryAttempts)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -557,6 +588,19 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument AlertDispatchCompletedAtIndex(string name) => Index(MongoCollectionNames.AlertDispatchRequests, name, new BsonDocument(nameof(AlertDispatchRequest.CompletedAtUtc), 1), unique: false);
     private static BsonDocument AlertDispatchUserIdStatusIndex(string name) => Index(MongoCollectionNames.AlertDispatchRequests, name, new BsonDocument { [nameof(AlertDispatchRequest.UserId)] = 1, [nameof(AlertDispatchRequest.Status)] = 1 }, unique: false);
 
+    private static BsonDocument NotificationUserIdIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.UserId), 1), unique: false);
+    private static BsonDocument NotificationAlertDispatchIdIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.AlertDispatchId), 1), unique: false);
+    private static BsonDocument NotificationIncidentIdIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.IncidentId), 1), unique: false);
+    private static BsonDocument NotificationEmergencyContactIdIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.EmergencyContactId), 1), unique: false);
+    private static BsonDocument NotificationUserIdStatusIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument { [nameof(NotificationDeliveryAttempt.UserId)] = 1, [nameof(NotificationDeliveryAttempt.Status)] = 1 }, unique: false);
+    private static BsonDocument NotificationChannelIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.Channel), 1), unique: false);
+    private static BsonDocument NotificationIdempotencyKeyIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.IdempotencyKey), 1), unique: true);
+    private static BsonDocument NotificationPreparedAtIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.PreparedAtUtc), 1), unique: false);
+    private static BsonDocument NotificationSimulatedSentAtIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.SimulatedSentAtUtc), 1), unique: false);
+    private static BsonDocument NotificationFailedAtIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.FailedAtUtc), 1), unique: false);
+    private static BsonDocument NotificationCancelledAtIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.CancelledAtUtc), 1), unique: false);
+    private static BsonDocument NotificationCreatedAtIndex(string name) => Index(MongoCollectionNames.NotificationDeliveryAttempts, name, new BsonDocument(nameof(NotificationDeliveryAttempt.CreatedAtUtc), 1), unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -588,7 +632,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<Trip>> TripIndexes,
         Mock<IMongoIndexManager<OfflineIngestionRecord>> OfflineIngestionIndexes,
         Mock<IMongoIndexManager<Incident>> IncidentIndexes,
-        Mock<IMongoIndexManager<AlertDispatchRequest>> AlertDispatchIndexes);
+        Mock<IMongoIndexManager<AlertDispatchRequest>> AlertDispatchIndexes,
+        Mock<IMongoIndexManager<NotificationDeliveryAttempt>> NotificationIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {
