@@ -67,6 +67,13 @@
 - Onboarding avanza a `6/7`, `86%` y `Confirmation` cuando existe suscripcion activa; Confirmation sigue pendiente e `isOperational` sigue `false`.
 - Vehicles y EmergencyContacts mantienen por ahora sus limites Basic hardcoded de 1 vehiculo y 1 contacto activo; Plans sera la fuente central de limites en una etapa futura.
 - Pendientes futuros de Plans: Google Play Billing real, pagos reales, renovaciones, facturacion, cupones, upgrades y licenciamiento empresarial.
+- Confirmation API implementa el paso 7 del wizard web-first dentro del modulo Onboarding.
+- Las confirmaciones se guardan en MongoDB en la coleccion `onboardingConfirmations` con metadata minima: `UserId`, `ConfirmedAtUtc`, `IsOperational`, `CreatedAtUtc` y `UpdatedAtUtc`.
+- `onboarding/summary` devuelve el resumen seguro del wizard y `canConfirm` solo cuando Account, Profile, Vehicle, EmergencyContacts, Devices y Plan estan completos.
+- `onboarding/confirm` es idempotente, no duplica confirmaciones y conserva `ConfirmedAtUtc` si ya existia confirmacion.
+- Onboarding avanza a `7/7`, `100%`, `currentStep = Completed` e `isOperational = true` solo si existe confirmacion y los pasos previos siguen completos.
+- Si un paso previo queda incompleto despues de confirmar, `isOperational` vuelve a `false` aunque exista confirmacion previa.
+- Pendientes futuros tras cerrar wizard: Trips, SOS, Incidents, Notifications, Live Monitoring, Dashboard operativo y Machine Learning.
 
 ## Restricciones persistentes
 

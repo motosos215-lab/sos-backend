@@ -5,6 +5,7 @@ using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Contracts;
+using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Application;
@@ -287,6 +288,46 @@ public sealed class OnboardingServiceTests
         response.Steps.Should().Contain(step => step.Key == "Plan" && step.Status == "Pending");
     }
 
+    [Fact]
+    public async Task StatusWithConfirmationCompletesWizardAndSetsOperational()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var mobile = new UserDevice { UserId = user.Id, DeviceType = DeviceType.MobileApp, IsActive = true, LinkStatus = DeviceLinkStatus.Linked };
+        var subscription = new UserSubscription { UserId = user.Id, Status = SubscriptionStatus.Active, PlanTier = PlanTier.Basic };
+        var confirmation = new OnboardingConfirmation { UserId = user.Id, IsOperational = true };
+        var service = CreateService(user, profile, [vehicle], [contact], [mobile], [subscription], [confirmation]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(7);
+        response.ProgressPercentage.Should().Be(100);
+        response.CurrentStep.Should().Be("Completed");
+        response.IsOperational.Should().BeTrue();
+        response.Steps.Should().Contain(step => step.Key == "Confirmation" && step.Status == "Completed");
+    }
+
+    [Fact]
+    public async Task StatusDoesNotReportOperationalWhenPreviousStepIsMissingEvenWithConfirmation()
+    {
+        var user = CreateRider();
+        var profile = new DriverProfile { UserId = user.Id, CompletionStatus = ProfileCompletionStatus.Completed };
+        var vehicle = new DriverVehicle { UserId = user.Id, IsActive = true, CompletionStatus = VehicleCompletionStatus.Completed };
+        var contact = new EmergencyContact { UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited };
+        var subscription = new UserSubscription { UserId = user.Id, Status = SubscriptionStatus.Active, PlanTier = PlanTier.Basic };
+        var confirmation = new OnboardingConfirmation { UserId = user.Id, IsOperational = true };
+        var service = CreateService(user, profile, [vehicle], [contact], devices: [], subscriptions: [subscription], confirmations: [confirmation]);
+
+        var response = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        response.CompletedSteps.Should().Be(4);
+        response.CurrentStep.Should().Be("Devices");
+        response.IsOperational.Should().BeFalse();
+        response.Steps.Should().Contain(step => step.Key == "Confirmation" && step.Status == "Pending");
+    }
+
     private static void AssertWizardSteps(IReadOnlyList<OnboardingStepResponse> steps)
     {
         steps.Should().NotBeEmpty();
@@ -309,8 +350,8 @@ public sealed class OnboardingServiceTests
         IsActive = true
     };
 
-    private static OnboardingService CreateService(User user, DriverProfile? profile, IReadOnlyList<DriverVehicle> vehicles, IReadOnlyList<EmergencyContact> contacts, IReadOnlyList<UserDevice>? devices = null, IReadOnlyList<UserSubscription>? subscriptions = null) =>
-        new(new InMemoryUserRepository(user), new InMemoryDriverProfileRepository(profile), new InMemoryDriverVehicleRepository(vehicles), new InMemoryEmergencyContactRepository(contacts), new InMemoryUserDeviceRepository(devices ?? []), new InMemoryUserSubscriptionRepository(subscriptions ?? []));
+    private static OnboardingService CreateService(User user, DriverProfile? profile, IReadOnlyList<DriverVehicle> vehicles, IReadOnlyList<EmergencyContact> contacts, IReadOnlyList<UserDevice>? devices = null, IReadOnlyList<UserSubscription>? subscriptions = null, IReadOnlyList<OnboardingConfirmation>? confirmations = null) =>
+        new(new InMemoryUserRepository(user), new InMemoryDriverProfileRepository(profile), new InMemoryDriverVehicleRepository(vehicles), new InMemoryEmergencyContactRepository(contacts), new InMemoryUserDeviceRepository(devices ?? []), new InMemoryUserSubscriptionRepository(subscriptions ?? []), new InMemoryOnboardingConfirmationRepository(confirmations ?? []));
 
     private sealed class InMemoryUserRepository : IUserRepository
     {
@@ -432,5 +473,21 @@ public sealed class OnboardingServiceTests
 
         public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryOnboardingConfirmationRepository : IOnboardingConfirmationRepository
+    {
+        private readonly IReadOnlyList<OnboardingConfirmation> _confirmations;
+
+        public InMemoryOnboardingConfirmationRepository(IReadOnlyList<OnboardingConfirmation> confirmations)
+        {
+            _confirmations = confirmations;
+        }
+
+        public Task<OnboardingConfirmation?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_confirmations.FirstOrDefault(confirmation => confirmation.UserId == userId));
+
+        public Task AddAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

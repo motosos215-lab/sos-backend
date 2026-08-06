@@ -19,6 +19,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IOnboardingService, OnboardingService>();
+        services.AddScoped<IOnboardingSummaryService, OnboardingSummaryService>();
+        services.AddScoped<IOnboardingConfirmationService, OnboardingConfirmationService>();
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IEmergencyContactService, EmergencyContactService>();
         services.AddScoped<IDeviceService, DeviceService>();

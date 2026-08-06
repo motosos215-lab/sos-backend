@@ -4,6 +4,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
 using MotoSOS.API.Modules.Users.Domain;
@@ -139,6 +140,11 @@ public sealed class MongoIndexInitializer
             cancellationToken);
         await EnsureIndexAsync(userSubscriptions, "ix_userSubscriptions_planTier", new BsonDocument(nameof(UserSubscription.PlanTier), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(userSubscriptions, "ix_userSubscriptions_source", new BsonDocument(nameof(UserSubscription.Source), 1), unique: false, cancellationToken);
+
+        IMongoCollection<OnboardingConfirmation> onboardingConfirmations = _database.GetCollection<OnboardingConfirmation>(MongoCollectionNames.OnboardingConfirmations);
+        await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_userId", new BsonDocument(nameof(OnboardingConfirmation.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_isOperational", new BsonDocument(nameof(OnboardingConfirmation.IsOperational), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_confirmedAtUtc", new BsonDocument(nameof(OnboardingConfirmation.ConfirmedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
