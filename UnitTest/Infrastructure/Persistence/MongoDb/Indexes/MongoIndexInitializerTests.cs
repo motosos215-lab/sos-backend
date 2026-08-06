@@ -11,6 +11,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
@@ -74,7 +75,15 @@ public sealed class MongoIndexInitializerTests
             OfflineIngestionAckIdIndex("legacy_offline_ack"),
             OfflineIngestionProcessingStatusIndex("legacy_offline_status"),
             OfflineIngestionReceivedAtIndex("legacy_offline_received"),
-            OfflineIngestionOccurredAtIndex("legacy_offline_occurred"));
+            OfflineIngestionOccurredAtIndex("legacy_offline_occurred"),
+            IncidentUserIdIndex("legacy_incident_user"),
+            IncidentTripIdIndex("legacy_incident_trip"),
+            IncidentUserIdStatusIndex("legacy_incident_user_status"),
+            IncidentClientIncidentIdIndex("legacy_incident_client"),
+            IncidentIdempotencyKeyIndex("legacy_incident_idempotency"),
+            IncidentOccurredAtIndex("legacy_incident_occurred"),
+            IncidentCreatedAtIndex("legacy_incident_created"),
+            IncidentClosedAtIndex("legacy_incident_closed"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -111,6 +120,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.OfflineIngestionIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<OfflineIngestionRecord>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.IncidentIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<Incident>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -165,6 +177,12 @@ public sealed class MongoIndexInitializerTests
         indexes.OfflineIngestionIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(
                 It.Is<CreateIndexModel<OfflineIngestionRecord>>(model => model.Options.Name == "ix_offlineIngestionRecords_userId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        indexes.IncidentIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<Incident>>(model => model.Options.Name == "ix_incidents_userId" && model.Options.Unique == false),
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -230,6 +248,7 @@ public sealed class MongoIndexInitializerTests
         var onboardingConfirmations = new Mock<IMongoCollection<OnboardingConfirmation>>();
         var trips = new Mock<IMongoCollection<Trip>>();
         var offlineIngestionRecords = new Mock<IMongoCollection<OfflineIngestionRecord>>();
+        var incidents = new Mock<IMongoCollection<Incident>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -241,6 +260,7 @@ public sealed class MongoIndexInitializerTests
         var onboardingConfirmationIndexes = new Mock<IMongoIndexManager<OnboardingConfirmation>>();
         var tripIndexes = new Mock<IMongoIndexManager<Trip>>();
         var offlineIngestionIndexes = new Mock<IMongoIndexManager<OfflineIngestionRecord>>();
+        var incidentIndexes = new Mock<IMongoIndexManager<Incident>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -253,6 +273,7 @@ public sealed class MongoIndexInitializerTests
         onboardingConfirmations.SetupGet(collection => collection.Indexes).Returns(onboardingConfirmationIndexes.Object);
         trips.SetupGet(collection => collection.Indexes).Returns(tripIndexes.Object);
         offlineIngestionRecords.SetupGet(collection => collection.Indexes).Returns(offlineIngestionIndexes.Object);
+        incidents.SetupGet(collection => collection.Indexes).Returns(incidentIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -286,6 +307,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<OfflineIngestionRecord>(MongoCollectionNames.OfflineIngestionRecords, It.IsAny<MongoCollectionSettings>()))
             .Returns(offlineIngestionRecords.Object);
+        database
+            .Setup(db => db.GetCollection<Incident>(MongoCollectionNames.Incidents, It.IsAny<MongoCollectionSettings>()))
+            .Returns(incidents.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -320,8 +344,11 @@ public sealed class MongoIndexInitializerTests
         offlineIngestionIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.OfflineIngestionRecords)));
+        incidentIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.Incidents)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -483,6 +510,15 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument OfflineIngestionReceivedAtIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.ReceivedAtUtc), 1), unique: false);
     private static BsonDocument OfflineIngestionOccurredAtIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.OccurredAtUtc), 1), unique: false);
 
+    private static BsonDocument IncidentUserIdIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.UserId), 1), unique: false);
+    private static BsonDocument IncidentTripIdIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.TripId), 1), unique: false);
+    private static BsonDocument IncidentClientIncidentIdIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.ClientIncidentId), 1), unique: false);
+    private static BsonDocument IncidentIdempotencyKeyIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.IdempotencyKey), 1), unique: true);
+    private static BsonDocument IncidentOccurredAtIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.OccurredAtUtc), 1), unique: false);
+    private static BsonDocument IncidentCreatedAtIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.CreatedAtUtc), 1), unique: false);
+    private static BsonDocument IncidentClosedAtIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument(nameof(Incident.ClosedAtUtc), 1), unique: false);
+    private static BsonDocument IncidentUserIdStatusIndex(string name) => Index(MongoCollectionNames.Incidents, name, new BsonDocument { [nameof(Incident.UserId)] = 1, [nameof(Incident.Status)] = 1 }, unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -512,7 +548,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<UserSubscription>> UserSubscriptionIndexes,
         Mock<IMongoIndexManager<OnboardingConfirmation>> OnboardingConfirmationIndexes,
         Mock<IMongoIndexManager<Trip>> TripIndexes,
-        Mock<IMongoIndexManager<OfflineIngestionRecord>> OfflineIngestionIndexes);
+        Mock<IMongoIndexManager<OfflineIngestionRecord>> OfflineIngestionIndexes,
+        Mock<IMongoIndexManager<Incident>> IncidentIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

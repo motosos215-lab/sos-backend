@@ -2,6 +2,7 @@ using FluentValidation;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Plans.Application;
@@ -30,11 +31,13 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
+        services.AddScoped<IIncidentService, IncidentService>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
         services.AddSingleton<IDeviceIdentifierHasher, DeviceIdentifierHasher>();
         services.AddSingleton<IOfflineIngestionIdempotencyKeyFactory, OfflineIngestionIdempotencyKeyFactory>();
         services.AddSingleton<IPayloadHasher, PayloadHasher>();
+        services.AddSingleton<IIncidentIdempotencyKeyFactory, IncidentIdempotencyKeyFactory>();
 
         return services;
     }

@@ -4,6 +4,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
@@ -177,6 +178,16 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_processingStatus", new BsonDocument(nameof(OfflineIngestionRecord.ProcessingStatus), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_receivedAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.ReceivedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_occurredAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.OccurredAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<Incident> incidents = _database.GetCollection<Incident>(MongoCollectionNames.Incidents);
+        await EnsureIndexAsync(incidents, "ix_incidents_userId", new BsonDocument(nameof(Incident.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_tripId", new BsonDocument(nameof(Incident.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_userId_status", new BsonDocument { [nameof(Incident.UserId)] = 1, [nameof(Incident.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_clientIncidentId", new BsonDocument(nameof(Incident.ClientIncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ux_incidents_idempotencyKey", new BsonDocument(nameof(Incident.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_occurredAtUtc", new BsonDocument(nameof(Incident.OccurredAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_createdAtUtc", new BsonDocument(nameof(Incident.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_closedAtUtc", new BsonDocument(nameof(Incident.ClosedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
