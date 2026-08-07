@@ -87,9 +87,15 @@
 - Los registros offline se guardan en MongoDB en la coleccion `offlineIngestionRecords`.
 - La idempotency key oficial es `userId + mobileDeviceId + tripId + item.type + item.clientEventId + item.payloadVersion` y tiene indice unico.
 - Duplicados de Offline Ingestion no devuelven `409`; responden `Duplicate` como exito estable con el mismo `AckId` y `remoteRecordId`.
-- Offline Ingestion acepta inicialmente `minor-event`, `local-incident` y `alert-dispatch-request`, y guarda nuevos registros con `ProcessingStatus = PendingProcessing`.
+- Offline Ingestion acepta `minor-event`, `local-incident`, `alert-dispatch-request` y `location-update`, y guarda nuevos registros con `ProcessingStatus = PendingProcessing`.
 - Offline Ingestion no procesa incidentes reales, SOS, alertas, notificaciones, live monitoring, dashboard ni ML todavia.
 - Pendientes futuros de Offline Ingestion: processor real, Incidents API, Alert Dispatch API, Notifications, Live Monitoring, Dashboard, ML y sensor batches completos.
+- Offline Processing API implementa procesamiento controlado de registros `offlineIngestionRecords` pendientes, sin worker real ni coleccion nueva.
+- Offline Processing agrega `POST /api/v1/offline-processing/run` y `GET /api/v1/offline-processing/status`, ambos Rider-only.
+- Offline Processing procesa `local-incident`, `alert-dispatch-request` y `location-update`; `minor-event` queda `Ignored` y se muestra como `Skipped` con reason `minor_event_processing_not_implemented`.
+- Para `local-incident`, si falta `payload.clientIncidentId`, se usa `OfflineIngestionRecord.ClientEventId` como fallback estable; no se genera GUID en backend.
+- Offline Processing usa claim atomico `Id + UserId + PendingProcessing` antes de procesar y mantiene idempotencia de Incidents, Alert Dispatch y Location Sharing.
+- Offline Processing no implementa Hangfire, Quartz, cron externo, WebSockets, SignalR, proveedores reales, notificaciones reales, escalamiento ni ML.
 - Incidents API implementa el registro remoto de incidentes asociados a viajes, sin alertas ni notificaciones reales todavia.
 - Los incidentes se guardan en MongoDB en la coleccion `incidents` con indice unico por `IdempotencyKey`.
 - La idempotency key oficial de Incidents es `userId + tripId + clientIncidentId`; duplicados no devuelven `409` y responden el incidente existente como exito estable.

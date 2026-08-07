@@ -12,7 +12,8 @@ public sealed class OfflineIngestionBatchRequestValidator : AbstractValidator<Of
     {
         "minor-event",
         "local-incident",
-        "alert-dispatch-request"
+        "alert-dispatch-request",
+        "location-update"
     };
 
     public OfflineIngestionBatchRequestValidator()
