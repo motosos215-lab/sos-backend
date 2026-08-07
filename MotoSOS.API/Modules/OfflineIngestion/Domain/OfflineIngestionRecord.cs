@@ -24,6 +24,12 @@ public sealed class OfflineIngestionRecord
     public DateTimeOffset OccurredAtUtc { get; set; }
     public DateTimeOffset ReceivedAtUtc { get; set; }
     public OfflineIngestionProcessingStatus ProcessingStatus { get; set; } = OfflineIngestionProcessingStatus.PendingProcessing;
+    public string? RemoteRecordId { get; set; }
+    public string? ProcessingReason { get; set; }
+    public string? ProcessingErrorCode { get; set; }
+    public string? ProcessingErrorMessage { get; set; }
+    public DateTimeOffset? ProcessingStartedAtUtc { get; set; }
+    public DateTimeOffset? ProcessedAtUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 }

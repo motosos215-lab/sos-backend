@@ -9,6 +9,7 @@ using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
+using MotoSOS.API.Modules.OfflineProcessing.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
@@ -36,6 +37,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
+        services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<IAlertDispatchService, AlertDispatchService>();
         services.AddScoped<INotificationService, NotificationService>();

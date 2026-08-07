@@ -5,5 +5,6 @@ public enum OfflineIngestionProcessingStatus
     PendingProcessing = 1,
     Processed = 2,
     Ignored = 3,
-    FailedPermanent = 4
+    FailedPermanent = 4,
+    Processing = 5
 }

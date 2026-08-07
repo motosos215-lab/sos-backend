@@ -112,6 +112,7 @@ public sealed class OfflineIngestionService : IOfflineIngestionService
         "minor-event" => OfflineIngestionItemType.MinorEvent,
         "local-incident" => OfflineIngestionItemType.LocalIncident,
         "alert-dispatch-request" => OfflineIngestionItemType.AlertDispatchRequest,
+        "location-update" => OfflineIngestionItemType.LocationUpdate,
         _ => throw new ValidationAppException("Unsupported offline ingestion item type.")
     };
 
@@ -120,6 +121,7 @@ public sealed class OfflineIngestionService : IOfflineIngestionService
         OfflineIngestionItemType.MinorEvent => "minor-event",
         OfflineIngestionItemType.LocalIncident => "local-incident",
         OfflineIngestionItemType.AlertDispatchRequest => "alert-dispatch-request",
+        OfflineIngestionItemType.LocationUpdate => "location-update",
         _ => type.ToString()
     };
 

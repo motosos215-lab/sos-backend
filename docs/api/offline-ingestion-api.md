@@ -72,6 +72,7 @@ Tipos aceptados:
 - `minor-event`
 - `local-incident`
 - `alert-dispatch-request`
+- `location-update`
 
 ## Response Accepted
 
