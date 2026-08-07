@@ -135,6 +135,11 @@
 - Monitor consulta ubicacion solo cuando el intento de notificacion pertenece a un `EmergencyContact` vinculado por `LinkedUserId`.
 - Rider consulta solo ubicacion de incidentes propios; `isStale` indica si la ultima ubicacion supera 5 minutos respecto al reloj del servidor.
 - Pendientes futuros de Location Sharing: live monitoring completo, sockets en tiempo real, mapa en vivo, historial controlado, frecuencia configurable, escalamiento, dashboard operativo y ML.
+- Emergency Status API implementa resumen de emergencia por lectura/agregacion de Incidents, Trips, Alert Dispatch, Notifications, Alert Acknowledgements y Location Sharing, sin coleccion nueva.
+- Emergency Status agrega `GET /api/v1/rider/emergencies/{incidentId}/status`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/status` y `GET /api/v1/rider/emergencies/active`.
+- Rider solo consulta emergencias propias; Monitor solo consulta alertas asignadas mediante `EmergencyContact.LinkedUserId == monitorUserId`.
+- Los conteos de notifications y acknowledgements se acotan por `incidentId` y, cuando existe, por `alertDispatchId`; no se calculan globalmente por usuario.
+- Emergency Status no implementa live tracking, WebSockets, SignalR, streaming, mapa en tiempo real ni proveedores reales de notificacion.
 
 ## Restricciones persistentes
 

@@ -9,6 +9,8 @@ public sealed class UnconfiguredAlertAcknowledgementRepository : IAlertAcknowled
     public Task<AlertAcknowledgement?> GetByIdAsync(string id, CancellationToken cancellationToken) => throw CreateException();
     public Task<AlertAcknowledgement?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => throw CreateException();
     public Task<(AlertAcknowledgement Acknowledgement, bool IsDuplicate)> AddOrGetDuplicateAsync(AlertAcknowledgement acknowledgement, CancellationToken cancellationToken) => throw CreateException();
+    public Task<IReadOnlyList<AlertAcknowledgement>> ListByIncidentIdAsync(string userId, string incidentId, CancellationToken cancellationToken) => throw CreateException();
+    public Task<IReadOnlyList<AlertAcknowledgement>> ListByAlertDispatchIdAsync(string userId, string alertDispatchId, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<AlertAcknowledgement>> ListByMonitorUserIdAsync(string monitorUserId, AlertAcknowledgementStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw CreateException();
     public Task<long> CountByMonitorUserIdAsync(string monitorUserId, AlertAcknowledgementStatus? status, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<AlertAcknowledgement>> ListByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, AlertAcknowledgementStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw CreateException();
