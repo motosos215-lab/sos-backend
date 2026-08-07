@@ -9,6 +9,8 @@ public sealed class UnconfiguredNotificationDeliveryAttemptRepository : INotific
     public Task<NotificationDeliveryAttempt?> GetByIdAsync(string id, CancellationToken cancellationToken) => throw CreateException();
     public Task<NotificationDeliveryAttempt?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => throw CreateException();
     public Task<(NotificationDeliveryAttempt Attempt, bool IsDuplicate)> AddOrGetDuplicateAsync(NotificationDeliveryAttempt attempt, CancellationToken cancellationToken) => throw CreateException();
+    public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByIncidentIdAsync(string userId, string incidentId, CancellationToken cancellationToken) => throw CreateException();
+    public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByAlertDispatchIdAsync(string userId, string alertDispatchId, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw CreateException();
     public Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken cancellationToken) => throw CreateException();
     public Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken cancellationToken) => throw CreateException();

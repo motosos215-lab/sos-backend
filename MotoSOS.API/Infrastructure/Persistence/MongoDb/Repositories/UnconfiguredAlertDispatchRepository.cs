@@ -9,6 +9,7 @@ public sealed class UnconfiguredAlertDispatchRepository : IAlertDispatchReposito
     public Task<AlertDispatchRequest?> GetByIdAsync(string id, CancellationToken cancellationToken) => throw CreateException();
     public Task<AlertDispatchRequest?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => throw CreateException();
     public Task<(AlertDispatchRequest AlertDispatch, bool IsDuplicate)> AddOrGetDuplicateAsync(AlertDispatchRequest alertDispatch, CancellationToken cancellationToken) => throw CreateException();
+    public Task<IReadOnlyList<AlertDispatchRequest>> ListByIncidentIdAsync(string userId, string incidentId, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<AlertDispatchRequest>> ListByUserIdAsync(string userId, AlertDispatchStatus? status, string? incidentId, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw CreateException();
     public Task<long> CountByUserIdAsync(string userId, AlertDispatchStatus? status, string? incidentId, CancellationToken cancellationToken) => throw CreateException();
     public Task UpdateAsync(AlertDispatchRequest alertDispatch, CancellationToken cancellationToken) => throw CreateException();

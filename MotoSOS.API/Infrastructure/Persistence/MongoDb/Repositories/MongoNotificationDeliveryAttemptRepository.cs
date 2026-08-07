@@ -24,6 +24,10 @@ public sealed class MongoNotificationDeliveryAttemptRepository : INotificationDe
             throw;
         }
     }
+    public async Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByIncidentIdAsync(string userId, string incidentId, CancellationToken cancellationToken) =>
+        await _attempts.Find(a => a.UserId == userId && a.IncidentId == incidentId).SortByDescending(a => a.CreatedAtUtc).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByAlertDispatchIdAsync(string userId, string alertDispatchId, CancellationToken cancellationToken) =>
+        await _attempts.Find(a => a.UserId == userId && a.AlertDispatchId == alertDispatchId).SortByDescending(a => a.CreatedAtUtc).ToListAsync(cancellationToken);
     public async Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
         await _attempts.Find(BuildFilter(userId, alertDispatchId, incidentId, status)).SortByDescending(a => a.CreatedAtUtc).Skip((pageNumber - 1) * pageSize).Limit(pageSize).ToListAsync(cancellationToken);
     public async Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken cancellationToken) =>
