@@ -11,6 +11,7 @@ public sealed class MongoLocationSharingRepository : ILocationSharingRepository
     public MongoLocationSharingRepository(IMongoDatabase database) => _locations = database.GetCollection<EmergencyLocationSnapshot>(MongoCollectionNames.EmergencyLocationSnapshots);
     public async Task<EmergencyLocationSnapshot?> GetByUserIdAndIncidentIdAsync(string userId, string incidentId, CancellationToken cancellationToken) => await _locations.Find(l => l.UserId == userId && l.IncidentId == incidentId).FirstOrDefaultAsync(cancellationToken);
     public async Task<EmergencyLocationSnapshot?> GetActiveByIncidentIdAsync(string incidentId, CancellationToken cancellationToken) => await _locations.Find(l => l.IncidentId == incidentId && l.IsActive).FirstOrDefaultAsync(cancellationToken);
+    public async Task<EmergencyLocationSnapshot?> GetLatestByIncidentIdAsync(string incidentId, CancellationToken cancellationToken) => await _locations.Find(l => l.IncidentId == incidentId).SortByDescending(l => l.RecordedAtUtc).ThenByDescending(l => l.ReceivedAtUtc).FirstOrDefaultAsync(cancellationToken);
     public async Task<EmergencyLocationSnapshot> UpsertLatestAsync(EmergencyLocationSnapshot snapshot, CancellationToken cancellationToken)
     {
         await _locations.ReplaceOneAsync(l => l.UserId == snapshot.UserId && l.IncidentId == snapshot.IncidentId, snapshot, new ReplaceOptions { IsUpsert = true }, cancellationToken);

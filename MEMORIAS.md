@@ -78,6 +78,12 @@
 - Trips API implementa el primer modulo operativo despues del onboarding web-first completo.
 - Los viajes se guardan en MongoDB en la coleccion `trips` con indices por `UserId`, `UserId + Status`, `VehicleId`, `MobileDeviceId`, `StartedAtUtc` y `FinishedAtUtc`.
 - Trips API agrega `GET /api/v1/trips/active`, `POST /api/v1/trips/start`, `POST /api/v1/trips/{id}/finish`, `GET /api/v1/trips/{id}` y `GET /api/v1/trips`.
+- Emergency Resolution Report API crea reportes finales en la coleccion `emergencyResolutionReports` solo para incidentes `Closed` o `FalsePositiveCancelled`.
+- Emergency Resolution Report API usa idempotencia `userId + incidentId`; crear dos veces devuelve el reporte existente y no duplica documentos ni devuelve `409`.
+- Emergency Resolution Report API no cierra incidentes ni duplica la logica operativa de cierre; el cierre sigue en Incidents API con `/api/v1/incidents/{id}/close` y `/api/v1/incidents/{id}/cancel-false-positive`.
+- Emergency Resolution Report API agrega endpoints Rider para crear, consultar y listar reportes, y endpoint Monitor para consultar reportes de alertas asignadas.
+- `ILocationSharingRepository.GetLatestByIncidentIdAsync` queda aprobado para reportes finales y consulta el ultimo snapshot por `IncidentId`, ordenado por `RecordedAtUtc` desc y `ReceivedAtUtc` desc, sin historial, polyline ni monitoreo realtime.
+- Emergency Resolution Report API persiste metricas finales: intentos de notificacion, acknowledgements, acknowledged/declined, primera notificacion, primer acknowledgement, tiempo de respuesta, cierre del incidente, ultima ubicacion conocida y stale flag.
 - Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
 - Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
 - Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.

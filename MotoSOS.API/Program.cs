@@ -7,6 +7,7 @@ using MotoSOS.API.Modules.AlertDispatch.Endpoints;
 using MotoSOS.API.Modules.Auth.Endpoints;
 using MotoSOS.API.Modules.Devices.Endpoints;
 using MotoSOS.API.Modules.EmergencyContacts.Endpoints;
+using MotoSOS.API.Modules.EmergencyResolution.Endpoints;
 using MotoSOS.API.Modules.EmergencyStatus.Endpoints;
 using MotoSOS.API.Modules.Incidents.Endpoints;
 using MotoSOS.API.Modules.LocationSharing.Endpoints;
@@ -79,6 +80,7 @@ app.MapNotificationEndpoints();
 app.MapAlertAcknowledgementEndpoints();
 app.MapLocationSharingEndpoints();
 app.MapEmergencyStatusEndpoints();
+app.MapEmergencyResolutionEndpoints();
 
 app.Run();
 
