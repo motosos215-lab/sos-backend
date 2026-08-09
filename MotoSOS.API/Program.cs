@@ -4,6 +4,7 @@ using MotoSOS.API.Configuration.DependencyInjection;
 using MotoSOS.API.Middleware;
 using MotoSOS.API.Modules.AlertAcknowledgements.Endpoints;
 using MotoSOS.API.Modules.AlertDispatch.Endpoints;
+using MotoSOS.API.Modules.AuditLogs.Endpoints;
 using MotoSOS.API.Modules.Auth.Endpoints;
 using MotoSOS.API.Modules.Devices.Endpoints;
 using MotoSOS.API.Modules.EmergencyContacts.Endpoints;
@@ -85,6 +86,7 @@ app.MapLocationSharingEndpoints();
 app.MapEmergencyStatusEndpoints();
 app.MapEmergencyResolutionEndpoints();
 app.MapOperationalDashboardEndpoints();
+app.MapAuditLogEndpoints();
 
 app.Run();
 

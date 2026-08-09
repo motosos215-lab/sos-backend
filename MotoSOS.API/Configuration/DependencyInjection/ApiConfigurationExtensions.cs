@@ -7,6 +7,7 @@ public static class ApiConfigurationExtensions
     public static IServiceCollection AddApiConfiguration(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddControllers();
+        services.AddHttpContextAccessor();
         services.AddOpenApi();
         services.AddCors(options =>
         {

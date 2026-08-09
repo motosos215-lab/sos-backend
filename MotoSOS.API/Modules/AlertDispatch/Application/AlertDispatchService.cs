@@ -1,7 +1,10 @@
+using System.Globalization;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AlertDispatch.Contracts;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Incidents.Application;
@@ -26,8 +29,9 @@ public sealed class AlertDispatchService : IAlertDispatchService
     private readonly IAlertDispatchRepository _alertDispatches;
     private readonly IAlertDispatchIdempotencyKeyFactory _idempotencyKeys;
     private readonly IClock _clock;
+    private readonly IAuditLogService? _auditLogs;
 
-    public AlertDispatchService(IUserRepository users, IOnboardingService onboarding, IIncidentRepository incidents, IEmergencyContactRepository contacts, IAlertDispatchRepository alertDispatches, IAlertDispatchIdempotencyKeyFactory idempotencyKeys, IClock clock)
+    public AlertDispatchService(IUserRepository users, IOnboardingService onboarding, IIncidentRepository incidents, IEmergencyContactRepository contacts, IAlertDispatchRepository alertDispatches, IAlertDispatchIdempotencyKeyFactory idempotencyKeys, IClock clock, IAuditLogService? auditLogs = null)
     {
         _users = users;
         _onboarding = onboarding;
@@ -36,6 +40,7 @@ public sealed class AlertDispatchService : IAlertDispatchService
         _alertDispatches = alertDispatches;
         _idempotencyKeys = idempotencyKeys;
         _clock = clock;
+        _auditLogs = auditLogs;
     }
 
     public async Task<CreateAlertDispatchResponse> CreateAsync(string userId, CreateAlertDispatchRequest request, CancellationToken cancellationToken)
@@ -70,6 +75,7 @@ public sealed class AlertDispatchService : IAlertDispatchService
         };
 
         (AlertDispatchRequest persisted, _) = await _alertDispatches.AddOrGetDuplicateAsync(alertDispatch, cancellationToken);
+        await RecordAsync(user, AuditAction.AlertDispatchCreated, persisted.Id, null, new Dictionary<string, string> { ["incidentId"] = persisted.IncidentId, ["status"] = persisted.Status.ToString(), ["priority"] = persisted.Priority.ToString(), ["contactsCount"] = persisted.ContactsSnapshot.Count.ToString(CultureInfo.InvariantCulture) }, cancellationToken);
         return new CreateAlertDispatchResponse(ToResponse(persisted));
     }
 
@@ -105,6 +111,7 @@ public sealed class AlertDispatchService : IAlertDispatchService
         alertDispatch.UpdatedAtUtc = now;
         alertDispatch.Notes = NormalizeOptional(request.Reason) ?? alertDispatch.Notes;
         await _alertDispatches.UpdateAsync(alertDispatch, cancellationToken);
+        await RecordAsync(user, AuditAction.AlertDispatchCancelled, alertDispatch.Id, alertDispatch.Notes, new Dictionary<string, string> { ["incidentId"] = alertDispatch.IncidentId, ["newStatus"] = alertDispatch.Status.ToString() }, cancellationToken);
         return new CancelAlertDispatchResponse(ToResponse(alertDispatch));
     }
 
@@ -157,4 +164,5 @@ public sealed class AlertDispatchService : IAlertDispatchService
     private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct => Enum.TryParse(value, ignoreCase: true, out TEnum result) ? result : null;
     private static string NormalizeRequired(string? value) => value?.Trim() ?? string.Empty;
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private Task RecordAsync(User user, AuditAction action, string dispatchId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken) => _auditLogs?.RecordAsync(user.Id, user.Role.ToString(), action, AuditModule.AlertDispatch, "AlertDispatch", dispatchId, AuditOutcome.Success, reason, null, null, metadata, cancellationToken) ?? Task.CompletedTask;
 }

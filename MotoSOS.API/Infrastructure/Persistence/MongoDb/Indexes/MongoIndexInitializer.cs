@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
@@ -258,6 +259,20 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(emergencyResolutionReports, "ux_emergencyResolutionReports_idempotencyKey", new BsonDocument(nameof(EmergencyResolutionReport.IdempotencyKey), 1), unique: true, cancellationToken);
         await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_createdAtUtc", new BsonDocument(nameof(EmergencyResolutionReport.CreatedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_updatedAtUtc", new BsonDocument(nameof(EmergencyResolutionReport.UpdatedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<AuditLogEntry> auditLogs = _database.GetCollection<AuditLogEntry>(MongoCollectionNames.AuditLogs);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_actorUserId", new BsonDocument(nameof(AuditLogEntry.ActorUserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_action", new BsonDocument(nameof(AuditLogEntry.Action), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_module", new BsonDocument(nameof(AuditLogEntry.Module), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_outcome", new BsonDocument(nameof(AuditLogEntry.Outcome), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_entityType", new BsonDocument(nameof(AuditLogEntry.EntityType), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_entityId", new BsonDocument(nameof(AuditLogEntry.EntityId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_createdAtUtc", new BsonDocument(nameof(AuditLogEntry.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_actorUserId_createdAtUtc", new BsonDocument { [nameof(AuditLogEntry.ActorUserId)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_module_createdAtUtc", new BsonDocument { [nameof(AuditLogEntry.Module)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_action_createdAtUtc", new BsonDocument { [nameof(AuditLogEntry.Action)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_entityType_entityId", new BsonDocument { [nameof(AuditLogEntry.EntityType)] = 1, [nameof(AuditLogEntry.EntityId)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogs, "ix_auditLogs_correlationId", new BsonDocument(nameof(AuditLogEntry.CorrelationId), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

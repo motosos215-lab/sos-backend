@@ -1,8 +1,11 @@
+using System.Globalization;
 using System.Text.Json;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.AlertDispatch.Contracts;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.Incidents.Contracts;
 using MotoSOS.API.Modules.LocationSharing.Application;
@@ -27,8 +30,9 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
     private readonly IAlertDispatchService _alertDispatches;
     private readonly ILocationSharingService _locations;
     private readonly IClock _clock;
+    private readonly IAuditLogService? _auditLogs;
 
-    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IClock clock)
+    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IClock clock, IAuditLogService? auditLogs = null)
     {
         _users = users;
         _records = records;
@@ -36,6 +40,7 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
         _alertDispatches = alertDispatches;
         _locations = locations;
         _clock = clock;
+        _auditLogs = auditLogs;
     }
 
     public async Task<RunOfflineProcessingResponse> RunAsync(string userId, RunOfflineProcessingRequest request, CancellationToken cancellationToken)
@@ -53,11 +58,13 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
             results.Add(await ProcessRecordAsync(rider.Id, record, cancellationToken));
         }
 
-        return new RunOfflineProcessingResponse(
+        var response = new RunOfflineProcessingResponse(
             results.Count(result => result.Status == "Processed"),
             results.Count(result => result.Status == "Skipped"),
             results.Count(result => result.Status == "Failed"),
             results);
+        await (_auditLogs?.RecordAsync(rider.Id, rider.Role.ToString(), AuditAction.OfflineProcessingRun, AuditModule.OfflineProcessing, "OfflineProcessingRun", null, AuditOutcome.Success, null, null, null, new Dictionary<string, string> { ["processed"] = response.Processed.ToString(CultureInfo.InvariantCulture), ["skipped"] = response.Skipped.ToString(CultureInfo.InvariantCulture), ["failed"] = response.Failed.ToString(CultureInfo.InvariantCulture), ["maxItems"] = maxItems.ToString(CultureInfo.InvariantCulture) }, cancellationToken) ?? Task.CompletedTask);
+        return response;
     }
 
     public async Task<GetOfflineProcessingStatusResponse> GetStatusAsync(string userId, CancellationToken cancellationToken)

@@ -10,6 +10,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
@@ -143,7 +144,19 @@ public sealed class MongoIndexInitializerTests
             EmergencyResolutionUserIdCreatedAtIndex("legacy_resolution_user_created"),
             EmergencyResolutionIdempotencyKeyIndex("legacy_resolution_idempotency"),
             EmergencyResolutionCreatedAtIndex("legacy_resolution_created"),
-            EmergencyResolutionUpdatedAtIndex("legacy_resolution_updated"));
+            EmergencyResolutionUpdatedAtIndex("legacy_resolution_updated"),
+            AuditLogActorUserIdIndex("legacy_audit_actor"),
+            AuditLogActionIndex("legacy_audit_action"),
+            AuditLogModuleIndex("legacy_audit_module"),
+            AuditLogOutcomeIndex("legacy_audit_outcome"),
+            AuditLogEntityTypeIndex("legacy_audit_entity_type"),
+            AuditLogEntityIdIndex("legacy_audit_entity_id"),
+            AuditLogCreatedAtIndex("legacy_audit_created"),
+            AuditLogActorUserIdCreatedAtIndex("legacy_audit_actor_created"),
+            AuditLogModuleCreatedAtIndex("legacy_audit_module_created"),
+            AuditLogActionCreatedAtIndex("legacy_audit_action_created"),
+            AuditLogEntityTypeEntityIdIndex("legacy_audit_entity"),
+            AuditLogCorrelationIdIndex("legacy_audit_correlation"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -198,6 +211,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.EmergencyResolutionIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<EmergencyResolutionReport>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.AuditLogIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<AuditLogEntry>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -291,6 +307,12 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.AuditLogIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<AuditLogEntry>>(model => model.Options.Name == "ix_auditLogs_actorUserId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -359,6 +381,7 @@ public sealed class MongoIndexInitializerTests
         var alertAcknowledgements = new Mock<IMongoCollection<AlertAcknowledgement>>();
         var emergencyLocationSnapshots = new Mock<IMongoCollection<EmergencyLocationSnapshot>>();
         var emergencyResolutionReports = new Mock<IMongoCollection<EmergencyResolutionReport>>();
+        var auditLogs = new Mock<IMongoCollection<AuditLogEntry>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -376,6 +399,7 @@ public sealed class MongoIndexInitializerTests
         var alertAcknowledgementIndexes = new Mock<IMongoIndexManager<AlertAcknowledgement>>();
         var emergencyLocationIndexes = new Mock<IMongoIndexManager<EmergencyLocationSnapshot>>();
         var emergencyResolutionIndexes = new Mock<IMongoIndexManager<EmergencyResolutionReport>>();
+        var auditLogIndexes = new Mock<IMongoIndexManager<AuditLogEntry>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -394,6 +418,7 @@ public sealed class MongoIndexInitializerTests
         alertAcknowledgements.SetupGet(collection => collection.Indexes).Returns(alertAcknowledgementIndexes.Object);
         emergencyLocationSnapshots.SetupGet(collection => collection.Indexes).Returns(emergencyLocationIndexes.Object);
         emergencyResolutionReports.SetupGet(collection => collection.Indexes).Returns(emergencyResolutionIndexes.Object);
+        auditLogs.SetupGet(collection => collection.Indexes).Returns(auditLogIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -445,6 +470,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<EmergencyResolutionReport>(MongoCollectionNames.EmergencyResolutionReports, It.IsAny<MongoCollectionSettings>()))
             .Returns(emergencyResolutionReports.Object);
+        database
+            .Setup(db => db.GetCollection<AuditLogEntry>(MongoCollectionNames.AuditLogs, It.IsAny<MongoCollectionSettings>()))
+            .Returns(auditLogs.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -497,8 +525,11 @@ public sealed class MongoIndexInitializerTests
         emergencyResolutionIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.EmergencyResolutionReports)));
+        auditLogIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.AuditLogs)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -729,6 +760,19 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument EmergencyResolutionCreatedAtIndex(string name) => Index(MongoCollectionNames.EmergencyResolutionReports, name, new BsonDocument(nameof(EmergencyResolutionReport.CreatedAtUtc), 1), unique: false);
     private static BsonDocument EmergencyResolutionUpdatedAtIndex(string name) => Index(MongoCollectionNames.EmergencyResolutionReports, name, new BsonDocument(nameof(EmergencyResolutionReport.UpdatedAtUtc), 1), unique: false);
 
+    private static BsonDocument AuditLogActorUserIdIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.ActorUserId), 1), unique: false);
+    private static BsonDocument AuditLogActionIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.Action), 1), unique: false);
+    private static BsonDocument AuditLogModuleIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.Module), 1), unique: false);
+    private static BsonDocument AuditLogOutcomeIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.Outcome), 1), unique: false);
+    private static BsonDocument AuditLogEntityTypeIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.EntityType), 1), unique: false);
+    private static BsonDocument AuditLogEntityIdIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.EntityId), 1), unique: false);
+    private static BsonDocument AuditLogCreatedAtIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.CreatedAtUtc), 1), unique: false);
+    private static BsonDocument AuditLogActorUserIdCreatedAtIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument { [nameof(AuditLogEntry.ActorUserId)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false);
+    private static BsonDocument AuditLogModuleCreatedAtIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument { [nameof(AuditLogEntry.Module)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false);
+    private static BsonDocument AuditLogActionCreatedAtIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument { [nameof(AuditLogEntry.Action)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false);
+    private static BsonDocument AuditLogEntityTypeEntityIdIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument { [nameof(AuditLogEntry.EntityType)] = 1, [nameof(AuditLogEntry.EntityId)] = 1 }, unique: false);
+    private static BsonDocument AuditLogCorrelationIdIndex(string name) => Index(MongoCollectionNames.AuditLogs, name, new BsonDocument(nameof(AuditLogEntry.CorrelationId), 1), unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -764,7 +808,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<NotificationDeliveryAttempt>> NotificationIndexes,
         Mock<IMongoIndexManager<AlertAcknowledgement>> AlertAcknowledgementIndexes,
         Mock<IMongoIndexManager<EmergencyLocationSnapshot>> EmergencyLocationIndexes,
-        Mock<IMongoIndexManager<EmergencyResolutionReport>> EmergencyResolutionIndexes);
+        Mock<IMongoIndexManager<EmergencyResolutionReport>> EmergencyResolutionIndexes,
+        Mock<IMongoIndexManager<AuditLogEntry>> AuditLogIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

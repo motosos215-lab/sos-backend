@@ -160,6 +160,14 @@
 - Rider solo consulta emergencias propias; Monitor solo consulta alertas asignadas mediante `EmergencyContact.LinkedUserId == monitorUserId`.
 - Los conteos de notifications y acknowledgements se acotan por `incidentId` y, cuando existe, por `alertDispatchId`; no se calculan globalmente por usuario.
 - Emergency Status no implementa live tracking, WebSockets, SignalR, streaming, mapa en tiempo real ni proveedores reales de notificacion.
+- Audit Logs API implementa auditoria interna en la coleccion `auditLogs`, con endpoints Admin-only `GET /api/v1/admin/audit-logs` y `GET /api/v1/admin/audit-logs/{id}`.
+- Audit Logs API registra acciones criticas de Auth, Incidents, Alert Dispatch, Notification Outbox, Alert Acknowledgements, Emergency Resolution y Offline Processing.
+- La escritura de audit logs es best-effort: si falla guardar auditoria, la operacion principal no se rompe y solo se registra un mensaje controlado sin exponer stack traces ni errores internos.
+- La lectura de audit logs no es best-effort: si falla consultar, se devuelve error controlado siguiendo el manejo global actual.
+- Audit Logs API sanitiza metadata de forma case-insensitive, elimina claves sensibles, trunca valores a 200 caracteres y no guarda passwords, tokens, device identifiers, provider tokens, payloads completos, correos/telefonos completos, datos de pago, stack traces, errores internos, connection strings ni secretos.
+- Los endpoints de consulta de audit logs no se auditan para evitar ruido, crecimiento innecesario o auditoria recursiva.
+- Audit Logs API no implementa SIEM externo, Splunk, Datadog, CloudWatch, exportacion automatica, worker real, WebSockets, SignalR, tracking en vivo, proveedores reales, pagos ni pairing API de smartwatch.
+- Pendientes futuros de Audit Logs: retencion, exportacion, SIEM externo, alertas de seguridad, auditoria mas amplia y correlationId completo por request.
 
 ## Restricciones persistentes
 
