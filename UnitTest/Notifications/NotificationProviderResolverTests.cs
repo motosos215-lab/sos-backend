@@ -2,8 +2,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Options;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
-using MotoSOS.API.Modules.PushNotificationTokens.Domain;
 using MotoSOS.API.Modules.Notifications.Providers;
+using MotoSOS.API.Modules.PushNotificationTokens.Domain;
 
 namespace UnitTest.Notifications;
 

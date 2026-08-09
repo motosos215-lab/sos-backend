@@ -1,5 +1,5 @@
-using MotoSOS.API.Common.Exceptions;
 using Microsoft.Extensions.Options;
+using MotoSOS.API.Common.Exceptions;
 
 namespace MotoSOS.API.Modules.Notifications.Providers;
 
