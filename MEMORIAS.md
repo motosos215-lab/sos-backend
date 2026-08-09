@@ -1,5 +1,16 @@
 # Memorias Tecnicas
 
+## Audit Log Retention Policy
+
+- Audit Log Retention Policy implementa retencion manual Admin-only sobre la coleccion `auditLogs`.
+- Agrega endpoints `GET /api/v1/admin/audit-logs/retention/policy`, `POST /api/v1/admin/audit-logs/retention/run`, `GET /api/v1/admin/audit-logs/retention/runs` y `GET /api/v1/admin/audit-logs/retention/runs/{id}`.
+- La politica queda definida por codigo con default `180` dias, minimo `90`, maximo `3650`, dry-run default `true`, confirmacion requerida para borrado real y worker automatico deshabilitado.
+- El cutoff se calcula como `now - retentionDays`; el borrado real elimina solo documentos de `auditLogs` con `CreatedAtUtc < cutoffUtc`.
+- Las ejecuciones se guardan como metadata minima en `auditLogRetentionRuns`; esa coleccion no se borra por la politica.
+- Si `dryRun = false` sin `confirmPermanentDelete = true`, se devuelve `validation_error` y no se borra nada.
+- La auditoria de retencion es best-effort con acciones `AuditLogRetentionDryRunCompleted`, `AuditLogRetentionDeleteCompleted` y `AuditLogRetentionFailed`.
+- No se implementa borrado programado, almacenamiento externo, export automatico, compresion, objetos externos, URLs firmadas, correo, proveedores reales, SDKs externos ni cobros.
+
 ## Decisiones actuales
 
 - MotoSOS.API es un proyecto Web API en .NET 9.

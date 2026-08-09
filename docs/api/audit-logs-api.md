@@ -81,6 +81,9 @@ Actualmente se auditan estas acciones exitosas:
 - `EvidenceAttachmentRegistered`
 - `EvidenceAttachmentDeleted`
 - `ResolutionReportExportGenerated`
+- `AuditLogRetentionDryRunCompleted`
+- `AuditLogRetentionDeleteCompleted`
+- `AuditLogRetentionFailed`
 
 ## Endpoints
 

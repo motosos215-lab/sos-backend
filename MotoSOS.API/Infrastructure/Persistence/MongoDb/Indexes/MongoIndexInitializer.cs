@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.AuditLogRetention.Domain;
 using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
@@ -278,6 +279,15 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(auditLogs, "ix_auditLogs_action_createdAtUtc", new BsonDocument { [nameof(AuditLogEntry.Action)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(auditLogs, "ix_auditLogs_entityType_entityId", new BsonDocument { [nameof(AuditLogEntry.EntityType)] = 1, [nameof(AuditLogEntry.EntityId)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(auditLogs, "ix_auditLogs_correlationId", new BsonDocument(nameof(AuditLogEntry.CorrelationId), 1), unique: false, cancellationToken);
+
+        IMongoCollection<AuditLogRetentionRun> auditLogRetentionRuns = _database.GetCollection<AuditLogRetentionRun>(MongoCollectionNames.AuditLogRetentionRuns);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_requestedByUserId", new BsonDocument(nameof(AuditLogRetentionRun.RequestedByUserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_requestedByRole", new BsonDocument(nameof(AuditLogRetentionRun.RequestedByRole), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_mode", new BsonDocument(nameof(AuditLogRetentionRun.Mode), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_status", new BsonDocument(nameof(AuditLogRetentionRun.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_cutoffUtc", new BsonDocument(nameof(AuditLogRetentionRun.CutoffUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_createdAtUtc", new BsonDocument(nameof(AuditLogRetentionRun.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(auditLogRetentionRuns, "ix_auditLogRetentionRuns_status_createdAtUtc", new BsonDocument { [nameof(AuditLogRetentionRun.Status)] = 1, [nameof(AuditLogRetentionRun.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
 
         IMongoCollection<EmergencyEscalation> emergencyEscalations = _database.GetCollection<EmergencyEscalation>(MongoCollectionNames.EmergencyEscalations);
         await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_userId", new BsonDocument(nameof(EmergencyEscalation.UserId), 1), unique: false, cancellationToken);

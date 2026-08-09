@@ -8,6 +8,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertDispatch.Application;
+using MotoSOS.API.Modules.AuditLogRetention.Application;
 using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
@@ -86,6 +87,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
             services.AddScoped<IAuditLogRepository, MongoAuditLogRepository>();
+            services.AddScoped<IAuditLogRetentionRunRepository, MongoAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, MongoEmergencyContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, MongoNotificationDeliveryAttemptRepository>();
@@ -115,6 +117,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();
             services.AddScoped<IAuditLogRepository, UnconfiguredAuditLogRepository>();
+            services.AddScoped<IAuditLogRetentionRunRepository, UnconfiguredAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, UnconfiguredMonitorLinkedContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, UnconfiguredNotificationAttemptMonitorRepository>();

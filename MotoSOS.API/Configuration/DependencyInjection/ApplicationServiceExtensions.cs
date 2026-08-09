@@ -1,6 +1,7 @@
 using FluentValidation;
 using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertDispatch.Application;
+using MotoSOS.API.Modules.AuditLogRetention.Application;
 using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
@@ -56,6 +57,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<IAlertDispatchService, AlertDispatchService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IAuditLogRetentionService, AuditLogRetentionService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
         services.AddOptions<NotificationOutboxWorkerOptions>();
@@ -75,6 +77,8 @@ public static class ApplicationServiceExtensions
         services.AddHostedService<AutomaticEscalationWorker>();
         services.AddScoped<IMinorEventService, MinorEventService>();
         services.AddSingleton<AuditLogQueryValidator>();
+        services.AddSingleton<RunAuditLogRetentionRequestValidator>();
+        services.AddSingleton<AuditLogRetentionRunQueryValidator>();
         services.AddSingleton<EscalationQueryValidator>();
         services.AddSingleton<MinorEventQueryValidator>();
         services.AddSingleton<TelemetrySummaryQueryValidator>();
