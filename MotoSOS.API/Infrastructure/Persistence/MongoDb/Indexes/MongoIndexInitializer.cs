@@ -6,6 +6,7 @@ using MotoSOS.API.Modules.AlertDispatch.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.EmergencyResolution.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.LocationSharing.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
@@ -245,6 +246,18 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_receivedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.ReceivedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_updatedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.UpdatedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_isActive", new BsonDocument(nameof(EmergencyLocationSnapshot.IsActive), 1), unique: false, cancellationToken);
+
+        IMongoCollection<EmergencyResolutionReport> emergencyResolutionReports = _database.GetCollection<EmergencyResolutionReport>(MongoCollectionNames.EmergencyResolutionReports);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_userId", new BsonDocument(nameof(EmergencyResolutionReport.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ux_emergencyResolutionReports_incidentId", new BsonDocument(nameof(EmergencyResolutionReport.IncidentId), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_tripId", new BsonDocument(nameof(EmergencyResolutionReport.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_alertDispatchId", new BsonDocument(nameof(EmergencyResolutionReport.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_outcome", new BsonDocument(nameof(EmergencyResolutionReport.Outcome), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_userId_outcome", new BsonDocument { [nameof(EmergencyResolutionReport.UserId)] = 1, [nameof(EmergencyResolutionReport.Outcome)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_userId_createdAtUtc", new BsonDocument { [nameof(EmergencyResolutionReport.UserId)] = 1, [nameof(EmergencyResolutionReport.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ux_emergencyResolutionReports_idempotencyKey", new BsonDocument(nameof(EmergencyResolutionReport.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_createdAtUtc", new BsonDocument(nameof(EmergencyResolutionReport.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_updatedAtUtc", new BsonDocument(nameof(EmergencyResolutionReport.UpdatedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

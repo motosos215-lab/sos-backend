@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.EmergencyResolution.Contracts;
+
+public sealed record GetEmergencyResolutionReportResponse(EmergencyResolutionReportResponse Report);
