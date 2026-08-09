@@ -9,6 +9,7 @@ public sealed class MongoEmergencyResolutionRepository : IEmergencyResolutionRep
 {
     private readonly IMongoCollection<EmergencyResolutionReport> _reports;
     public MongoEmergencyResolutionRepository(IMongoDatabase database) => _reports = database.GetCollection<EmergencyResolutionReport>(MongoCollectionNames.EmergencyResolutionReports);
+    public async Task<EmergencyResolutionReport?> GetByIdAsync(string id, CancellationToken cancellationToken) => await _reports.Find(r => r.Id == id).FirstOrDefaultAsync(cancellationToken);
     public async Task<EmergencyResolutionReport?> GetByIncidentIdAsync(string incidentId, CancellationToken cancellationToken) => await _reports.Find(r => r.IncidentId == incidentId).FirstOrDefaultAsync(cancellationToken);
     public async Task<EmergencyResolutionReport?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => await _reports.Find(r => r.IdempotencyKey == idempotencyKey).FirstOrDefaultAsync(cancellationToken);
     public async Task<(EmergencyResolutionReport Report, bool IsDuplicate)> AddOrGetDuplicateAsync(EmergencyResolutionReport report, CancellationToken cancellationToken)

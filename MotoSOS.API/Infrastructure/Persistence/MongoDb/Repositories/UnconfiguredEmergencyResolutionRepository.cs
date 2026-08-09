@@ -6,6 +6,7 @@ namespace MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 public sealed class UnconfiguredEmergencyResolutionRepository : IEmergencyResolutionRepository
 {
     private static InvalidOperationException CreateException() => new("MongoDB is not configured. Configure MongoDB settings to use Emergency Resolution API.");
+    public Task<EmergencyResolutionReport?> GetByIdAsync(string id, CancellationToken cancellationToken) => throw CreateException();
     public Task<EmergencyResolutionReport?> GetByIncidentIdAsync(string incidentId, CancellationToken cancellationToken) => throw CreateException();
     public Task<EmergencyResolutionReport?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => throw CreateException();
     public Task<(EmergencyResolutionReport Report, bool IsDuplicate)> AddOrGetDuplicateAsync(EmergencyResolutionReport report, CancellationToken cancellationToken) => throw CreateException();

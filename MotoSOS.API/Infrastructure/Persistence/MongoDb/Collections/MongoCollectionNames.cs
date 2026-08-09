@@ -43,4 +43,6 @@ public static class MongoCollectionNames
     public const string MinorEvents = "minorEvents";
 
     public const string TripTelemetrySummaries = "tripTelemetrySummaries";
+
+    public const string EvidenceAttachments = "evidenceAttachments";
 }

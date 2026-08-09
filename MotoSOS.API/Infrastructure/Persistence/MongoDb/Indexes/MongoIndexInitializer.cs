@@ -9,6 +9,7 @@ using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.EmergencyResolution.Domain;
 using MotoSOS.API.Modules.Escalations.Domain;
+using MotoSOS.API.Modules.EvidenceAttachments.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.LocationSharing.Domain;
 using MotoSOS.API.Modules.MinorEvents.Domain;
@@ -324,6 +325,25 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_userId_lastComputedAtUtc", new BsonDocument { [nameof(TripTelemetrySummary.UserId)] = 1, [nameof(TripTelemetrySummary.LastComputedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_tripStatus_lastComputedAtUtc", new BsonDocument { [nameof(TripTelemetrySummary.TripStatus)] = 1, [nameof(TripTelemetrySummary.LastComputedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_summaryStatus_lastComputedAtUtc", new BsonDocument { [nameof(TripTelemetrySummary.SummaryStatus)] = 1, [nameof(TripTelemetrySummary.LastComputedAtUtc)] = 1 }, unique: false, cancellationToken);
+
+        IMongoCollection<EvidenceAttachment> evidenceAttachments = _database.GetCollection<EvidenceAttachment>(MongoCollectionNames.EvidenceAttachments);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_userId", new BsonDocument(nameof(EvidenceAttachment.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_incidentId", new BsonDocument(nameof(EvidenceAttachment.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_alertDispatchId", new BsonDocument(nameof(EvidenceAttachment.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_emergencyResolutionReportId", new BsonDocument(nameof(EvidenceAttachment.EmergencyResolutionReportId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_tripId", new BsonDocument(nameof(EvidenceAttachment.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_evidenceType", new BsonDocument(nameof(EvidenceAttachment.EvidenceType), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_source", new BsonDocument(nameof(EvidenceAttachment.Source), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_status", new BsonDocument(nameof(EvidenceAttachment.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_capturedAtUtc", new BsonDocument(nameof(EvidenceAttachment.CapturedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_createdAtUtc", new BsonDocument(nameof(EvidenceAttachment.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_updatedAtUtc", new BsonDocument(nameof(EvidenceAttachment.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ux_evidenceAttachments_idempotencyKey", new BsonDocument(nameof(EvidenceAttachment.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_userId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.UserId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_incidentId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.IncidentId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_alertDispatchId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.AlertDispatchId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_emergencyResolutionReportId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.EmergencyResolutionReportId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_userId_status_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.UserId)] = 1, [nameof(EvidenceAttachment.Status)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

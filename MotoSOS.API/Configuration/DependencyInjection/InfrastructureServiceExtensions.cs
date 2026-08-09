@@ -14,6 +14,7 @@ using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyResolution.Application;
 using MotoSOS.API.Modules.Escalations.Application;
+using MotoSOS.API.Modules.EvidenceAttachments.Application;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.MinorEvents.Application;
@@ -93,6 +94,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IEmergencyEscalationRepository, MongoEmergencyEscalationRepository>();
             services.AddScoped<IMinorEventRepository, MongoMinorEventRepository>();
             services.AddScoped<ITelemetrySummaryRepository, MongoTelemetrySummaryRepository>();
+            services.AddScoped<IEvidenceAttachmentRepository, MongoEvidenceAttachmentRepository>();
             services.AddScoped<IOperationalDashboardRepository, MongoOperationalDashboardRepository>();
         }
         else
@@ -120,6 +122,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IEmergencyEscalationRepository, UnconfiguredEmergencyEscalationRepository>();
             services.AddScoped<IMinorEventRepository, UnconfiguredMinorEventRepository>();
             services.AddScoped<ITelemetrySummaryRepository, UnconfiguredTelemetrySummaryRepository>();
+            services.AddScoped<IEvidenceAttachmentRepository, UnconfiguredEvidenceAttachmentRepository>();
             services.AddScoped<IOperationalDashboardRepository, UnconfiguredOperationalDashboardRepository>();
         }
 

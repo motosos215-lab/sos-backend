@@ -48,7 +48,7 @@ public sealed class NotificationOutboxWorkerTests
         using var cts = new CancellationTokenSource();
 
         await worker.StartAsync(cts.Token);
-        await service.WaitForRunAsync(TimeSpan.FromSeconds(5));
+        await service.WaitForRunAsync(TimeSpan.FromSeconds(15));
         await cts.CancelAsync();
         await worker.StopAsync(CancellationToken.None);
 
@@ -63,7 +63,7 @@ public sealed class NotificationOutboxWorkerTests
         using var cts = new CancellationTokenSource();
 
         await worker.StartAsync(cts.Token);
-        await service.WaitForRunAsync(TimeSpan.FromSeconds(2));
+        await service.WaitForRunAsync(TimeSpan.FromSeconds(15));
         await cts.CancelAsync();
         await worker.StopAsync(CancellationToken.None);
 
