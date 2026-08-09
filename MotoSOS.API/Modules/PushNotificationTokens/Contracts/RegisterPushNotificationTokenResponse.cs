@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.PushNotificationTokens.Contracts;
+
+public sealed record RegisterPushNotificationTokenResponse(PushNotificationTokenResponse PushNotificationToken);

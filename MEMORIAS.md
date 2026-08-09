@@ -1,5 +1,20 @@
 # Memorias Tecnicas
 
+## Push Notification Tokens API
+
+- Push Notification Tokens API implementa registro, listado, estado y revocacion logica de tokens de notificacion en la coleccion `pushNotificationTokens`.
+- Agrega endpoints `POST /api/v1/push-notification-tokens`, `GET /api/v1/push-notification-tokens`, `GET /api/v1/push-notification-tokens/status`, `POST /api/v1/push-notification-tokens/{id}/revoke`, `GET /api/v1/admin/push-notification-tokens` y `POST /api/v1/admin/push-notification-tokens/{id}/revoke`.
+- `Rider`, `Monitor` y `Admin` pueden registrar tokens propios; Admin puede listar y revocar cualquier token desde rutas admin.
+- `userId` sale siempre del JWT; si el body envia `userId`, `tokenHash`, `status`, `tokenValue` o credenciales de proveedor, se devuelve `validation_error`.
+- La idempotencia usa `userId + tokenHash + platform + channel + deviceId`; registrar el mismo token no duplica y actualiza `LastSeenAtUtc`.
+- Registrar un token nuevo para el mismo scope revoca tokens activos anteriores sin borrado fisico.
+- `TokenValue` se guarda internamente para providers futuros, pero nunca se devuelve, audita ni registra; queda pendiente encryption/protection at rest.
+- `TokenHash` se usa solo internamente y nunca se devuelve ni audita.
+- Si se informa `deviceId`, se valida ownership, estado activo, `LinkStatus = Linked` y `RevokedAtUtc = null`; este modulo no crea ni modifica devices.
+- Soporta combinaciones `Android + Fcm`, `Ios + Apns`, `Web + WebPush` y `Web + Fcm`.
+- Audita best-effort `PushNotificationTokenRegistered` y `PushNotificationTokenRevoked` con metadata minima permitida.
+- No envia notificaciones reales, no llama proveedores externos, no agrega SDKs externos, no agrega secretos, no implementa cobros ni pairing API de smartwatch.
+
 ## Audit Log Retention Policy
 
 - Audit Log Retention Policy implementa retencion manual Admin-only sobre la coleccion `auditLogs`.

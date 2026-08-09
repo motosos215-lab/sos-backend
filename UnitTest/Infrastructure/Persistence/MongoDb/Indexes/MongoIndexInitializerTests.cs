@@ -26,6 +26,7 @@ using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.PushNotificationTokens.Domain;
 using MotoSOS.API.Modules.ReportExports.Domain;
 using MotoSOS.API.Modules.TelemetrySummary.Domain;
 using MotoSOS.API.Modules.Trips.Domain;
@@ -477,6 +478,7 @@ public sealed class MongoIndexInitializerTests
         var incidents = new Mock<IMongoCollection<Incident>>();
         var alertDispatchRequests = new Mock<IMongoCollection<AlertDispatchRequest>>();
         var notificationDeliveryAttempts = new Mock<IMongoCollection<NotificationDeliveryAttempt>>();
+        var pushNotificationTokens = new Mock<IMongoCollection<PushNotificationToken>>();
         var alertAcknowledgements = new Mock<IMongoCollection<AlertAcknowledgement>>();
         var emergencyLocationSnapshots = new Mock<IMongoCollection<EmergencyLocationSnapshot>>();
         var emergencyResolutionReports = new Mock<IMongoCollection<EmergencyResolutionReport>>();
@@ -501,6 +503,7 @@ public sealed class MongoIndexInitializerTests
         var incidentIndexes = new Mock<IMongoIndexManager<Incident>>();
         var alertDispatchIndexes = new Mock<IMongoIndexManager<AlertDispatchRequest>>();
         var notificationIndexes = new Mock<IMongoIndexManager<NotificationDeliveryAttempt>>();
+        var pushNotificationTokenIndexes = new Mock<IMongoIndexManager<PushNotificationToken>>();
         var alertAcknowledgementIndexes = new Mock<IMongoIndexManager<AlertAcknowledgement>>();
         var emergencyLocationIndexes = new Mock<IMongoIndexManager<EmergencyLocationSnapshot>>();
         var emergencyResolutionIndexes = new Mock<IMongoIndexManager<EmergencyResolutionReport>>();
@@ -526,6 +529,7 @@ public sealed class MongoIndexInitializerTests
         incidents.SetupGet(collection => collection.Indexes).Returns(incidentIndexes.Object);
         alertDispatchRequests.SetupGet(collection => collection.Indexes).Returns(alertDispatchIndexes.Object);
         notificationDeliveryAttempts.SetupGet(collection => collection.Indexes).Returns(notificationIndexes.Object);
+        pushNotificationTokens.SetupGet(collection => collection.Indexes).Returns(pushNotificationTokenIndexes.Object);
         alertAcknowledgements.SetupGet(collection => collection.Indexes).Returns(alertAcknowledgementIndexes.Object);
         emergencyLocationSnapshots.SetupGet(collection => collection.Indexes).Returns(emergencyLocationIndexes.Object);
         emergencyResolutionReports.SetupGet(collection => collection.Indexes).Returns(emergencyResolutionIndexes.Object);
@@ -578,6 +582,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<NotificationDeliveryAttempt>(MongoCollectionNames.NotificationDeliveryAttempts, It.IsAny<MongoCollectionSettings>()))
             .Returns(notificationDeliveryAttempts.Object);
+        database
+            .Setup(db => db.GetCollection<PushNotificationToken>(MongoCollectionNames.PushNotificationTokens, It.IsAny<MongoCollectionSettings>()))
+            .Returns(pushNotificationTokens.Object);
         database
             .Setup(db => db.GetCollection<AlertAcknowledgement>(MongoCollectionNames.AlertAcknowledgements, It.IsAny<MongoCollectionSettings>()))
             .Returns(alertAcknowledgements.Object);
@@ -651,6 +658,9 @@ public sealed class MongoIndexInitializerTests
         notificationIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.NotificationDeliveryAttempts)));
+        pushNotificationTokenIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.PushNotificationTokens)));
         alertAcknowledgementIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.AlertAcknowledgements)));
@@ -682,7 +692,7 @@ public sealed class MongoIndexInitializerTests
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.ResolutionReportExports)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, auditLogRetentionRunIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, pushNotificationTokenIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, auditLogRetentionRunIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -991,6 +1001,7 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<Incident>> IncidentIndexes,
         Mock<IMongoIndexManager<AlertDispatchRequest>> AlertDispatchIndexes,
         Mock<IMongoIndexManager<NotificationDeliveryAttempt>> NotificationIndexes,
+        Mock<IMongoIndexManager<PushNotificationToken>> PushNotificationTokenIndexes,
         Mock<IMongoIndexManager<AlertAcknowledgement>> AlertAcknowledgementIndexes,
         Mock<IMongoIndexManager<EmergencyLocationSnapshot>> EmergencyLocationIndexes,
         Mock<IMongoIndexManager<EmergencyResolutionReport>> EmergencyResolutionIndexes,

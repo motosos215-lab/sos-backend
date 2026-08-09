@@ -24,6 +24,7 @@ using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.PushNotificationTokens.Application;
 using MotoSOS.API.Modules.ReportExports.Application;
 using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
@@ -59,6 +60,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAuditLogRetentionService, AuditLogRetentionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IPushNotificationTokenService, PushNotificationTokenService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
         services.AddOptions<NotificationOutboxWorkerOptions>();
         services.AddSingleton<INotificationOutboxWorkerStateStore, InMemoryNotificationOutboxWorkerStateStore>();
@@ -84,6 +86,8 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<TelemetrySummaryQueryValidator>();
         services.AddSingleton<EvidenceAttachmentQueryValidator>();
         services.AddSingleton<ResolutionReportExportQueryValidator>();
+        services.AddSingleton<RegisterPushNotificationTokenRequestValidator>();
+        services.AddSingleton<PushNotificationTokenQueryValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
@@ -100,6 +104,9 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IMinorEventIdempotencyKeyFactory, MinorEventIdempotencyKeyFactory>();
         services.AddSingleton<IEvidenceAttachmentIdempotencyKeyFactory, EvidenceAttachmentIdempotencyKeyFactory>();
         services.AddSingleton<IResolutionReportExportIdempotencyKeyFactory, ResolutionReportExportIdempotencyKeyFactory>();
+        services.AddSingleton<IPushNotificationTokenHasher, PushNotificationTokenHasher>();
+        services.AddSingleton<IPushNotificationTokenPreviewer, PushNotificationTokenPreviewer>();
+        services.AddSingleton<IPushNotificationTokenIdempotencyKeyFactory, PushNotificationTokenIdempotencyKeyFactory>();
 
         return services;
     }
