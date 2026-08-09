@@ -23,6 +23,7 @@ using MotoSOS.API.Modules.Onboarding.Endpoints;
 using MotoSOS.API.Modules.OperationalDashboard.Endpoints;
 using MotoSOS.API.Modules.Plans.Endpoints;
 using MotoSOS.API.Modules.Profiles.Endpoints;
+using MotoSOS.API.Modules.ReportExports.Endpoints;
 using MotoSOS.API.Modules.TelemetrySummary.Endpoints;
 using MotoSOS.API.Modules.Trips.Endpoints;
 using MotoSOS.API.Modules.Users.Endpoints;
@@ -95,6 +96,7 @@ app.MapAuditLogEndpoints();
 app.MapEmergencyEscalationEndpoints();
 app.MapMinorEventEndpoints();
 app.MapEvidenceAttachmentEndpoints();
+app.MapResolutionReportExportEndpoints();
 
 app.Run();
 
