@@ -10,6 +10,7 @@ Notification Outbox API procesa de forma controlada los `NotificationDeliveryAtt
 - No llama proveedores externos.
 - No ejecuta worker de fondo real.
 - No modifica incidentes, dispatches, acknowledgements, reportes de resolucion ni ubicaciones.
+- Usa `NotificationProviderResolver` y `SimulatedNotificationProvider` como abstraccion interna.
 
 ## Permisos
 
@@ -40,6 +41,7 @@ Reglas:
 - Si `simulateFailures = true`, todos los attempts seleccionados pasan a `Failed` con reason `simulated_failure_requested`.
 - Los cambios usan actualizacion atomica por `Id` y estado esperado.
 - Attempts en `Cancelled`, `Failed` o `SimulatedSent` no se procesan en `run`.
+- El procesamiento pasa por el proveedor simulado interno; no cambia la response publica.
 
 ### `GET /api/v1/admin/notifications/outbox/status`
 
@@ -67,6 +69,12 @@ Reglas:
 - Limpia reason y timestamp de falla.
 - No procesa `Cancelled` ni `SimulatedSent`.
 - No envia nada; el siguiente `run` procesa los attempts preparados.
+
+## Provider Abstraction
+
+Notification Outbox usa una abstraccion interna de proveedor para desacoplar el procesamiento simulado. En esta etapa el resolver siempre devuelve `SimulatedNotificationProvider` para `Sms`, `Email` y `Push`.
+
+No se agregan proveedores reales, SDKs externos, secretos, configuracion sensible ni endpoints nuevos.
 
 ## Seguridad
 

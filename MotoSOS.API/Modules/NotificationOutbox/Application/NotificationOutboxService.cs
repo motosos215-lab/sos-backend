@@ -6,6 +6,7 @@ using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.NotificationOutbox.Contracts;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Domain;
+using MotoSOS.API.Modules.Notifications.Providers;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
 
@@ -15,15 +16,18 @@ public sealed class NotificationOutboxService : INotificationOutboxService
 {
     private const int DefaultMaxItems = 20;
     private const string SimulatedFailureReason = "simulated_failure_requested";
+    private const string ProviderExceptionReason = "simulated_provider_failure";
+    private const string UnsupportedChannelReason = "unsupported_notification_channel";
 
     private readonly IUserRepository _users;
     private readonly INotificationDeliveryAttemptRepository _attempts;
+    private readonly INotificationProviderResolver _providers;
     private readonly IClock _clock;
     private readonly IAuditLogService? _auditLogs;
 
-    public NotificationOutboxService(IUserRepository users, INotificationDeliveryAttemptRepository attempts, IClock clock, IAuditLogService? auditLogs = null)
+    public NotificationOutboxService(IUserRepository users, INotificationDeliveryAttemptRepository attempts, INotificationProviderResolver providers, IClock clock, IAuditLogService? auditLogs = null)
     {
-        _users = users; _attempts = attempts; _clock = clock; _auditLogs = auditLogs;
+        _users = users; _attempts = attempts; _providers = providers; _clock = clock; _auditLogs = auditLogs;
     }
 
     public async Task<RunNotificationOutboxResponse> RunAsync(string adminUserId, RunNotificationOutboxRequest request, CancellationToken cancellationToken)
@@ -37,9 +41,10 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         int sent = 0; int failed = 0; int skipped = 0;
         foreach (NotificationDeliveryAttempt candidate in candidates)
         {
-            NotificationDeliveryAttempt? updated = simulateFailures
-                ? await _attempts.TryMarkFailedAsync(candidate.Id, SimulatedFailureReason, now, cancellationToken)
-                : await _attempts.TryMarkSimulatedSentAsync(candidate.Id, now, cancellationToken);
+            NotificationProviderResult result = await SendViaProviderAsync(candidate, simulateFailures, now, cancellationToken);
+            NotificationDeliveryAttempt? updated = result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent
+                ? await _attempts.TryMarkSimulatedSentAsync(candidate.Id, result.ProviderMessageId, result.SentAtUtc ?? now, cancellationToken)
+                : await _attempts.TryMarkFailedAsync(candidate.Id, NormalizeFailureReason(result.ErrorCode), result.FailedAtUtc ?? now, cancellationToken);
             if (updated is null)
             {
                 skipped++;
@@ -49,6 +54,7 @@ public sealed class NotificationOutboxService : INotificationOutboxService
 
             if (updated.Status == NotificationDeliveryStatus.SimulatedSent) sent++;
             if (updated.Status == NotificationDeliveryStatus.Failed) failed++;
+            await RecordProviderAsync(user.Id, user.Role, updated, result, cancellationToken);
             items.Add(new NotificationOutboxItemResultResponse(updated.Id, updated.Status.ToString(), updated.Channel.ToString(), updated.FailureReason));
         }
 
@@ -93,5 +99,51 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         return user;
     }
 
-    private Task RecordAsync(string userId, UserRole role, AuditAction action, string entityType, string? entityId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken) => _auditLogs?.RecordAsync(userId, role.ToString(), action, AuditModule.NotificationOutbox, entityType, entityId, AuditOutcome.Success, reason, null, null, metadata, cancellationToken) ?? Task.CompletedTask;
+    private async Task<NotificationProviderResult> SendViaProviderAsync(NotificationDeliveryAttempt attempt, bool simulateFailures, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (!TryMapChannel(attempt.Channel, out NotificationProviderChannel channel))
+        {
+            return new NotificationProviderResult(NotificationProviderType.Simulated, NotificationProviderChannel.Sms, NotificationProviderDeliveryStatus.Failed, null, "unsupported-channel", UnsupportedChannelReason, "Notification channel is not supported.", null, now);
+        }
+
+        try
+        {
+            INotificationProvider provider = _providers.Resolve(channel);
+            return await provider.SendAsync(new NotificationProviderRequest(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, channel, simulateFailures), cancellationToken);
+        }
+        catch (Exception)
+        {
+            return new NotificationProviderResult(NotificationProviderType.Simulated, channel, NotificationProviderDeliveryStatus.Failed, null, "provider-exception", ProviderExceptionReason, "Notification provider failed in a controlled way.", null, now);
+        }
+    }
+
+    private async Task RecordProviderAsync(string userId, UserRole role, NotificationDeliveryAttempt attempt, NotificationProviderResult result, CancellationToken cancellationToken)
+    {
+        AuditAction action = result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderSimulatedSent : AuditAction.NotificationProviderSimulatedFailed;
+        await RecordAsync(userId, role, action, "NotificationDeliveryAttempt", attempt.Id, result.ErrorCode, new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["alertDispatchId"] = attempt.AlertDispatchId, ["incidentId"] = attempt.IncidentId, ["channel"] = attempt.Channel.ToString(), ["providerType"] = result.ProviderType.ToString(), ["deliveryStatus"] = result.DeliveryStatus.ToString(), ["providerMessageId"] = result.ProviderMessageId ?? string.Empty, ["errorCode"] = result.ErrorCode ?? string.Empty }, cancellationToken);
+    }
+
+    private async Task RecordAsync(string userId, UserRole role, AuditAction action, string entityType, string? entityId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (_auditLogs is not null) await _auditLogs.RecordAsync(userId, role.ToString(), action, AuditModule.NotificationOutbox, entityType, entityId, AuditOutcome.Success, reason, null, null, metadata, cancellationToken);
+        }
+        catch
+        {
+        }
+    }
+
+    private static string NormalizeFailureReason(string? errorCode) => string.IsNullOrWhiteSpace(errorCode) ? SimulatedFailureReason : errorCode.Trim();
+    private static bool TryMapChannel(NotificationChannel channel, out NotificationProviderChannel providerChannel)
+    {
+        providerChannel = channel switch
+        {
+            NotificationChannel.Sms => NotificationProviderChannel.Sms,
+            NotificationChannel.Email => NotificationProviderChannel.Email,
+            NotificationChannel.Push => NotificationProviderChannel.Push,
+            _ => default
+        };
+        return providerChannel != default;
+    }
 }

@@ -67,6 +67,8 @@ Actualmente se auditan estas acciones exitosas:
 - `MinorEventMarkedReviewed`
 - `MinorEventIgnored`
 - `MinorEventProcessedFromOfflineIngestion`
+- `NotificationProviderSimulatedSent`
+- `NotificationProviderSimulatedFailed`
 
 ## Endpoints
 

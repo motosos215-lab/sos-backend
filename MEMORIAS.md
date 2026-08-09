@@ -139,6 +139,12 @@
 - Notifications API usa exclusivamente `ContactsSnapshot` de Alert Dispatch y no consulta contactos vivos para generar intentos.
 - Se crea un intento por contacto: `Sms` si hay telefono y `Email` como fallback si solo hay correo; contactos sin canal se omiten.
 - Los intentos nuevos quedan `Prepared` y `Provider = None`; `SimulatedSent` existe solo para pruebas internas.
+- Notification Provider Abstraction agrega `INotificationProvider`, `INotificationProviderResolver`, request/result internos, enums de provider/channel/status y `SimulatedNotificationProvider`.
+- `NotificationProviderResolver` devuelve siempre proveedor simulado para `Sms`, `Email` y `Push`; canales no soportados se manejan como fallo controlado.
+- Notification Outbox usa la abstraccion interna y mantiene sus endpoints, rutas y contratos publicos existentes sin cambios.
+- `simulateFailures = false` conserva `Prepared -> SimulatedSent`; `simulateFailures = true` conserva `Prepared -> Failed`; `retry-failed` conserva `Failed -> Prepared`.
+- El provider simulado genera `ProviderMessageId` seguro `simulated-{guid}` en exito y errores controlados en falla; no realiza I/O externo ni requiere configuracion sensible.
+- Notification Provider Abstraction audita best-effort `NotificationProviderSimulatedSent` y `NotificationProviderSimulatedFailed` con metadata segura limitada.
 - No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
 - Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
 - Alert Acknowledgements API implementa la respuesta del contacto/monitor ante alertas preparadas, sin live monitoring ni notificaciones reales todavia.

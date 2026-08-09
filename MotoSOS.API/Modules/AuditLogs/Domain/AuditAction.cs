@@ -23,5 +23,7 @@ public enum AuditAction
     MinorEventRecorded = 18,
     MinorEventMarkedReviewed = 19,
     MinorEventIgnored = 20,
-    MinorEventProcessedFromOfflineIngestion = 21
+    MinorEventProcessedFromOfflineIngestion = 21,
+    NotificationProviderSimulatedSent = 22,
+    NotificationProviderSimulatedFailed = 23
 }
