@@ -63,6 +63,10 @@ Actualmente se auditan estas acciones exitosas:
 - `EmergencyEscalationRequested`
 - `EmergencyEscalationMarkedUnresolved`
 - `EmergencyEscalationCancelled`
+- `MinorEventRecorded`
+- `MinorEventMarkedReviewed`
+- `MinorEventIgnored`
+- `MinorEventProcessedFromOfflineIngestion`
 
 ## Endpoints
 

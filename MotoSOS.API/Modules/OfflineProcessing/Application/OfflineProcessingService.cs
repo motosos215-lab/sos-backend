@@ -10,6 +10,8 @@ using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.Incidents.Contracts;
 using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.LocationSharing.Contracts;
+using MotoSOS.API.Modules.MinorEvents.Application;
+using MotoSOS.API.Modules.MinorEvents.Contracts;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.OfflineProcessing.Contracts;
@@ -21,7 +23,6 @@ namespace MotoSOS.API.Modules.OfflineProcessing.Application;
 public sealed class OfflineProcessingService : IOfflineProcessingService
 {
     private const int DefaultMaxItems = 20;
-    private const string MinorEventSkippedReason = "minor_event_processing_not_implemented";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IUserRepository _users;
@@ -29,16 +30,18 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
     private readonly IIncidentService _incidents;
     private readonly IAlertDispatchService _alertDispatches;
     private readonly ILocationSharingService _locations;
+    private readonly IMinorEventService _minorEvents;
     private readonly IClock _clock;
     private readonly IAuditLogService? _auditLogs;
 
-    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IClock clock, IAuditLogService? auditLogs = null)
+    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IMinorEventService minorEvents, IClock clock, IAuditLogService? auditLogs = null)
     {
         _users = users;
         _records = records;
         _incidents = incidents;
         _alertDispatches = alertDispatches;
         _locations = locations;
+        _minorEvents = minorEvents;
         _clock = clock;
         _auditLogs = auditLogs;
     }
@@ -87,7 +90,7 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
                 OfflineIngestionItemType.LocalIncident => await ProcessLocalIncidentAsync(userId, record, cancellationToken),
                 OfflineIngestionItemType.AlertDispatchRequest => await ProcessAlertDispatchAsync(userId, record, cancellationToken),
                 OfflineIngestionItemType.LocationUpdate => await ProcessLocationUpdateAsync(userId, record, cancellationToken),
-                OfflineIngestionItemType.MinorEvent => await MarkIgnoredAsync(record, MinorEventSkippedReason, cancellationToken),
+                OfflineIngestionItemType.MinorEvent => await ProcessMinorEventAsync(userId, record, cancellationToken),
                 _ => await MarkIgnoredAsync(record, "unsupported_offline_record_type", cancellationToken)
             };
         }
@@ -123,6 +126,18 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
         ShareLocationSnapshotRequest request = Deserialize<ShareLocationSnapshotRequest>(record.Payload);
         ShareLocationSnapshotResponse response = await _locations.ShareAsync(userId, request, cancellationToken);
         return await MarkProcessedAsync(record, response.Location.IncidentId, cancellationToken);
+    }
+
+    private async Task<OfflineProcessingItemResultResponse> ProcessMinorEventAsync(string userId, OfflineIngestionRecord record, CancellationToken cancellationToken)
+    {
+        CreateMinorEventRequest payload = Deserialize<CreateMinorEventRequest>(record.Payload);
+        if (string.IsNullOrWhiteSpace(payload.EventType) || string.IsNullOrWhiteSpace(payload.Severity) || !payload.Confidence.HasValue)
+        {
+            throw new ValidationAppException("Minor event payload is invalid.");
+        }
+
+        CreateMinorEventResponse response = await _minorEvents.CreateFromOfflineAsync(userId, record.Id, record.TripId, record.ClientEventId, record.MobileDeviceId, record.OccurredAtUtc, payload, cancellationToken);
+        return await MarkProcessedAsync(record, response.MinorEvent.Id, cancellationToken);
     }
 
     private async Task<OfflineProcessingItemResultResponse> MarkProcessedAsync(OfflineIngestionRecord record, string remoteRecordId, CancellationToken cancellationToken)

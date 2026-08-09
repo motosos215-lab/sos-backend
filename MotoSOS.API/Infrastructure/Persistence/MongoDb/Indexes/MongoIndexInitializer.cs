@@ -11,6 +11,7 @@ using MotoSOS.API.Modules.EmergencyResolution.Domain;
 using MotoSOS.API.Modules.Escalations.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.LocationSharing.Domain;
+using MotoSOS.API.Modules.MinorEvents.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
@@ -288,6 +289,26 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_userId_createdAtUtc", new BsonDocument { [nameof(EmergencyEscalation.UserId)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_status_createdAtUtc", new BsonDocument { [nameof(EmergencyEscalation.Status)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_incidentId_createdAtUtc", new BsonDocument { [nameof(EmergencyEscalation.IncidentId)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+
+        IMongoCollection<MinorEvent> minorEvents = _database.GetCollection<MinorEvent>(MongoCollectionNames.MinorEvents);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_userId", new BsonDocument(nameof(MinorEvent.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_tripId", new BsonDocument(nameof(MinorEvent.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_vehicleId", new BsonDocument(nameof(MinorEvent.VehicleId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_mobileDeviceId", new BsonDocument(nameof(MinorEvent.MobileDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_smartwatchDeviceId", new BsonDocument(nameof(MinorEvent.SmartwatchDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_eventType", new BsonDocument(nameof(MinorEvent.EventType), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_severity", new BsonDocument(nameof(MinorEvent.Severity), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_status", new BsonDocument(nameof(MinorEvent.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_source", new BsonDocument(nameof(MinorEvent.Source), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_occurredAtUtc", new BsonDocument(nameof(MinorEvent.OccurredAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_createdAtUtc", new BsonDocument(nameof(MinorEvent.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_updatedAtUtc", new BsonDocument(nameof(MinorEvent.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ux_minorEvents_idempotencyKey", new BsonDocument(nameof(MinorEvent.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_userId_occurredAtUtc", new BsonDocument { [nameof(MinorEvent.UserId)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_tripId_occurredAtUtc", new BsonDocument { [nameof(MinorEvent.TripId)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_userId_tripId", new BsonDocument { [nameof(MinorEvent.UserId)] = 1, [nameof(MinorEvent.TripId)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_eventType_occurredAtUtc", new BsonDocument { [nameof(MinorEvent.EventType)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(minorEvents, "ix_minorEvents_status_occurredAtUtc", new BsonDocument { [nameof(MinorEvent.Status)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

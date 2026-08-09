@@ -158,6 +158,16 @@
 - `ManualEscalation` se permite para incidente propio `Open` si no existe acknowledgement `Acknowledged`; incidentes `Closed` o `FalsePositiveCancelled` devuelven `incident_not_ready`.
 - Emergency Escalation API audita `EmergencyEscalationRequested`, `EmergencyEscalationMarkedUnresolved` y `EmergencyEscalationCancelled` con metadata segura limitada.
 - Pendientes futuros de Emergency Escalation: integraciones reales con servicios de emergencia si hay aprobacion legal/operativa, proveedores reales, automatizacion controlada, dashboard avanzado y correlacion operacional completa.
+- Minor Events API implementa registro de eventos menores de viaje en la coleccion `minorEvents`, sin convertirlos en emergencias confirmadas.
+- Minor Events API agrega `POST /api/v1/mobile/minor-events`, `GET /api/v1/rider/minor-events`, `GET /api/v1/rider/minor-events/{id}`, `POST /api/v1/rider/minor-events/{id}/mark-reviewed`, `POST /api/v1/rider/minor-events/{id}/ignore` y `GET /api/v1/admin/minor-events`.
+- La idempotency key oficial de Minor Events es `userId + tripId + clientEventId + eventType`; duplicados devuelven el mismo `MinorEvent` sin `409` y sin duplicar documentos.
+- Minor Events API permite crear eventos solo para viajes propios `Active` o `Finished`; `userId` siempre viene del JWT y no se acepta en el body.
+- `mobileDeviceId` y `smartwatchDeviceId`, si se informan, deben pertenecer al Rider y estar vinculados; si no se informan, se permite registrar desde app movil u offline ingestion.
+- Minor Events API sanitiza metadata case-insensitive, elimina claves sensibles y trunca valores a 200 caracteres; no guarda payload completo.
+- Offline Processing procesa item type `minor-event` creando `MinorEvent`, marca el offline record como `Processed` y usa `MinorEvent.Id` como `remoteRecordId`; payload invalido queda como fallo permanente controlado sin romper todo el batch.
+- Minor Events API no crea `Incident`, `AlertDispatchRequest`, `NotificationDeliveryAttempt`, `AlertAcknowledgement`, `EmergencyEscalation` ni `EmergencyResolutionReport`, y no modifica `Trip`.
+- Minor Events API audita best-effort `MinorEventRecorded`, `MinorEventMarkedReviewed`, `MinorEventIgnored` y `MinorEventProcessedFromOfflineIngestion`.
+- Pendientes futuros de Minor Events: reglas automaticas, dashboard especifico, analitica, modelos predictivos aprobados, correlacion con incidentes, mapas historicos agregados y telemetria resumida avanzada.
 - Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
 - Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.
 - Location Sharing agrega `POST /api/v1/mobile/location-sharing/snapshot`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/location` y `GET /api/v1/rider/incidents/{incidentId}/location`.
