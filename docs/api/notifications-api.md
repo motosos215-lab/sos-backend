@@ -96,6 +96,12 @@ En esta etapa `attemptNumber = 1`. Existe indice unico en `IdempotencyKey`. Si s
 - `Failed`: marcado manualmente como falla simulada.
 - `Cancelled`: cancelado logicamente.
 
+## Provider Abstraction
+
+Notification Outbox procesa attempts mediante `NotificationProviderResolver`. En esta etapa el resolver siempre usa `SimulatedNotificationProvider` para `Sms`, `Email` y `Push`.
+
+La abstraccion no cambia endpoints publicos, responses ni transiciones existentes. Proveedores reales quedan pendientes para fases futuras.
+
 ## Transiciones
 
 `mark-simulated-sent`:

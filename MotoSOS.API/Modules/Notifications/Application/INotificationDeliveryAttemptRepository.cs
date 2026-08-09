@@ -13,6 +13,7 @@ public interface INotificationDeliveryAttemptRepository
     Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken cancellationToken);
     Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByStatusAsync(NotificationDeliveryStatus status, int maxItems, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>([]);
     Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<NotificationDeliveryAttempt?>(null);
+    Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, string? providerMessageId, DateTimeOffset now, CancellationToken cancellationToken) => TryMarkSimulatedSentAsync(attemptId, now, cancellationToken);
     Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, string failureReason, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<NotificationDeliveryAttempt?>(null);
     Task<NotificationDeliveryAttempt?> TryResetFailedToPreparedAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<NotificationDeliveryAttempt?>(null);
     Task<long> CountByStatusAsync(NotificationDeliveryStatus status, CancellationToken cancellationToken) => Task.FromResult(0L);
