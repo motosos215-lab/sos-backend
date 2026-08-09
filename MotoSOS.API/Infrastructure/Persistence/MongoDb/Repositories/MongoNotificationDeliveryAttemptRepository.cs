@@ -36,6 +36,43 @@ public sealed class MongoNotificationDeliveryAttemptRepository : INotificationDe
         await _attempts.Find(Builders<NotificationDeliveryAttempt>.Filter.In(a => a.EmergencyContactId, emergencyContactIds)).SortByDescending(a => a.CreatedAtUtc).Skip((pageNumber - 1) * pageSize).Limit(pageSize).ToListAsync(cancellationToken);
     public async Task<long> CountByEmergencyContactIdsAsync(IReadOnlyCollection<string> emergencyContactIds, CancellationToken cancellationToken) =>
         await _attempts.CountDocumentsAsync(Builders<NotificationDeliveryAttempt>.Filter.In(a => a.EmergencyContactId, emergencyContactIds), cancellationToken: cancellationToken);
+    public async Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByStatusAsync(NotificationDeliveryStatus status, int maxItems, CancellationToken cancellationToken) =>
+        await _attempts.Find(a => a.Status == status).SortBy(a => a.CreatedAtUtc).ThenBy(a => a.PreparedAtUtc).Limit(maxItems).ToListAsync(cancellationToken);
+    public async Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await _attempts.FindOneAndUpdateAsync(
+            a => a.Id == attemptId && a.Status == NotificationDeliveryStatus.Prepared,
+            Builders<NotificationDeliveryAttempt>.Update
+                .Set(a => a.Status, NotificationDeliveryStatus.SimulatedSent)
+                .Set(a => a.Provider, NotificationProvider.Simulated)
+                .Set(a => a.SimulatedSentAtUtc, now)
+                .Set(a => a.LastStatusChangedAtUtc, now)
+                .Set(a => a.UpdatedAtUtc, now),
+            new FindOneAndUpdateOptions<NotificationDeliveryAttempt> { ReturnDocument = ReturnDocument.After },
+            cancellationToken);
+    public async Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, string failureReason, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await _attempts.FindOneAndUpdateAsync(
+            a => a.Id == attemptId && a.Status == NotificationDeliveryStatus.Prepared,
+            Builders<NotificationDeliveryAttempt>.Update
+                .Set(a => a.Status, NotificationDeliveryStatus.Failed)
+                .Set(a => a.FailedAtUtc, now)
+                .Set(a => a.FailureReason, failureReason)
+                .Set(a => a.LastStatusChangedAtUtc, now)
+                .Set(a => a.UpdatedAtUtc, now),
+            new FindOneAndUpdateOptions<NotificationDeliveryAttempt> { ReturnDocument = ReturnDocument.After },
+            cancellationToken);
+    public async Task<NotificationDeliveryAttempt?> TryResetFailedToPreparedAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await _attempts.FindOneAndUpdateAsync(
+            a => a.Id == attemptId && a.Status == NotificationDeliveryStatus.Failed,
+            Builders<NotificationDeliveryAttempt>.Update
+                .Set(a => a.Status, NotificationDeliveryStatus.Prepared)
+                .Set(a => a.Provider, NotificationProvider.None)
+                .Set(a => a.FailureReason, null)
+                .Set(a => a.FailedAtUtc, null)
+                .Set(a => a.LastStatusChangedAtUtc, now)
+                .Set(a => a.UpdatedAtUtc, now),
+            new FindOneAndUpdateOptions<NotificationDeliveryAttempt> { ReturnDocument = ReturnDocument.After },
+            cancellationToken);
+    public async Task<long> CountByStatusAsync(NotificationDeliveryStatus status, CancellationToken cancellationToken) => await _attempts.CountDocumentsAsync(a => a.Status == status, cancellationToken: cancellationToken);
     public async Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken cancellationToken) => await _attempts.ReplaceOneAsync(existing => existing.Id == attempt.Id, attempt, cancellationToken: cancellationToken);
     private static FilterDefinition<NotificationDeliveryAttempt> BuildFilter(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status)
     {
