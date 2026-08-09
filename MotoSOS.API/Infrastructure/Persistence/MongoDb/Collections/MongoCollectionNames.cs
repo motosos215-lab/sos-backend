@@ -41,4 +41,6 @@ public static class MongoCollectionNames
     public const string EmergencyEscalations = "emergencyEscalations";
 
     public const string MinorEvents = "minorEvents";
+
+    public const string TripTelemetrySummaries = "tripTelemetrySummaries";
 }

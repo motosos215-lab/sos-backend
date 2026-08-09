@@ -76,6 +76,8 @@ Actualmente se auditan estas acciones exitosas:
 - `AutomaticEscalationWorkerFailed`
 - `AutomaticEscalationWorkerSkipped`
 - `EmergencyEscalationAutomaticallyRequested`
+- `TelemetrySummaryComputed`
+- `TelemetrySummaryRecomputed`
 
 ## Endpoints
 

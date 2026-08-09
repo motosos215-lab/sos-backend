@@ -22,6 +22,7 @@ using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Vehicles.Application;
@@ -45,6 +46,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IPlanCatalogService, PlanCatalogService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<ITripService, TripService>();
+        services.AddScoped<ITelemetrySummaryService, TelemetrySummaryService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
         services.AddScoped<IIncidentService, IncidentService>();
@@ -71,6 +73,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<AuditLogQueryValidator>();
         services.AddSingleton<EscalationQueryValidator>();
         services.AddSingleton<MinorEventQueryValidator>();
+        services.AddSingleton<TelemetrySummaryQueryValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();

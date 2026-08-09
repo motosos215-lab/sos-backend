@@ -32,5 +32,7 @@ public enum AuditAction
     AutomaticEscalationWorkerRun = 27,
     AutomaticEscalationWorkerFailed = 28,
     AutomaticEscalationWorkerSkipped = 29,
-    EmergencyEscalationAutomaticallyRequested = 30
+    EmergencyEscalationAutomaticallyRequested = 30,
+    TelemetrySummaryComputed = 31,
+    TelemetrySummaryRecomputed = 32
 }

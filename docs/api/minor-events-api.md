@@ -202,6 +202,10 @@ Si falla la auditoria, la operacion principal no se rompe.
 
 No agrega proveedores reales, mensajeria real, worker real, servicios en segundo plano, realtime, tracking en vivo, mapa en tiempo real, IA real, predicciones, cobros ni pairing API de smartwatch.
 
+## Relacion Con Telemetry Summary
+
+Telemetry Summary API usa `MinorEvents` como fuente para generar resumenes agregados por viaje. El summary no copia coordenadas, metadata, mensajes ni lista completa de eventos.
+
 ## Pendientes Futuros
 
 - Reglas automaticas controladas.

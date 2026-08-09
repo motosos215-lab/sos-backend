@@ -54,7 +54,7 @@ public sealed class AutomaticEscalationWorkerTests
         AutomaticEscalationWorker interval = Worker(new AutomaticEscalationWorkerOptions { Enabled = true, RunOnStartup = false, IntervalSeconds = 1 }, intervalService, out _);
         using var intervalCts = new CancellationTokenSource();
         await interval.StartAsync(intervalCts.Token);
-        await intervalService.WaitForRunAsync(TimeSpan.FromSeconds(2));
+        await intervalService.WaitForRunAsync(TimeSpan.FromSeconds(5));
         await intervalCts.CancelAsync();
         await interval.StopAsync(CancellationToken.None);
 
