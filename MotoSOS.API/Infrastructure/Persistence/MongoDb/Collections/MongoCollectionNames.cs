@@ -39,4 +39,6 @@ public static class MongoCollectionNames
     public const string AuditLogs = "auditLogs";
 
     public const string EmergencyEscalations = "emergencyEscalations";
+
+    public const string MinorEvents = "minorEvents";
 }

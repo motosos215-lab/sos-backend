@@ -10,6 +10,7 @@ using MotoSOS.API.Modules.EmergencyStatus.Application;
 using MotoSOS.API.Modules.Escalations.Application;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
+using MotoSOS.API.Modules.MinorEvents.Application;
 using MotoSOS.API.Modules.NotificationOutbox.Application;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
@@ -54,8 +55,10 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IEmergencyResolutionService, EmergencyResolutionService>();
         services.AddScoped<IOperationalDashboardService, OperationalDashboardService>();
         services.AddScoped<IEmergencyEscalationService, EmergencyEscalationService>();
+        services.AddScoped<IMinorEventService, MinorEventService>();
         services.AddSingleton<AuditLogQueryValidator>();
         services.AddSingleton<EscalationQueryValidator>();
+        services.AddSingleton<MinorEventQueryValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
@@ -69,6 +72,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<ILocationSharingStalenessService, LocationSharingStalenessService>();
         services.AddSingleton<IEmergencyResolutionIdempotencyKeyFactory, EmergencyResolutionIdempotencyKeyFactory>();
         services.AddSingleton<IEmergencyEscalationIdempotencyKeyFactory, EmergencyEscalationIdempotencyKeyFactory>();
+        services.AddSingleton<IMinorEventIdempotencyKeyFactory, MinorEventIdempotencyKeyFactory>();
 
         return services;
     }

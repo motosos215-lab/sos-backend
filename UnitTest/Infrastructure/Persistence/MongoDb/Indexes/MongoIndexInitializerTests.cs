@@ -18,6 +18,7 @@ using MotoSOS.API.Modules.EmergencyResolution.Domain;
 using MotoSOS.API.Modules.Escalations.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.LocationSharing.Domain;
+using MotoSOS.API.Modules.MinorEvents.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
@@ -169,7 +170,25 @@ public sealed class MongoIndexInitializerTests
             EmergencyEscalationIdempotencyKeyIndex("legacy_escalation_idempotency"),
             EmergencyEscalationUserIdCreatedAtIndex("legacy_escalation_user_created"),
             EmergencyEscalationStatusCreatedAtIndex("legacy_escalation_status_created"),
-            EmergencyEscalationIncidentIdCreatedAtIndex("legacy_escalation_incident_created"));
+            EmergencyEscalationIncidentIdCreatedAtIndex("legacy_escalation_incident_created"),
+            MinorEventUserIdIndex("legacy_minor_user"),
+            MinorEventTripIdIndex("legacy_minor_trip"),
+            MinorEventVehicleIdIndex("legacy_minor_vehicle"),
+            MinorEventMobileDeviceIdIndex("legacy_minor_mobile"),
+            MinorEventSmartwatchDeviceIdIndex("legacy_minor_watch"),
+            MinorEventEventTypeIndex("legacy_minor_type"),
+            MinorEventSeverityIndex("legacy_minor_severity"),
+            MinorEventStatusIndex("legacy_minor_status"),
+            MinorEventSourceIndex("legacy_minor_source"),
+            MinorEventOccurredAtIndex("legacy_minor_occurred"),
+            MinorEventCreatedAtIndex("legacy_minor_created"),
+            MinorEventUpdatedAtIndex("legacy_minor_updated"),
+            MinorEventIdempotencyKeyIndex("legacy_minor_idempotency"),
+            MinorEventUserIdOccurredAtIndex("legacy_minor_user_occurred"),
+            MinorEventTripIdOccurredAtIndex("legacy_minor_trip_occurred"),
+            MinorEventUserIdTripIdIndex("legacy_minor_user_trip"),
+            MinorEventEventTypeOccurredAtIndex("legacy_minor_type_occurred"),
+            MinorEventStatusOccurredAtIndex("legacy_minor_status_occurred"));
         var initializer = new MongoIndexInitializer(indexes.Database.Object);
 
         await initializer.EnsureIndexesAsync(CancellationToken.None);
@@ -230,6 +249,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.EmergencyEscalationIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<EmergencyEscalation>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.MinorEventIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<MinorEvent>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -347,6 +369,18 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.MinorEventIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<MinorEvent>>(model => model.Options.Name == "ix_minorEvents_userId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        indexes.MinorEventIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<MinorEvent>>(model => model.Options.Name == "ux_minorEvents_idempotencyKey" && model.Options.Unique == true),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -417,6 +451,7 @@ public sealed class MongoIndexInitializerTests
         var emergencyResolutionReports = new Mock<IMongoCollection<EmergencyResolutionReport>>();
         var auditLogs = new Mock<IMongoCollection<AuditLogEntry>>();
         var emergencyEscalations = new Mock<IMongoCollection<EmergencyEscalation>>();
+        var minorEvents = new Mock<IMongoCollection<MinorEvent>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -436,6 +471,7 @@ public sealed class MongoIndexInitializerTests
         var emergencyResolutionIndexes = new Mock<IMongoIndexManager<EmergencyResolutionReport>>();
         var auditLogIndexes = new Mock<IMongoIndexManager<AuditLogEntry>>();
         var emergencyEscalationIndexes = new Mock<IMongoIndexManager<EmergencyEscalation>>();
+        var minorEventIndexes = new Mock<IMongoIndexManager<MinorEvent>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -456,6 +492,7 @@ public sealed class MongoIndexInitializerTests
         emergencyResolutionReports.SetupGet(collection => collection.Indexes).Returns(emergencyResolutionIndexes.Object);
         auditLogs.SetupGet(collection => collection.Indexes).Returns(auditLogIndexes.Object);
         emergencyEscalations.SetupGet(collection => collection.Indexes).Returns(emergencyEscalationIndexes.Object);
+        minorEvents.SetupGet(collection => collection.Indexes).Returns(minorEventIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -513,6 +550,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<EmergencyEscalation>(MongoCollectionNames.EmergencyEscalations, It.IsAny<MongoCollectionSettings>()))
             .Returns(emergencyEscalations.Object);
+        database
+            .Setup(db => db.GetCollection<MinorEvent>(MongoCollectionNames.MinorEvents, It.IsAny<MongoCollectionSettings>()))
+            .Returns(minorEvents.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -571,8 +611,11 @@ public sealed class MongoIndexInitializerTests
         emergencyEscalationIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.EmergencyEscalations)));
+        minorEventIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.MinorEvents)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, emergencyEscalationIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, emergencyEscalationIndexes, minorEventIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -829,6 +872,25 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument EmergencyEscalationStatusCreatedAtIndex(string name) => Index(MongoCollectionNames.EmergencyEscalations, name, new BsonDocument { [nameof(EmergencyEscalation.Status)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false);
     private static BsonDocument EmergencyEscalationIncidentIdCreatedAtIndex(string name) => Index(MongoCollectionNames.EmergencyEscalations, name, new BsonDocument { [nameof(EmergencyEscalation.IncidentId)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false);
 
+    private static BsonDocument MinorEventUserIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.UserId), 1), unique: false);
+    private static BsonDocument MinorEventTripIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.TripId), 1), unique: false);
+    private static BsonDocument MinorEventVehicleIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.VehicleId), 1), unique: false);
+    private static BsonDocument MinorEventMobileDeviceIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.MobileDeviceId), 1), unique: false);
+    private static BsonDocument MinorEventSmartwatchDeviceIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.SmartwatchDeviceId), 1), unique: false);
+    private static BsonDocument MinorEventEventTypeIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.EventType), 1), unique: false);
+    private static BsonDocument MinorEventSeverityIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.Severity), 1), unique: false);
+    private static BsonDocument MinorEventStatusIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.Status), 1), unique: false);
+    private static BsonDocument MinorEventSourceIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.Source), 1), unique: false);
+    private static BsonDocument MinorEventOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.OccurredAtUtc), 1), unique: false);
+    private static BsonDocument MinorEventCreatedAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.CreatedAtUtc), 1), unique: false);
+    private static BsonDocument MinorEventUpdatedAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.UpdatedAtUtc), 1), unique: false);
+    private static BsonDocument MinorEventIdempotencyKeyIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument(nameof(MinorEvent.IdempotencyKey), 1), unique: true);
+    private static BsonDocument MinorEventUserIdOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.UserId)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false);
+    private static BsonDocument MinorEventTripIdOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.TripId)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false);
+    private static BsonDocument MinorEventUserIdTripIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.UserId)] = 1, [nameof(MinorEvent.TripId)] = 1 }, unique: false);
+    private static BsonDocument MinorEventEventTypeOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.EventType)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false);
+    private static BsonDocument MinorEventStatusOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.Status)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false);
+
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
         var index = new BsonDocument
@@ -866,7 +928,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<EmergencyLocationSnapshot>> EmergencyLocationIndexes,
         Mock<IMongoIndexManager<EmergencyResolutionReport>> EmergencyResolutionIndexes,
         Mock<IMongoIndexManager<AuditLogEntry>> AuditLogIndexes,
-        Mock<IMongoIndexManager<EmergencyEscalation>> EmergencyEscalationIndexes);
+        Mock<IMongoIndexManager<EmergencyEscalation>> EmergencyEscalationIndexes,
+        Mock<IMongoIndexManager<MinorEvent>> MinorEventIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

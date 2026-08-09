@@ -19,5 +19,9 @@ public enum AuditAction
     OfflineProcessingRun = 14,
     EmergencyEscalationRequested = 15,
     EmergencyEscalationMarkedUnresolved = 16,
-    EmergencyEscalationCancelled = 17
+    EmergencyEscalationCancelled = 17,
+    MinorEventRecorded = 18,
+    MinorEventMarkedReviewed = 19,
+    MinorEventIgnored = 20,
+    MinorEventProcessedFromOfflineIngestion = 21
 }

@@ -13,6 +13,7 @@ using MotoSOS.API.Modules.EmergencyStatus.Endpoints;
 using MotoSOS.API.Modules.Escalations.Endpoints;
 using MotoSOS.API.Modules.Incidents.Endpoints;
 using MotoSOS.API.Modules.LocationSharing.Endpoints;
+using MotoSOS.API.Modules.MinorEvents.Endpoints;
 using MotoSOS.API.Modules.NotificationOutbox.Endpoints;
 using MotoSOS.API.Modules.Notifications.Endpoints;
 using MotoSOS.API.Modules.OfflineIngestion.Endpoints;
@@ -89,6 +90,7 @@ app.MapEmergencyResolutionEndpoints();
 app.MapOperationalDashboardEndpoints();
 app.MapAuditLogEndpoints();
 app.MapEmergencyEscalationEndpoints();
+app.MapMinorEventEndpoints();
 
 app.Run();
 
