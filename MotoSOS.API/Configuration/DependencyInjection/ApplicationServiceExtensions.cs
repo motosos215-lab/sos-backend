@@ -1,6 +1,7 @@
 using FluentValidation;
 using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertDispatch.Application;
+using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
@@ -43,6 +44,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<IAlertDispatchService, AlertDispatchService>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
         services.AddScoped<IAlertAcknowledgementService, AlertAcknowledgementService>();
@@ -50,6 +52,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IEmergencyStatusService, EmergencyStatusService>();
         services.AddScoped<IEmergencyResolutionService, EmergencyResolutionService>();
         services.AddScoped<IOperationalDashboardService, OperationalDashboardService>();
+        services.AddSingleton<AuditLogQueryValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();

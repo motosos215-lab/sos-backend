@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Options;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Contracts;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Users.Application;
@@ -20,6 +22,7 @@ public sealed class AuthService : IAuthService
     private readonly IClock _clock;
     private readonly JwtOptions _jwtOptions;
     private readonly ILogger<AuthService> _logger;
+    private readonly IAuditLogService? _auditLogs;
 
     public AuthService(
         IUserRepository users,
@@ -29,7 +32,8 @@ public sealed class AuthService : IAuthService
         IRefreshTokenGenerator refreshTokenGenerator,
         IClock clock,
         IOptions<JwtOptions> jwtOptions,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IAuditLogService? auditLogs = null)
     {
         _users = users;
         _refreshTokens = refreshTokens;
@@ -39,6 +43,7 @@ public sealed class AuthService : IAuthService
         _clock = clock;
         _jwtOptions = jwtOptions.Value;
         _logger = logger;
+        _auditLogs = auditLogs;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
@@ -97,6 +102,8 @@ public sealed class AuthService : IAuthService
         };
 
         await _refreshTokens.AddAsync(refreshToken, cancellationToken);
+
+        await (_auditLogs?.RecordAsync(user.Id, user.Role.ToString(), AuditAction.AuthLogin, AuditModule.Auth, "User", user.Id, AuditOutcome.Success, null, null, null, new Dictionary<string, string> { ["rememberMe"] = request.RememberMe.ToString() }, cancellationToken) ?? Task.CompletedTask);
 
         return new LoginResponse(accessToken.AccessToken, plainRefreshValue, accessToken.ExpiresAtUtc, ToAuthUser(user));
     }
@@ -164,6 +171,8 @@ public sealed class AuthService : IAuthService
 
         storedRefreshToken.RevokedAtUtc = _clock.UtcNow;
         await _refreshTokens.UpdateAsync(storedRefreshToken, cancellationToken);
+        User? user = await _users.GetByIdAsync(storedRefreshToken.UserId, cancellationToken);
+        if (user is not null) await (_auditLogs?.RecordAsync(user.Id, user.Role.ToString(), AuditAction.AuthLogout, AuditModule.Auth, "User", user.Id, AuditOutcome.Success, null, null, null, null, cancellationToken) ?? Task.CompletedTask);
     }
 
     private async Task<User> GetActiveUserForLoginAsync(string email, string password, CancellationToken cancellationToken)

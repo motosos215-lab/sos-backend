@@ -1,9 +1,12 @@
+using System.Globalization;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.EmergencyResolution.Contracts;
 using MotoSOS.API.Modules.EmergencyResolution.Domain;
@@ -36,10 +39,11 @@ public sealed class EmergencyResolutionService : IEmergencyResolutionService
     private readonly IEmergencyResolutionIdempotencyKeyFactory _idempotencyKeys;
     private readonly ILocationSharingStalenessService _staleness;
     private readonly IClock _clock;
+    private readonly IAuditLogService? _auditLogs;
 
-    public EmergencyResolutionService(IUserRepository users, IIncidentRepository incidents, IAlertDispatchRepository alertDispatches, INotificationDeliveryAttemptRepository notifications, IAlertAcknowledgementRepository acknowledgements, ILocationSharingRepository locations, IMonitorLinkedContactRepository contacts, INotificationAttemptMonitorRepository monitorAttempts, IEmergencyResolutionRepository reports, IEmergencyResolutionIdempotencyKeyFactory idempotencyKeys, ILocationSharingStalenessService staleness, IClock clock)
+    public EmergencyResolutionService(IUserRepository users, IIncidentRepository incidents, IAlertDispatchRepository alertDispatches, INotificationDeliveryAttemptRepository notifications, IAlertAcknowledgementRepository acknowledgements, ILocationSharingRepository locations, IMonitorLinkedContactRepository contacts, INotificationAttemptMonitorRepository monitorAttempts, IEmergencyResolutionRepository reports, IEmergencyResolutionIdempotencyKeyFactory idempotencyKeys, ILocationSharingStalenessService staleness, IClock clock, IAuditLogService? auditLogs = null)
     {
-        _users = users; _incidents = incidents; _alertDispatches = alertDispatches; _notifications = notifications; _acknowledgements = acknowledgements; _locations = locations; _contacts = contacts; _monitorAttempts = monitorAttempts; _reports = reports; _idempotencyKeys = idempotencyKeys; _staleness = staleness; _clock = clock;
+        _users = users; _incidents = incidents; _alertDispatches = alertDispatches; _notifications = notifications; _acknowledgements = acknowledgements; _locations = locations; _contacts = contacts; _monitorAttempts = monitorAttempts; _reports = reports; _idempotencyKeys = idempotencyKeys; _staleness = staleness; _clock = clock; _auditLogs = auditLogs;
     }
 
     public async Task<CreateEmergencyResolutionReportResponse> CreateForRiderAsync(string riderUserId, string incidentId, CreateEmergencyResolutionReportRequest request, CancellationToken cancellationToken)
@@ -89,6 +93,7 @@ public sealed class EmergencyResolutionService : IEmergencyResolutionService
         };
 
         (EmergencyResolutionReport saved, bool isDuplicate) = await _reports.AddOrGetDuplicateAsync(report, cancellationToken);
+        if (!isDuplicate) await (_auditLogs?.RecordAsync(rider.Id, rider.Role.ToString(), AuditAction.EmergencyResolutionReportCreated, AuditModule.EmergencyResolution, "EmergencyResolutionReport", saved.Id, AuditOutcome.Success, null, null, null, new Dictionary<string, string> { ["incidentId"] = saved.IncidentId, ["outcome"] = saved.Outcome.ToString(), ["acknowledgedCount"] = saved.AcknowledgedCount.ToString(CultureInfo.InvariantCulture), ["declinedCount"] = saved.DeclinedCount.ToString(CultureInfo.InvariantCulture) }, cancellationToken) ?? Task.CompletedTask);
         return new CreateEmergencyResolutionReportResponse(ToResponse(saved), isDuplicate);
     }
 

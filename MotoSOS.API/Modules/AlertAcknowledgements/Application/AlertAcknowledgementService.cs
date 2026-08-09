@@ -2,6 +2,8 @@ using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AlertAcknowledgements.Contracts;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.Users.Application;
@@ -20,8 +22,9 @@ public sealed class AlertAcknowledgementService : IAlertAcknowledgementService
     private readonly IAlertAcknowledgementRepository _acknowledgements;
     private readonly IAlertAcknowledgementIdempotencyKeyFactory _keys;
     private readonly IClock _clock;
+    private readonly IAuditLogService? _auditLogs;
 
-    public AlertAcknowledgementService(IUserRepository users, IMonitorLinkedContactRepository contacts, INotificationAttemptMonitorRepository attempts, IAlertAcknowledgementRepository acknowledgements, IAlertAcknowledgementIdempotencyKeyFactory keys, IClock clock)
+    public AlertAcknowledgementService(IUserRepository users, IMonitorLinkedContactRepository contacts, INotificationAttemptMonitorRepository attempts, IAlertAcknowledgementRepository acknowledgements, IAlertAcknowledgementIdempotencyKeyFactory keys, IClock clock, IAuditLogService? auditLogs = null)
     {
         _users = users;
         _contacts = contacts;
@@ -29,6 +32,7 @@ public sealed class AlertAcknowledgementService : IAlertAcknowledgementService
         _acknowledgements = acknowledgements;
         _keys = keys;
         _clock = clock;
+        _auditLogs = auditLogs;
     }
 
     public async Task<GetMonitorAlertsResponse> ListMonitorAlertsAsync(string monitorUserId, string? status, int? pageNumber, int? pageSize, CancellationToken cancellationToken)
@@ -65,6 +69,7 @@ public sealed class AlertAcknowledgementService : IAlertAcknowledgementService
             ack.UpdatedAtUtc = now;
             await _acknowledgements.UpdateAsync(ack, cancellationToken);
         }
+        await RecordAsync(monitorUserId, AuditAction.AlertAcknowledgementViewed, ack, cancellationToken);
         return new ViewAlertResponse(ToResponse(ack));
     }
 
@@ -82,6 +87,7 @@ public sealed class AlertAcknowledgementService : IAlertAcknowledgementService
             ack.UpdatedAtUtc = now;
             await _acknowledgements.UpdateAsync(ack, cancellationToken);
         }
+        await RecordAsync(monitorUserId, AuditAction.AlertAcknowledgementAcknowledged, ack, cancellationToken);
         return new AcknowledgeAlertResponse(ToResponse(ack));
     }
 
@@ -99,6 +105,7 @@ public sealed class AlertAcknowledgementService : IAlertAcknowledgementService
             ack.UpdatedAtUtc = now;
             await _acknowledgements.UpdateAsync(ack, cancellationToken);
         }
+        await RecordAsync(monitorUserId, AuditAction.AlertAcknowledgementDeclined, ack, cancellationToken);
         return new DeclineAlertResponse(ToResponse(ack));
     }
 
@@ -155,4 +162,5 @@ public sealed class AlertAcknowledgementService : IAlertAcknowledgementService
     private static AlertAcknowledgementResponse ToResponse(AlertAcknowledgement ack) => new(ack.Id, ack.AlertDispatchId, ack.NotificationDeliveryAttemptId, ack.IncidentId, ack.TripId, ack.EmergencyContactId, ack.Status.ToString(), ack.ResponseType.ToString(), ack.Message, ack.ViewedAtUtc, ack.AcknowledgedAtUtc, ack.DeclinedAtUtc, ack.CreatedAtUtc, ack.UpdatedAtUtc);
     private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct => Enum.TryParse(value, ignoreCase: true, out TEnum result) ? result : null;
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private Task RecordAsync(string monitorUserId, AuditAction action, AlertAcknowledgement ack, CancellationToken cancellationToken) => _auditLogs?.RecordAsync(monitorUserId, UserRole.Monitor.ToString(), action, AuditModule.AlertAcknowledgements, "AlertAcknowledgement", ack.Id, AuditOutcome.Success, null, null, null, new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = ack.NotificationDeliveryAttemptId, ["incidentId"] = ack.IncidentId, ["status"] = ack.Status.ToString(), ["responseType"] = ack.ResponseType.ToString() }, cancellationToken) ?? Task.CompletedTask;
 }
