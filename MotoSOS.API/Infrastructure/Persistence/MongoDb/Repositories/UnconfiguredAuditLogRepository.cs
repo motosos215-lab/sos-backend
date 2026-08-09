@@ -10,4 +10,6 @@ public sealed class UnconfiguredAuditLogRepository : IAuditLogRepository
     public Task<AuditLogEntry?> GetByIdAsync(string id, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<AuditLogEntry>> ListAsync(AuditLogQuery query, CancellationToken cancellationToken) => throw CreateException();
     public Task<long> CountAsync(AuditLogQuery query, CancellationToken cancellationToken) => throw CreateException();
+    public Task<long> CountOlderThanAsync(DateTimeOffset cutoffUtc, CancellationToken cancellationToken) => throw CreateException();
+    public Task<long> DeleteOlderThanAsync(DateTimeOffset cutoffUtc, CancellationToken cancellationToken) => throw CreateException();
 }

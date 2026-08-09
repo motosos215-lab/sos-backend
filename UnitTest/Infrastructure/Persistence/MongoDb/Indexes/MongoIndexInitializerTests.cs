@@ -10,6 +10,7 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.AuditLogRetention.Domain;
 using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
@@ -250,6 +251,9 @@ public sealed class MongoIndexInitializerTests
         indexes.AuditLogIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<AuditLogEntry>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        indexes.AuditLogRetentionRunIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<AuditLogRetentionRun>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
         indexes.EmergencyEscalationIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<EmergencyEscalation>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -357,6 +361,12 @@ public sealed class MongoIndexInitializerTests
         indexes.AuditLogIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(
                 It.Is<CreateIndexModel<AuditLogEntry>>(model => model.Options.Name == "ix_auditLogs_actorUserId" && model.Options.Unique == false),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        indexes.AuditLogRetentionRunIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<AuditLogRetentionRun>>(model => model.Options.Name == "ix_auditLogRetentionRuns_createdAtUtc" && model.Options.Unique == false),
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -471,6 +481,7 @@ public sealed class MongoIndexInitializerTests
         var emergencyLocationSnapshots = new Mock<IMongoCollection<EmergencyLocationSnapshot>>();
         var emergencyResolutionReports = new Mock<IMongoCollection<EmergencyResolutionReport>>();
         var auditLogs = new Mock<IMongoCollection<AuditLogEntry>>();
+        var auditLogRetentionRuns = new Mock<IMongoCollection<AuditLogRetentionRun>>();
         var emergencyEscalations = new Mock<IMongoCollection<EmergencyEscalation>>();
         var minorEvents = new Mock<IMongoCollection<MinorEvent>>();
         var tripTelemetrySummaries = new Mock<IMongoCollection<TripTelemetrySummary>>();
@@ -494,6 +505,7 @@ public sealed class MongoIndexInitializerTests
         var emergencyLocationIndexes = new Mock<IMongoIndexManager<EmergencyLocationSnapshot>>();
         var emergencyResolutionIndexes = new Mock<IMongoIndexManager<EmergencyResolutionReport>>();
         var auditLogIndexes = new Mock<IMongoIndexManager<AuditLogEntry>>();
+        var auditLogRetentionRunIndexes = new Mock<IMongoIndexManager<AuditLogRetentionRun>>();
         var emergencyEscalationIndexes = new Mock<IMongoIndexManager<EmergencyEscalation>>();
         var minorEventIndexes = new Mock<IMongoIndexManager<MinorEvent>>();
         var telemetrySummaryIndexes = new Mock<IMongoIndexManager<TripTelemetrySummary>>();
@@ -518,6 +530,7 @@ public sealed class MongoIndexInitializerTests
         emergencyLocationSnapshots.SetupGet(collection => collection.Indexes).Returns(emergencyLocationIndexes.Object);
         emergencyResolutionReports.SetupGet(collection => collection.Indexes).Returns(emergencyResolutionIndexes.Object);
         auditLogs.SetupGet(collection => collection.Indexes).Returns(auditLogIndexes.Object);
+        auditLogRetentionRuns.SetupGet(collection => collection.Indexes).Returns(auditLogRetentionRunIndexes.Object);
         emergencyEscalations.SetupGet(collection => collection.Indexes).Returns(emergencyEscalationIndexes.Object);
         minorEvents.SetupGet(collection => collection.Indexes).Returns(minorEventIndexes.Object);
         tripTelemetrySummaries.SetupGet(collection => collection.Indexes).Returns(telemetrySummaryIndexes.Object);
@@ -577,6 +590,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<AuditLogEntry>(MongoCollectionNames.AuditLogs, It.IsAny<MongoCollectionSettings>()))
             .Returns(auditLogs.Object);
+        database
+            .Setup(db => db.GetCollection<AuditLogRetentionRun>(MongoCollectionNames.AuditLogRetentionRuns, It.IsAny<MongoCollectionSettings>()))
+            .Returns(auditLogRetentionRuns.Object);
         database
             .Setup(db => db.GetCollection<EmergencyEscalation>(MongoCollectionNames.EmergencyEscalations, It.IsAny<MongoCollectionSettings>()))
             .Returns(emergencyEscalations.Object);
@@ -647,6 +663,9 @@ public sealed class MongoIndexInitializerTests
         auditLogIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.AuditLogs)));
+        auditLogRetentionRunIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.AuditLogRetentionRuns)));
         emergencyEscalationIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.EmergencyEscalations)));
@@ -663,7 +682,7 @@ public sealed class MongoIndexInitializerTests
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.ResolutionReportExports)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, auditLogRetentionRunIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -976,6 +995,7 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<EmergencyLocationSnapshot>> EmergencyLocationIndexes,
         Mock<IMongoIndexManager<EmergencyResolutionReport>> EmergencyResolutionIndexes,
         Mock<IMongoIndexManager<AuditLogEntry>> AuditLogIndexes,
+        Mock<IMongoIndexManager<AuditLogRetentionRun>> AuditLogRetentionRunIndexes,
         Mock<IMongoIndexManager<EmergencyEscalation>> EmergencyEscalationIndexes,
         Mock<IMongoIndexManager<MinorEvent>> MinorEventIndexes,
         Mock<IMongoIndexManager<TripTelemetrySummary>> TelemetrySummaryIndexes,
