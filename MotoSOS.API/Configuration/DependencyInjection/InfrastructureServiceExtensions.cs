@@ -25,6 +25,7 @@ using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.PushNotificationTokens.Application;
 using MotoSOS.API.Modules.ReportExports.Application;
 using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
@@ -89,6 +90,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IAuditLogRepository, MongoAuditLogRepository>();
             services.AddScoped<IAuditLogRetentionRunRepository, MongoAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IPushNotificationTokenRepository, MongoPushNotificationTokenRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, MongoEmergencyContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, MongoNotificationDeliveryAttemptRepository>();
             services.AddScoped<IAlertAcknowledgementRepository, MongoAlertAcknowledgementRepository>();
@@ -119,6 +121,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IAuditLogRepository, UnconfiguredAuditLogRepository>();
             services.AddScoped<IAuditLogRetentionRunRepository, UnconfiguredAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IPushNotificationTokenRepository, UnconfiguredPushNotificationTokenRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, UnconfiguredMonitorLinkedContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, UnconfiguredNotificationAttemptMonitorRepository>();
             services.AddScoped<IAlertAcknowledgementRepository, UnconfiguredAlertAcknowledgementRepository>();

@@ -2,6 +2,8 @@
 
 Notification Provider Abstraction define una capa interna para procesar intentos de notificacion sin acoplar `NotificationOutboxService` a una implementacion concreta.
 
+Push Notification Tokens API queda como modulo preparatorio: registra tokens `Fcm`, `Apns` y `WebPush`, pero esta abstraccion sigue usando solo proveedor simulado y no envia push real todavia.
+
 ## Estado Actual
 
 - Proveedor disponible: `SimulatedNotificationProvider`.

@@ -40,5 +40,7 @@ public enum AuditAction
     ResolutionReportExportGenerated = 35,
     AuditLogRetentionDryRunCompleted = 36,
     AuditLogRetentionDeleteCompleted = 37,
-    AuditLogRetentionFailed = 38
+    AuditLogRetentionFailed = 38,
+    PushNotificationTokenRegistered = 39,
+    PushNotificationTokenRevoked = 40
 }

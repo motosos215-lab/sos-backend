@@ -84,6 +84,8 @@ Actualmente se auditan estas acciones exitosas:
 - `AuditLogRetentionDryRunCompleted`
 - `AuditLogRetentionDeleteCompleted`
 - `AuditLogRetentionFailed`
+- `PushNotificationTokenRegistered`
+- `PushNotificationTokenRevoked`
 
 ## Endpoints
 

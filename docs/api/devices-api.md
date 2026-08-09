@@ -141,3 +141,7 @@ Baja logica del dispositivo. Devuelve `204 No Content`.
 - `400 activation_code_invalid`: codigo invalido, ajeno, expirado, usado o revocado.
 - `404 not_found`: dispositivo inexistente o ajeno.
 - `409 plan_limit_exceeded`: segundo `MobileApp` activo en plan Basico.
+
+## Relacion Con Push Notification Tokens
+
+Push Notification Tokens API puede asociar un token a `deviceId` si el dispositivo pertenece al usuario autenticado, esta activo, esta `Linked` y no esta revocado. Devices API no crea ni administra tokens push.

@@ -19,6 +19,7 @@ using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.PushNotificationTokens.Domain;
 using MotoSOS.API.Modules.ReportExports.Domain;
 using MotoSOS.API.Modules.TelemetrySummary.Domain;
 using MotoSOS.API.Modules.Trips.Domain;
@@ -225,6 +226,23 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_failedAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.FailedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_cancelledAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CancelledAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_createdAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CreatedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<PushNotificationToken> pushNotificationTokens = _database.GetCollection<PushNotificationToken>(MongoCollectionNames.PushNotificationTokens);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_userId", new BsonDocument(nameof(PushNotificationToken.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_deviceId", new BsonDocument(nameof(PushNotificationToken.DeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_platform", new BsonDocument(nameof(PushNotificationToken.Platform), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_channel", new BsonDocument(nameof(PushNotificationToken.Channel), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_status", new BsonDocument(nameof(PushNotificationToken.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_registeredAtUtc", new BsonDocument(nameof(PushNotificationToken.RegisteredAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_lastSeenAtUtc", new BsonDocument(nameof(PushNotificationToken.LastSeenAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_createdAtUtc", new BsonDocument(nameof(PushNotificationToken.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_updatedAtUtc", new BsonDocument(nameof(PushNotificationToken.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ux_pushNotificationTokens_idempotencyKey", new BsonDocument(nameof(PushNotificationToken.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_userId_status_lastSeenAtUtc", new BsonDocument { [nameof(PushNotificationToken.UserId)] = 1, [nameof(PushNotificationToken.Status)] = 1, [nameof(PushNotificationToken.LastSeenAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_userId_platform_channel_status", new BsonDocument { [nameof(PushNotificationToken.UserId)] = 1, [nameof(PushNotificationToken.Platform)] = 1, [nameof(PushNotificationToken.Channel)] = 1, [nameof(PushNotificationToken.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_tokenHash", new BsonDocument(nameof(PushNotificationToken.TokenHash), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_deviceId_status", new BsonDocument { [nameof(PushNotificationToken.DeviceId)] = 1, [nameof(PushNotificationToken.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_platform_channel_status", new BsonDocument { [nameof(PushNotificationToken.Platform)] = 1, [nameof(PushNotificationToken.Channel)] = 1, [nameof(PushNotificationToken.Status)] = 1 }, unique: false, cancellationToken);
 
         IMongoCollection<AlertAcknowledgement> alertAcknowledgements = _database.GetCollection<AlertAcknowledgement>(MongoCollectionNames.AlertAcknowledgements);
         await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_userId", new BsonDocument(nameof(AlertAcknowledgement.UserId), 1), unique: false, cancellationToken);

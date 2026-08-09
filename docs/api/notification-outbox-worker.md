@@ -2,6 +2,8 @@
 
 Notification Outbox Worker procesa automaticamente `NotificationDeliveryAttempts` en estado `Prepared` usando la misma logica segura del Notification Outbox manual.
 
+Push Notification Tokens API no cambia el worker: los tokens quedan registrados para providers futuros, pero el worker sigue sin enviar notificaciones reales.
+
 ## Estado Actual
 
 - Implementado como `BackgroundService` nativo de .NET.
