@@ -12,6 +12,7 @@ using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.OfflineProcessing.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
+using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.Trips.Application;
@@ -46,6 +47,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ILocationSharingService, LocationSharingService>();
         services.AddScoped<IEmergencyStatusService, EmergencyStatusService>();
         services.AddScoped<IEmergencyResolutionService, EmergencyResolutionService>();
+        services.AddScoped<IOperationalDashboardService, OperationalDashboardService>();
+        services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
         services.AddSingleton<IDeviceIdentifierHasher, DeviceIdentifierHasher>();

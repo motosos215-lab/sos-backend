@@ -84,6 +84,10 @@
 - Emergency Resolution Report API agrega endpoints Rider para crear, consultar y listar reportes, y endpoint Monitor para consultar reportes de alertas asignadas.
 - `ILocationSharingRepository.GetLatestByIncidentIdAsync` queda aprobado para reportes finales y consulta el ultimo snapshot por `IncidentId`, ordenado por `RecordedAtUtc` desc y `ReceivedAtUtc` desc, sin historial, polyline ni monitoreo realtime.
 - Emergency Resolution Report API persiste metricas finales: intentos de notificacion, acknowledgements, acknowledged/declined, primera notificacion, primer acknowledgement, tiempo de respuesta, cierre del incidente, ultima ubicacion conocida y stale flag.
+- Operational Dashboard API implementa endpoints administrativos bajo `/api/v1/admin/dashboard` para metricas globales de usuarios, onboarding, viajes, incidentes, alertas, notificaciones, acknowledgements, reportes de resolucion y procesamiento offline.
+- Operational Dashboard API es Admin-only, solo lectura/agregacion, no acepta `userId` externo, no crea colecciones nuevas y consulta colecciones existentes mediante un repositorio agregado read-only.
+- Operational Dashboard API no implementa frontend, graficas, ML, realtime, monitoreo en vivo, proveedores reales, pagos ni pairing API de smartwatch.
+- Operational Dashboard API deja como pendiente futuro optimizar response times y outcomes con aggregation pipeline si el volumen crece.
 - Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
 - Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
 - Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.
