@@ -9,6 +9,7 @@ using MotoSOS.API.Modules.EmergencyResolution.Application;
 using MotoSOS.API.Modules.EmergencyStatus.Application;
 using MotoSOS.API.Modules.Escalations.Application;
 using MotoSOS.API.Modules.Escalations.Worker;
+using MotoSOS.API.Modules.EvidenceAttachments.Application;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.MinorEvents.Application;
@@ -47,6 +48,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<ITelemetrySummaryService, TelemetrySummaryService>();
+        services.AddScoped<IEvidenceAttachmentService, EvidenceAttachmentService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
         services.AddScoped<IIncidentService, IncidentService>();
@@ -74,6 +76,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<EscalationQueryValidator>();
         services.AddSingleton<MinorEventQueryValidator>();
         services.AddSingleton<TelemetrySummaryQueryValidator>();
+        services.AddSingleton<EvidenceAttachmentQueryValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
@@ -88,6 +91,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IEmergencyResolutionIdempotencyKeyFactory, EmergencyResolutionIdempotencyKeyFactory>();
         services.AddSingleton<IEmergencyEscalationIdempotencyKeyFactory, EmergencyEscalationIdempotencyKeyFactory>();
         services.AddSingleton<IMinorEventIdempotencyKeyFactory, MinorEventIdempotencyKeyFactory>();
+        services.AddSingleton<IEvidenceAttachmentIdempotencyKeyFactory, EvidenceAttachmentIdempotencyKeyFactory>();
 
         return services;
     }

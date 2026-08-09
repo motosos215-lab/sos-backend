@@ -190,6 +190,15 @@
 - Telemetry Summary no modifica `Trip` ni `MinorEvents`, no crea incidentes, alert dispatches, notification attempts, acknowledgements, escalations ni reportes de resolucion.
 - Telemetry Summary audita best-effort `TelemetrySummaryComputed` y `TelemetrySummaryRecomputed` con metadata segura limitada.
 - Telemetry Summary no implementa monitoreo en vivo, mapa en tiempo real, modelos predictivos reales, score de riesgo real, cobros ni pairing API de smartwatch.
+- Evidence Attachments API implementa registro metadata only de evidencia en la coleccion `evidenceAttachments`.
+- Evidence Attachments agrega endpoints Rider, Monitor y Admin para registrar o consultar metadata segura segun rol.
+- Evidence Attachments exige exactamente un target principal entre incident, alert dispatch o resolution report, con `TargetType` explicito.
+- Evidence Attachments guarda `UserId` como Rider duenio, `RegisteredByUserId` como actor autenticado y `RegisteredByRole` como Rider o Monitor.
+- Evidence Attachments rechaza campos binarios como base64, fileContent, imageBytes, videoBytes y audioBytes; no guarda archivos reales ni usa storage externo.
+- Evidence Attachments implementa idempotencia por owner Rider, `clientEvidenceId`, `targetType` y `targetId`.
+- Evidence Attachments implementa soft delete solo para Rider con `MarkedDeleted` y `DeletedAtUtc`.
+- Evidence Attachments no modifica Incident, AlertDispatch ni EmergencyResolutionReport, no crea entidades externas, no envia notificaciones y no llama proveedores externos.
+- Evidence Attachments audita best-effort `EvidenceAttachmentRegistered` y `EvidenceAttachmentDeleted` con metadata segura limitada.
 - Pendientes futuros de Minor Events: reglas automaticas, dashboard especifico, analitica, modelos predictivos aprobados, correlacion con incidentes, mapas historicos agregados y telemetria resumida avanzada.
 - Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
 - Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.

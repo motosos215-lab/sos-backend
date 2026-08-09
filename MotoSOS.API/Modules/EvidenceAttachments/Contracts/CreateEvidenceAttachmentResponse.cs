@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.EvidenceAttachments.Contracts;
+
+public sealed record CreateEvidenceAttachmentResponse(EvidenceAttachmentResponse EvidenceAttachment);

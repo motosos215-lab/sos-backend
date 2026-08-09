@@ -244,3 +244,7 @@ curl -X POST "$BASE_URL/api/v1/alert-dispatches" \
 - Machine Learning.
 - Procesador real de Offline Ingestion.
 - Sensor batches completos.
+
+## Relacion Con Evidence Attachments
+
+Evidence Attachments API puede asociar metadata segura a un `AlertDispatch` propio o asignado a un Monitor. No envia notificaciones, no llama proveedores externos y no modifica el alert dispatch.

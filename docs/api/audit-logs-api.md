@@ -78,6 +78,8 @@ Actualmente se auditan estas acciones exitosas:
 - `EmergencyEscalationAutomaticallyRequested`
 - `TelemetrySummaryComputed`
 - `TelemetrySummaryRecomputed`
+- `EvidenceAttachmentRegistered`
+- `EvidenceAttachmentDeleted`
 
 ## Endpoints
 
