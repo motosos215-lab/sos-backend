@@ -11,5 +11,10 @@ public interface INotificationDeliveryAttemptRepository
     Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByAlertDispatchIdAsync(string userId, string alertDispatchId, CancellationToken cancellationToken) => ListByUserIdAsync(userId, alertDispatchId, null, null, 1, int.MaxValue, cancellationToken);
     Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken);
     Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken cancellationToken);
+    Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByStatusAsync(NotificationDeliveryStatus status, int maxItems, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>([]);
+    Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<NotificationDeliveryAttempt?>(null);
+    Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, string failureReason, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<NotificationDeliveryAttempt?>(null);
+    Task<NotificationDeliveryAttempt?> TryResetFailedToPreparedAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<NotificationDeliveryAttempt?>(null);
+    Task<long> CountByStatusAsync(NotificationDeliveryStatus status, CancellationToken cancellationToken) => Task.FromResult(0L);
     Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken cancellationToken);
 }

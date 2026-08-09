@@ -88,6 +88,10 @@
 - Operational Dashboard API es Admin-only, solo lectura/agregacion, no acepta `userId` externo, no crea colecciones nuevas y consulta colecciones existentes mediante un repositorio agregado read-only.
 - Operational Dashboard API no implementa frontend, graficas, ML, realtime, monitoreo en vivo, proveedores reales, pagos ni pairing API de smartwatch.
 - Operational Dashboard API deja como pendiente futuro optimizar response times y outcomes con aggregation pipeline si el volumen crece.
+- Notification Outbox API implementa endpoints Admin-only bajo `/api/v1/admin/notifications/outbox` para procesar attempts existentes de forma simulada y controlada.
+- Notification Outbox API mueve attempts `Prepared` a `SimulatedSent` o a `Failed` con reason `simulated_failure_requested`, usando updates atomicos por `Id` y estado esperado.
+- Notification Outbox API permite `retry-failed` para regresar attempts `Failed` a `Prepared`; no procesa attempts `Cancelled` ni `SimulatedSent`.
+- Notification Outbox API no crea colecciones, no modifica incidentes, no modifica alert dispatches, no crea acknowledgements, no crea reportes de resolucion, no envia mensajes reales, no agrega proveedores externos y no ejecuta worker real todavia.
 - Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
 - Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
 - Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.

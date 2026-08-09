@@ -8,6 +8,7 @@ using MotoSOS.API.Modules.EmergencyResolution.Application;
 using MotoSOS.API.Modules.EmergencyStatus.Application;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
+using MotoSOS.API.Modules.NotificationOutbox.Application;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.OfflineProcessing.Application;
@@ -43,6 +44,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<IAlertDispatchService, AlertDispatchService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
         services.AddScoped<IAlertAcknowledgementService, AlertAcknowledgementService>();
         services.AddScoped<ILocationSharingService, LocationSharingService>();
         services.AddScoped<IEmergencyStatusService, EmergencyStatusService>();
