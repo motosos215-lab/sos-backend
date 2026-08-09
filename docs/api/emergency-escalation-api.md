@@ -10,6 +10,7 @@ Emergency Escalation API registra y consulta escalamiento interno simulado de em
 - Crear dos veces para el mismo alert dispatch devuelve el mismo `EmergencyEscalation`; no devuelve `409`.
 - No modifica `Incident`, `AlertDispatchRequest`, `NotificationDeliveryAttempt`, `AlertAcknowledgement` ni `EmergencyResolutionReport`.
 - Registra auditoria best-effort para requests, marcado unresolved y cancelacion.
+- Automatic Escalation Worker puede crear escalations automaticas `NoAcknowledgement` / `Level1` cuando existe un attempt `SimulatedSent` antiguo sin acknowledgement.
 
 ## Endpoints
 
@@ -19,6 +20,8 @@ Emergency Escalation API registra y consulta escalamiento interno simulado de em
 - `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/mark-unresolved`
 - `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/cancel-escalation`
 - `GET /api/v1/admin/escalations`
+- `GET /api/v1/admin/escalations/worker/status`
+- `POST /api/v1/admin/escalations/worker/run`
 
 ## Request
 
@@ -49,6 +52,7 @@ Emergency Escalation API registra y consulta escalamiento interno simulado de em
 - `AllContactsDeclined` requiere al menos un acknowledgement, todos en `Declined` y ninguno en `Acknowledged`.
 - Sin attempts solo se permite `ManualEscalation`.
 - `ManualEscalation` se permite para incidente propio `Open` si no existe acknowledgement `Acknowledged`.
+- El worker automatico no reemplaza el escalamiento manual del Rider y no escala solo por antiguedad del alert dispatch; valida el `SimulatedSentAtUtc` mas antiguo.
 
 ## Admin List
 
@@ -114,6 +118,10 @@ Acciones nuevas:
 - `EmergencyEscalationRequested`
 - `EmergencyEscalationMarkedUnresolved`
 - `EmergencyEscalationCancelled`
+- `AutomaticEscalationWorkerRun`
+- `AutomaticEscalationWorkerFailed`
+- `AutomaticEscalationWorkerSkipped`
+- `EmergencyEscalationAutomaticallyRequested`
 
 Metadata permitida:
 
@@ -129,4 +137,4 @@ Metadata permitida:
 
 ## Fuera De Alcance
 
-No implementa llamadas reales a servicios de emergencia, mensajeria real, proveedores externos, workers, protocolos realtime, tracking en vivo, cobros, ML ni pairing API de smartwatch.
+No implementa llamadas reales a servicios de emergencia, mensajeria real, proveedores externos, protocolos realtime, tracking en vivo, cobros, ML ni pairing API de smartwatch.

@@ -72,6 +72,10 @@ Actualmente se auditan estas acciones exitosas:
 - `NotificationOutboxWorkerRun`
 - `NotificationOutboxWorkerFailed`
 - `NotificationOutboxWorkerSkipped`
+- `AutomaticEscalationWorkerRun`
+- `AutomaticEscalationWorkerFailed`
+- `AutomaticEscalationWorkerSkipped`
+- `EmergencyEscalationAutomaticallyRequested`
 
 ## Endpoints
 

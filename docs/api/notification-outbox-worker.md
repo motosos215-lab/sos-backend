@@ -43,6 +43,7 @@ Cuando esta habilitado:
 - No modifica incidentes.
 - No modifica alert dispatches.
 - No crea escalaciones.
+- Puede ser prerequisito para Automatic Escalation Worker porque este requiere attempts `SimulatedSent` antiguos.
 - No crea eventos menores.
 
 Los endpoints manuales siguen existiendo para QA y operacion:
