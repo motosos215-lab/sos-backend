@@ -14,6 +14,7 @@ public sealed class NotificationOutboxSecurityTests
             typeof(RunNotificationOutboxResponse),
             typeof(NotificationOutboxItemResultResponse),
             typeof(GetNotificationOutboxStatusResponse),
+            typeof(NotificationOutboxWorkerStatusResponse),
             typeof(RetryFailedNotificationOutboxResponse),
             typeof(RetryFailedNotificationOutboxItemResponse)
         ];

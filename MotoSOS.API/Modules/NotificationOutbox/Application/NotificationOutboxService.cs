@@ -1,9 +1,11 @@
 using System.Globalization;
+using Microsoft.Extensions.Options;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.NotificationOutbox.Contracts;
+using MotoSOS.API.Modules.NotificationOutbox.Worker;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.Notifications.Providers;
@@ -24,15 +26,63 @@ public sealed class NotificationOutboxService : INotificationOutboxService
     private readonly INotificationProviderResolver _providers;
     private readonly IClock _clock;
     private readonly IAuditLogService? _auditLogs;
+    private readonly INotificationOutboxWorkerStateStore? _workerState;
+    private readonly IOptions<NotificationOutboxWorkerOptions>? _workerOptions;
 
-    public NotificationOutboxService(IUserRepository users, INotificationDeliveryAttemptRepository attempts, INotificationProviderResolver providers, IClock clock, IAuditLogService? auditLogs = null)
+    public NotificationOutboxService(IUserRepository users, INotificationDeliveryAttemptRepository attempts, INotificationProviderResolver providers, IClock clock, IAuditLogService? auditLogs = null, INotificationOutboxWorkerStateStore? workerState = null, IOptions<NotificationOutboxWorkerOptions>? workerOptions = null)
     {
-        _users = users; _attempts = attempts; _providers = providers; _clock = clock; _auditLogs = auditLogs;
+        _users = users; _attempts = attempts; _providers = providers; _clock = clock; _auditLogs = auditLogs; _workerState = workerState; _workerOptions = workerOptions;
     }
 
     public async Task<RunNotificationOutboxResponse> RunAsync(string adminUserId, RunNotificationOutboxRequest request, CancellationToken cancellationToken)
     {
         User user = await EnsureAdminAsync(adminUserId, cancellationToken);
+        return await ProcessAsync(user.Id, user.Role.ToString(), request, AuditAction.NotificationOutboxRun, null, null, cancellationToken);
+    }
+
+    public async Task<RunNotificationOutboxResponse> RunWorkerAsync(RunNotificationOutboxRequest request, int intervalSeconds, CancellationToken cancellationToken)
+    {
+        return await ProcessAsync("notification-outbox-worker", "System", request, AuditAction.NotificationOutboxWorkerRun, "Worker", intervalSeconds, cancellationToken);
+    }
+
+    public async Task<GetNotificationOutboxStatusResponse> GetStatusAsync(string adminUserId, CancellationToken cancellationToken)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        return new GetNotificationOutboxStatusResponse(
+            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.Prepared, cancellationToken),
+            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.SimulatedSent, cancellationToken),
+            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.Failed, cancellationToken),
+            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.Cancelled, cancellationToken));
+    }
+
+    public async Task<NotificationOutboxWorkerStatusResponse> GetWorkerStatusAsync(string adminUserId, CancellationToken cancellationToken)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        NotificationOutboxWorkerState state = _workerState?.GetSnapshot() ?? new NotificationOutboxWorkerState(false, null, null, null, 0, 0, 0, 0, null, null);
+        bool enabled = _workerOptions?.Value.Enabled ?? false;
+        return new NotificationOutboxWorkerStatusResponse(enabled, state.IsRunning, state.LastRunStartedAtUtc, state.LastRunCompletedAtUtc, state.LastRunSucceeded, state.LastRunProcessed, state.LastRunSimulatedSent, state.LastRunFailed, state.LastRunSkipped, state.LastErrorCode, state.LastErrorMessage);
+    }
+
+    public async Task<RetryFailedNotificationOutboxResponse> RetryFailedAsync(string adminUserId, RetryFailedNotificationOutboxRequest request, CancellationToken cancellationToken)
+    {
+        User user = await EnsureAdminAsync(adminUserId, cancellationToken);
+        int maxItems = request.MaxItems ?? DefaultMaxItems;
+        DateTimeOffset now = _clock.UtcNow;
+        IReadOnlyList<NotificationDeliveryAttempt> candidates = await _attempts.ListByStatusAsync(NotificationDeliveryStatus.Failed, maxItems, cancellationToken);
+        var items = new List<RetryFailedNotificationOutboxItemResponse>(candidates.Count);
+        foreach (NotificationDeliveryAttempt candidate in candidates)
+        {
+            NotificationDeliveryAttempt? updated = await _attempts.TryResetFailedToPreparedAsync(candidate.Id, now, cancellationToken);
+            if (updated is not null) items.Add(new RetryFailedNotificationOutboxItemResponse(updated.Id, updated.Status.ToString()));
+        }
+
+        var response = new RetryFailedNotificationOutboxResponse(items.Count, items);
+        await RecordAsync(user.Id, user.Role.ToString(), AuditAction.NotificationOutboxRetryFailed, "NotificationOutbox", null, "retry-failed", new Dictionary<string, string> { ["retried"] = response.Retried.ToString(CultureInfo.InvariantCulture), ["maxItems"] = maxItems.ToString(CultureInfo.InvariantCulture) }, cancellationToken);
+        return response;
+    }
+
+    private async Task<RunNotificationOutboxResponse> ProcessAsync(string actorUserId, string actorRole, RunNotificationOutboxRequest request, AuditAction auditAction, string? runSource, int? intervalSeconds, CancellationToken cancellationToken)
+    {
         int maxItems = request.MaxItems ?? DefaultMaxItems;
         bool simulateFailures = request.SimulateFailures ?? false;
         DateTimeOffset now = _clock.UtcNow;
@@ -54,40 +104,15 @@ public sealed class NotificationOutboxService : INotificationOutboxService
 
             if (updated.Status == NotificationDeliveryStatus.SimulatedSent) sent++;
             if (updated.Status == NotificationDeliveryStatus.Failed) failed++;
-            await RecordProviderAsync(user.Id, user.Role, updated, result, cancellationToken);
+            await RecordProviderAsync(actorUserId, actorRole, updated, result, cancellationToken);
             items.Add(new NotificationOutboxItemResultResponse(updated.Id, updated.Status.ToString(), updated.Channel.ToString(), updated.FailureReason));
         }
 
         var response = new RunNotificationOutboxResponse(sent + failed, sent, failed, skipped, items);
-        await RecordAsync(user.Id, user.Role, AuditAction.NotificationOutboxRun, "NotificationOutbox", null, "run", new Dictionary<string, string> { ["processed"] = response.Processed.ToString(CultureInfo.InvariantCulture), ["simulatedSent"] = response.SimulatedSent.ToString(CultureInfo.InvariantCulture), ["failed"] = response.Failed.ToString(CultureInfo.InvariantCulture), ["skipped"] = response.Skipped.ToString(CultureInfo.InvariantCulture), ["simulateFailures"] = simulateFailures.ToString(), ["maxItems"] = maxItems.ToString(CultureInfo.InvariantCulture) }, cancellationToken);
-        return response;
-    }
-
-    public async Task<GetNotificationOutboxStatusResponse> GetStatusAsync(string adminUserId, CancellationToken cancellationToken)
-    {
-        await EnsureAdminAsync(adminUserId, cancellationToken);
-        return new GetNotificationOutboxStatusResponse(
-            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.Prepared, cancellationToken),
-            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.SimulatedSent, cancellationToken),
-            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.Failed, cancellationToken),
-            await _attempts.CountByStatusAsync(NotificationDeliveryStatus.Cancelled, cancellationToken));
-    }
-
-    public async Task<RetryFailedNotificationOutboxResponse> RetryFailedAsync(string adminUserId, RetryFailedNotificationOutboxRequest request, CancellationToken cancellationToken)
-    {
-        User user = await EnsureAdminAsync(adminUserId, cancellationToken);
-        int maxItems = request.MaxItems ?? DefaultMaxItems;
-        DateTimeOffset now = _clock.UtcNow;
-        IReadOnlyList<NotificationDeliveryAttempt> candidates = await _attempts.ListByStatusAsync(NotificationDeliveryStatus.Failed, maxItems, cancellationToken);
-        var items = new List<RetryFailedNotificationOutboxItemResponse>(candidates.Count);
-        foreach (NotificationDeliveryAttempt candidate in candidates)
-        {
-            NotificationDeliveryAttempt? updated = await _attempts.TryResetFailedToPreparedAsync(candidate.Id, now, cancellationToken);
-            if (updated is not null) items.Add(new RetryFailedNotificationOutboxItemResponse(updated.Id, updated.Status.ToString()));
-        }
-
-        var response = new RetryFailedNotificationOutboxResponse(items.Count, items);
-        await RecordAsync(user.Id, user.Role, AuditAction.NotificationOutboxRetryFailed, "NotificationOutbox", null, "retry-failed", new Dictionary<string, string> { ["retried"] = response.Retried.ToString(CultureInfo.InvariantCulture), ["maxItems"] = maxItems.ToString(CultureInfo.InvariantCulture) }, cancellationToken);
+        var metadata = new Dictionary<string, string> { ["processed"] = response.Processed.ToString(CultureInfo.InvariantCulture), ["simulatedSent"] = response.SimulatedSent.ToString(CultureInfo.InvariantCulture), ["failed"] = response.Failed.ToString(CultureInfo.InvariantCulture), ["skipped"] = response.Skipped.ToString(CultureInfo.InvariantCulture), ["simulateFailures"] = simulateFailures.ToString(), ["maxItems"] = maxItems.ToString(CultureInfo.InvariantCulture) };
+        if (!string.IsNullOrWhiteSpace(runSource)) metadata["runSource"] = runSource;
+        if (intervalSeconds.HasValue) metadata["intervalSeconds"] = intervalSeconds.Value.ToString(CultureInfo.InvariantCulture);
+        await RecordAsync(actorUserId, actorRole, auditAction, "NotificationOutbox", null, runSource is null ? "run" : "worker-run", metadata, cancellationToken);
         return response;
     }
 
@@ -117,17 +142,17 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         }
     }
 
-    private async Task RecordProviderAsync(string userId, UserRole role, NotificationDeliveryAttempt attempt, NotificationProviderResult result, CancellationToken cancellationToken)
+    private async Task RecordProviderAsync(string userId, string role, NotificationDeliveryAttempt attempt, NotificationProviderResult result, CancellationToken cancellationToken)
     {
         AuditAction action = result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderSimulatedSent : AuditAction.NotificationProviderSimulatedFailed;
         await RecordAsync(userId, role, action, "NotificationDeliveryAttempt", attempt.Id, result.ErrorCode, new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["alertDispatchId"] = attempt.AlertDispatchId, ["incidentId"] = attempt.IncidentId, ["channel"] = attempt.Channel.ToString(), ["providerType"] = result.ProviderType.ToString(), ["deliveryStatus"] = result.DeliveryStatus.ToString(), ["providerMessageId"] = result.ProviderMessageId ?? string.Empty, ["errorCode"] = result.ErrorCode ?? string.Empty }, cancellationToken);
     }
 
-    private async Task RecordAsync(string userId, UserRole role, AuditAction action, string entityType, string? entityId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken)
+    private async Task RecordAsync(string userId, string role, AuditAction action, string entityType, string? entityId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken)
     {
         try
         {
-            if (_auditLogs is not null) await _auditLogs.RecordAsync(userId, role.ToString(), action, AuditModule.NotificationOutbox, entityType, entityId, AuditOutcome.Success, reason, null, null, metadata, cancellationToken);
+            if (_auditLogs is not null) await _auditLogs.RecordAsync(userId, role, action, AuditModule.NotificationOutbox, entityType, entityId, AuditOutcome.Success, reason, null, null, metadata, cancellationToken);
         }
         catch
         {

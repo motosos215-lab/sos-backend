@@ -12,6 +12,7 @@ Notification Provider Abstraction define una capa interna para procesar intentos
 - No envia mensajes reales.
 - No usa SDKs externos.
 - No requiere configuracion sensible.
+- Es usada tambien por el Notification Outbox Worker cuando este se habilita.
 
 ## Componentes
 
@@ -53,6 +54,7 @@ Los endpoints existentes se mantienen:
 - `POST /api/v1/admin/notifications/outbox/run`
 - `GET /api/v1/admin/notifications/outbox/status`
 - `POST /api/v1/admin/notifications/outbox/retry-failed`
+- `GET /api/v1/admin/notifications/outbox/worker/status`
 
 El comportamiento se mantiene:
 
@@ -60,6 +62,7 @@ El comportamiento se mantiene:
 - `Prepared -> Failed` cuando `simulateFailures = true`.
 - `retry-failed` mantiene `Failed -> Prepared`.
 - `run` no procesa `Cancelled`, `Failed` ni `SimulatedSent`.
+- El worker reutiliza estas reglas y queda deshabilitado por defecto.
 
 ## Auditoria
 
@@ -87,7 +90,7 @@ La abstraccion no expone ni persiste datos sensibles, configuracion sensible, pa
 
 ## Fuera De Alcance
 
-No implementa proveedores reales, SDKs externos, servicios en segundo plano, colas reales, realtime, tracking en vivo, mapas en tiempo real, IA real, predicciones, cobros ni pairing API de smartwatch.
+No implementa proveedores reales, SDKs externos, colas reales, tiempo real, mapas en vivo, IA real, predicciones, cobros ni pairing API de smartwatch.
 
 ## Pendientes Futuros
 

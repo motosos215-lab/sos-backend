@@ -91,7 +91,11 @@
 - Notification Outbox API implementa endpoints Admin-only bajo `/api/v1/admin/notifications/outbox` para procesar attempts existentes de forma simulada y controlada.
 - Notification Outbox API mueve attempts `Prepared` a `SimulatedSent` o a `Failed` con reason `simulated_failure_requested`, usando updates atomicos por `Id` y estado esperado.
 - Notification Outbox API permite `retry-failed` para regresar attempts `Failed` a `Prepared`; no procesa attempts `Cancelled` ni `SimulatedSent`.
-- Notification Outbox API no crea colecciones, no modifica incidentes, no modifica alert dispatches, no crea acknowledgements, no crea reportes de resolucion, no envia mensajes reales, no agrega proveedores externos y no ejecuta worker real todavia.
+- Notification Outbox API no crea colecciones, no modifica incidentes, no modifica alert dispatches, no crea acknowledgements, no crea reportes de resolucion, no envia mensajes reales ni agrega proveedores externos.
+- Notification Outbox Worker queda implementado como `BackgroundService` nativo, registrado pero deshabilitado por defecto con `Enabled = false`, `IntervalSeconds = 60`, `MaxItemsPerRun = 20`, `SimulateFailures = false` y `RunOnStartup = false`.
+- Notification Outbox Worker reutiliza `NotificationOutboxService` y `SimulatedNotificationProvider`; cuando se habilita procesa attempts `Prepared` automaticamente y conserva `Prepared -> SimulatedSent`, `Prepared -> Failed` y `retry-failed` manual como flujos separados.
+- Notification Outbox Worker evita ejecuciones simultaneas en la misma instancia con control en memoria, captura errores como estado seguro y continua en el siguiente intervalo; distributed lock queda pendiente futuro para multiples replicas.
+- Notification Outbox agrega `GET /api/v1/admin/notifications/outbox/worker/status` como endpoint Admin-only, solo lectura, sin activar ni disparar procesamiento.
 - Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
 - Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
 - Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.
@@ -145,6 +149,7 @@
 - `simulateFailures = false` conserva `Prepared -> SimulatedSent`; `simulateFailures = true` conserva `Prepared -> Failed`; `retry-failed` conserva `Failed -> Prepared`.
 - El provider simulado genera `ProviderMessageId` seguro `simulated-{guid}` en exito y errores controlados en falla; no realiza I/O externo ni requiere configuracion sensible.
 - Notification Provider Abstraction audita best-effort `NotificationProviderSimulatedSent` y `NotificationProviderSimulatedFailed` con metadata segura limitada.
+- Notification Outbox Worker audita best-effort `NotificationOutboxWorkerRun`, `NotificationOutboxWorkerFailed` y `NotificationOutboxWorkerSkipped` con metadata segura limitada.
 - No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
 - Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
 - Alert Acknowledgements API implementa la respuesta del contacto/monitor ante alertas preparadas, sin live monitoring ni notificaciones reales todavia.
