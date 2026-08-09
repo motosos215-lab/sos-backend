@@ -1,0 +1,26 @@
+namespace MotoSOS.API.Modules.Escalations.Contracts;
+
+public sealed record EmergencyEscalationResponse(
+    string Id,
+    string IncidentId,
+    string TripId,
+    string AlertDispatchId,
+    string Status,
+    string Reason,
+    string Level,
+    string? Notes,
+    int NotificationsTotal,
+    int NotificationsPrepared,
+    int NotificationsSimulatedSent,
+    int NotificationsFailed,
+    int NotificationsCancelled,
+    int AcknowledgementsTotal,
+    int AcknowledgedCount,
+    int DeclinedCount,
+    int ViewedCount,
+    int PendingCount,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc,
+    DateTimeOffset? ResolvedAtUtc,
+    DateTimeOffset? MarkedUnresolvedAtUtc,
+    DateTimeOffset? CancelledAtUtc);
