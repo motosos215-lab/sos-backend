@@ -23,6 +23,7 @@ using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.ReportExports.Application;
 using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
 using MotoSOS.API.Modules.Users.Application;
@@ -49,6 +50,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<ITelemetrySummaryService, TelemetrySummaryService>();
         services.AddScoped<IEvidenceAttachmentService, EvidenceAttachmentService>();
+        services.AddScoped<IResolutionReportExportService, ResolutionReportExportService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
         services.AddScoped<IIncidentService, IncidentService>();
@@ -77,6 +79,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<MinorEventQueryValidator>();
         services.AddSingleton<TelemetrySummaryQueryValidator>();
         services.AddSingleton<EvidenceAttachmentQueryValidator>();
+        services.AddSingleton<ResolutionReportExportQueryValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();
@@ -92,6 +95,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IEmergencyEscalationIdempotencyKeyFactory, EmergencyEscalationIdempotencyKeyFactory>();
         services.AddSingleton<IMinorEventIdempotencyKeyFactory, MinorEventIdempotencyKeyFactory>();
         services.AddSingleton<IEvidenceAttachmentIdempotencyKeyFactory, EvidenceAttachmentIdempotencyKeyFactory>();
+        services.AddSingleton<IResolutionReportExportIdempotencyKeyFactory, ResolutionReportExportIdempotencyKeyFactory>();
 
         return services;
     }

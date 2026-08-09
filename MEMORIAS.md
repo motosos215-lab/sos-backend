@@ -199,6 +199,14 @@
 - Evidence Attachments implementa soft delete solo para Rider con `MarkedDeleted` y `DeletedAtUtc`.
 - Evidence Attachments no modifica Incident, AlertDispatch ni EmergencyResolutionReport, no crea entidades externas, no envia notificaciones y no llama proveedores externos.
 - Evidence Attachments audita best-effort `EvidenceAttachmentRegistered` y `EvidenceAttachmentDeleted` con metadata segura limitada.
+- Resolution Report Export API implementa export JSON estructurado de reportes finales y metadata minima en `resolutionReportExports`.
+- Resolution Report Export soporta solo `Json`; no genera PDF real, no descarga binarios, no guarda bytes/base64 y no usa storage externo.
+- Resolution Report Export agrega endpoints Rider, Admin y Monitor para exportar segun permisos, y endpoint Admin para listar metadata de exports.
+- Resolution Report Export usa idempotencia por `UserId + EmergencyResolutionReportId + ExportType`; exportar dos veces no duplica metadata y regenera la vista con datos actuales.
+- Resolution Report Export consolida Incident, Trip, Alert Dispatch, Notifications, Acknowledgements, ultima ubicacion, Resolution Report, Escalation, Telemetry Summary, Evidence Attachments y AuditSummary basico.
+- Resolution Report Export no devuelve historial de ubicaciones, polyline, tracking, lista completa de MinorEvents, metadata completa de evidencias ni metadata completa de auditoria.
+- Resolution Report Export no modifica ni crea entidades externas; solo upsertea metadata minima del export.
+- Resolution Report Export audita best-effort `ResolutionReportExportGenerated` con metadata segura limitada.
 - Pendientes futuros de Minor Events: reglas automaticas, dashboard especifico, analitica, modelos predictivos aprobados, correlacion con incidentes, mapas historicos agregados y telemetria resumida avanzada.
 - Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
 - Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.

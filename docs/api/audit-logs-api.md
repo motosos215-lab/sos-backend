@@ -80,6 +80,7 @@ Actualmente se auditan estas acciones exitosas:
 - `TelemetrySummaryRecomputed`
 - `EvidenceAttachmentRegistered`
 - `EvidenceAttachmentDeleted`
+- `ResolutionReportExportGenerated`
 
 ## Endpoints
 

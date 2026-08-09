@@ -36,5 +36,6 @@ public enum AuditAction
     TelemetrySummaryComputed = 31,
     TelemetrySummaryRecomputed = 32,
     EvidenceAttachmentRegistered = 33,
-    EvidenceAttachmentDeleted = 34
+    EvidenceAttachmentDeleted = 34,
+    ResolutionReportExportGenerated = 35
 }

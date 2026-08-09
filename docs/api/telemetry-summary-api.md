@@ -152,3 +152,7 @@ No implementa monitoreo en vivo, mapa en tiempo real, ruta completa, polyline, s
 - Score de riesgo real.
 - Correlacion con incidentes.
 - Optimizacion con aggregation pipeline Mongo si el volumen crece.
+
+## Relacion Con Resolution Report Export
+
+Resolution Report Export API puede incluir TelemetrySummary usando solo agregados persistidos. No incluye eventos completos, coordenadas, ruta ni tracking.

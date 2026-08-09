@@ -116,3 +116,7 @@ Metadata permitida:
 - Procesamiento de imagen/video/audio.
 - Politicas de retencion.
 - Exportacion junto con resolution report.
+
+## Relacion Con Resolution Report Export
+
+Resolution Report Export API puede incluir EvidenceSummary con metadata segura de evidencias. No incluye referencias locales, storage keys, metadata completa ni contenido binario.

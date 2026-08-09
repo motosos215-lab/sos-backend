@@ -25,6 +25,7 @@ using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.ReportExports.Domain;
 using MotoSOS.API.Modules.TelemetrySummary.Domain;
 using MotoSOS.API.Modules.Trips.Domain;
 using MotoSOS.API.Modules.Users.Domain;
@@ -258,6 +259,9 @@ public sealed class MongoIndexInitializerTests
         indexes.EvidenceAttachmentIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<EvidenceAttachment>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
+        indexes.ResolutionReportExportIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<ResolutionReportExport>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
     }
 
     [Fact]
@@ -392,6 +396,12 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.ResolutionReportExportIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<ResolutionReportExport>>(model => model.Options.Name == "ux_resolutionReportExports_idempotencyKey" && model.Options.Unique == true),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -465,6 +475,7 @@ public sealed class MongoIndexInitializerTests
         var minorEvents = new Mock<IMongoCollection<MinorEvent>>();
         var tripTelemetrySummaries = new Mock<IMongoCollection<TripTelemetrySummary>>();
         var evidenceAttachments = new Mock<IMongoCollection<EvidenceAttachment>>();
+        var resolutionReportExports = new Mock<IMongoCollection<ResolutionReportExport>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
@@ -487,6 +498,7 @@ public sealed class MongoIndexInitializerTests
         var minorEventIndexes = new Mock<IMongoIndexManager<MinorEvent>>();
         var telemetrySummaryIndexes = new Mock<IMongoIndexManager<TripTelemetrySummary>>();
         var evidenceAttachmentIndexes = new Mock<IMongoIndexManager<EvidenceAttachment>>();
+        var resolutionReportExportIndexes = new Mock<IMongoIndexManager<ResolutionReportExport>>();
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
@@ -510,6 +522,7 @@ public sealed class MongoIndexInitializerTests
         minorEvents.SetupGet(collection => collection.Indexes).Returns(minorEventIndexes.Object);
         tripTelemetrySummaries.SetupGet(collection => collection.Indexes).Returns(telemetrySummaryIndexes.Object);
         evidenceAttachments.SetupGet(collection => collection.Indexes).Returns(evidenceAttachmentIndexes.Object);
+        resolutionReportExports.SetupGet(collection => collection.Indexes).Returns(resolutionReportExportIndexes.Object);
         database
             .Setup(db => db.GetCollection<User>(MongoCollectionNames.Users, It.IsAny<MongoCollectionSettings>()))
             .Returns(users.Object);
@@ -576,6 +589,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<EvidenceAttachment>(MongoCollectionNames.EvidenceAttachments, It.IsAny<MongoCollectionSettings>()))
             .Returns(evidenceAttachments.Object);
+        database
+            .Setup(db => db.GetCollection<ResolutionReportExport>(MongoCollectionNames.ResolutionReportExports, It.IsAny<MongoCollectionSettings>()))
+            .Returns(resolutionReportExports.Object);
 
         userIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
@@ -643,8 +659,11 @@ public sealed class MongoIndexInitializerTests
         evidenceAttachmentIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.EvidenceAttachments)));
+        resolutionReportExportIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.ResolutionReportExports)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -960,7 +979,8 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoIndexManager<EmergencyEscalation>> EmergencyEscalationIndexes,
         Mock<IMongoIndexManager<MinorEvent>> MinorEventIndexes,
         Mock<IMongoIndexManager<TripTelemetrySummary>> TelemetrySummaryIndexes,
-        Mock<IMongoIndexManager<EvidenceAttachment>> EvidenceAttachmentIndexes);
+        Mock<IMongoIndexManager<EvidenceAttachment>> EvidenceAttachmentIndexes,
+        Mock<IMongoIndexManager<ResolutionReportExport>> ResolutionReportExportIndexes);
 
     private sealed class BsonDocumentCursor : IAsyncCursor<BsonDocument>
     {

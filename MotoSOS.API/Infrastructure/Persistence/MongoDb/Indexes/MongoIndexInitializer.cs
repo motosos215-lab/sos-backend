@@ -18,6 +18,7 @@ using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.ReportExports.Domain;
 using MotoSOS.API.Modules.TelemetrySummary.Domain;
 using MotoSOS.API.Modules.Trips.Domain;
 using MotoSOS.API.Modules.Users.Domain;
@@ -344,6 +345,21 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_alertDispatchId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.AlertDispatchId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_emergencyResolutionReportId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.EmergencyResolutionReportId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_userId_status_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.UserId)] = 1, [nameof(EvidenceAttachment.Status)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+
+        IMongoCollection<ResolutionReportExport> resolutionReportExports = _database.GetCollection<ResolutionReportExport>(MongoCollectionNames.ResolutionReportExports);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_userId", new BsonDocument(nameof(ResolutionReportExport.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_incidentId", new BsonDocument(nameof(ResolutionReportExport.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_emergencyResolutionReportId", new BsonDocument(nameof(ResolutionReportExport.EmergencyResolutionReportId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_exportType", new BsonDocument(nameof(ResolutionReportExport.ExportType), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_status", new BsonDocument(nameof(ResolutionReportExport.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_generatedAtUtc", new BsonDocument(nameof(ResolutionReportExport.GeneratedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_createdAtUtc", new BsonDocument(nameof(ResolutionReportExport.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_updatedAtUtc", new BsonDocument(nameof(ResolutionReportExport.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ux_resolutionReportExports_idempotencyKey", new BsonDocument(nameof(ResolutionReportExport.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_userId_generatedAtUtc", new BsonDocument { [nameof(ResolutionReportExport.UserId)] = 1, [nameof(ResolutionReportExport.GeneratedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_incidentId_generatedAtUtc", new BsonDocument { [nameof(ResolutionReportExport.IncidentId)] = 1, [nameof(ResolutionReportExport.GeneratedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_emergencyResolutionReportId_generatedAtUtc", new BsonDocument { [nameof(ResolutionReportExport.EmergencyResolutionReportId)] = 1, [nameof(ResolutionReportExport.GeneratedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(resolutionReportExports, "ix_resolutionReportExports_status_generatedAtUtc", new BsonDocument { [nameof(ResolutionReportExport.Status)] = 1, [nameof(ResolutionReportExport.GeneratedAtUtc)] = 1 }, unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

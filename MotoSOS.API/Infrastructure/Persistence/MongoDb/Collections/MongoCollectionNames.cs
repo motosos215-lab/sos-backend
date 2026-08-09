@@ -45,4 +45,6 @@ public static class MongoCollectionNames
     public const string TripTelemetrySummaries = "tripTelemetrySummaries";
 
     public const string EvidenceAttachments = "evidenceAttachments";
+
+    public const string ResolutionReportExports = "resolutionReportExports";
 }
