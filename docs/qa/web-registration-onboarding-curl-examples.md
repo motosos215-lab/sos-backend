@@ -142,6 +142,10 @@ Esperado: `200 OK`. Copiar `data.device.id` a `$mobileDeviceId`. Status esperado
 
 ## 12. Optional Smartwatch Link
 
+Estado: legado / no aplicable para la decision vigente de Wear OS.
+
+La vinculacion del smartwatch ahora es local entre Android y Wear OS mediante Wear OS Data Layer. MotoSOS.API no debe administrar pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del reloj. Este ejemplo queda solo como contexto historico de la propuesta anterior y no debe usarse para validar nuevas implementaciones.
+
 ```powershell
 curl.exe -i -X POST "$baseUrl/api/v1/devices/smartwatch/link" `
   -H "Authorization: Bearer $accessToken" `

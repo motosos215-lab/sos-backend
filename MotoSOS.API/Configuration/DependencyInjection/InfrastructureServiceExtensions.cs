@@ -6,12 +6,21 @@ using MotoSOS.API.Infrastructure.DateTime;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Indexes;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
+using MotoSOS.API.Modules.AlertAcknowledgements.Application;
+using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.EmergencyResolution.Application;
+using MotoSOS.API.Modules.Incidents.Application;
+using MotoSOS.API.Modules.LocationSharing.Application;
+using MotoSOS.API.Modules.Notifications.Application;
+using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
+using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.Trips.Application;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Vehicles.Application;
 
@@ -66,6 +75,17 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IUserDeviceRepository, MongoUserDeviceRepository>();
             services.AddScoped<IUserSubscriptionRepository, MongoUserSubscriptionRepository>();
             services.AddScoped<IOnboardingConfirmationRepository, MongoOnboardingConfirmationRepository>();
+            services.AddScoped<ITripRepository, MongoTripRepository>();
+            services.AddScoped<IOfflineIngestionRepository, MongoOfflineIngestionRepository>();
+            services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
+            services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
+            services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IMonitorLinkedContactRepository, MongoEmergencyContactRepository>();
+            services.AddScoped<INotificationAttemptMonitorRepository, MongoNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IAlertAcknowledgementRepository, MongoAlertAcknowledgementRepository>();
+            services.AddScoped<ILocationSharingRepository, MongoLocationSharingRepository>();
+            services.AddScoped<IEmergencyResolutionRepository, MongoEmergencyResolutionRepository>();
+            services.AddScoped<IOperationalDashboardRepository, MongoOperationalDashboardRepository>();
         }
         else
         {
@@ -78,6 +98,17 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IUserDeviceRepository, UnconfiguredUserDeviceRepository>();
             services.AddScoped<IUserSubscriptionRepository, UnconfiguredUserSubscriptionRepository>();
             services.AddScoped<IOnboardingConfirmationRepository, UnconfiguredOnboardingConfirmationRepository>();
+            services.AddScoped<ITripRepository, UnconfiguredTripRepository>();
+            services.AddScoped<IOfflineIngestionRepository, UnconfiguredOfflineIngestionRepository>();
+            services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
+            services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();
+            services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IMonitorLinkedContactRepository, UnconfiguredMonitorLinkedContactRepository>();
+            services.AddScoped<INotificationAttemptMonitorRepository, UnconfiguredNotificationAttemptMonitorRepository>();
+            services.AddScoped<IAlertAcknowledgementRepository, UnconfiguredAlertAcknowledgementRepository>();
+            services.AddScoped<ILocationSharingRepository, UnconfiguredLocationSharingRepository>();
+            services.AddScoped<IEmergencyResolutionRepository, UnconfiguredEmergencyResolutionRepository>();
+            services.AddScoped<IOperationalDashboardRepository, UnconfiguredOperationalDashboardRepository>();
         }
 
         return services;

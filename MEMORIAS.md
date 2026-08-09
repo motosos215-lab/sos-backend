@@ -31,6 +31,7 @@
 - El onboarding inicial de conductor sigue un flujo web-first: registro, login y configuracion inicial ocurren principalmente en portal web.
 - La app movil se vinculara despues mediante codigo o QR y no sustituye el alta inicial del conductor.
 - El smartwatch se vinculara desde la app movil, no desde web.
+- Decision final Wear OS: el smartwatch se vincula unicamente local entre Android y Wear OS mediante Wear OS Data Layer. La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado del reloj. El telefono actua como gateway y envia a la API batches resumidos, eventos, incidentes, alertas y ubicacion usando la sesion del Rider.
 - El wizard actual de conductor tiene 7 pasos: cuenta, perfil, motocicleta/motoneta, contactos de emergencia, vinculacion de dispositivos, plan/licencia y confirmacion.
 - En esta etapa solo `Rider` puede usar onboarding de conductor y perfil; `Conductor` del maquetado se guarda como `Rider`.
 - `Monitor` y `Admin` recibiran `403 forbidden` en el flujo de onboarding/perfil de conductor hasta que existan flujos especificos.
@@ -53,12 +54,12 @@
 - Los codigos de activacion movil se guardan en MongoDB en la coleccion `deviceActivationCodes` y expiran en 15 minutos.
 - Los dispositivos vinculados se guardan en MongoDB en la coleccion `userDevices`.
 - El portal web genera o consulta el codigo vigente; la app movil autenticada usa el codigo para vincularse.
-- El smartwatch no se vincula desde web; la app movil reporta la vinculacion y estado del smartwatch.
+- El smartwatch no se vincula desde web ni desde la API; la vinculacion Wear OS queda local en la app movil mediante Wear OS Data Layer.
 - El plan Basico permite 1 `MobileApp` activa/vinculada por usuario hasta que exista modulo Plans real.
 - `deviceIdentifier` se guarda hasheado y no se devuelve en responses.
-- Revocar una `MobileApp` revoca tambien smartwatches dependientes por `ParentDeviceId`.
+- El modelo historico de smartwatches dependientes por `ParentDeviceId` queda como contexto legado; nuevas implementaciones no deben crear pairing API de smartwatch.
 - Onboarding avanza a `5/7`, `71%` y `Plan` cuando existe una `MobileApp` activa con `LinkStatus = Linked`; smartwatch queda opcional en esta etapa.
-- Pendientes futuros de Devices: planes reales, push notifications, sincronizacion offline real, viajes, SOS, incidentes, Bluetooth/Wear OS real y dashboard operativo.
+- Pendientes futuros de Devices: planes reales, push notifications, sincronizacion offline real, viajes, SOS, incidentes, compatibilidad legado de smartwatch documentada y dashboard operativo.
 - Plans API implementa el paso 6 del wizard web-first: Plan y licencia.
 - El catalogo de planes se maneja en memoria con Basic, Plus y FamilyPro; solo Basic es seleccionable desde web en esta etapa.
 - Las suscripciones del usuario se guardan en MongoDB en la coleccion `userSubscriptions`.
@@ -74,6 +75,91 @@
 - Onboarding avanza a `7/7`, `100%`, `currentStep = Completed` e `isOperational = true` solo si existe confirmacion y los pasos previos siguen completos.
 - Si un paso previo queda incompleto despues de confirmar, `isOperational` vuelve a `false` aunque exista confirmacion previa.
 - Pendientes futuros tras cerrar wizard: Trips, SOS, Incidents, Notifications, Live Monitoring, Dashboard operativo y Machine Learning.
+- Trips API implementa el primer modulo operativo despues del onboarding web-first completo.
+- Los viajes se guardan en MongoDB en la coleccion `trips` con indices por `UserId`, `UserId + Status`, `VehicleId`, `MobileDeviceId`, `StartedAtUtc` y `FinishedAtUtc`.
+- Trips API agrega `GET /api/v1/trips/active`, `POST /api/v1/trips/start`, `POST /api/v1/trips/{id}/finish`, `GET /api/v1/trips/{id}` y `GET /api/v1/trips`.
+- Emergency Resolution Report API crea reportes finales en la coleccion `emergencyResolutionReports` solo para incidentes `Closed` o `FalsePositiveCancelled`.
+- Emergency Resolution Report API usa idempotencia `userId + incidentId`; crear dos veces devuelve el reporte existente y no duplica documentos ni devuelve `409`.
+- Emergency Resolution Report API no cierra incidentes ni duplica la logica operativa de cierre; el cierre sigue en Incidents API con `/api/v1/incidents/{id}/close` y `/api/v1/incidents/{id}/cancel-false-positive`.
+- Emergency Resolution Report API agrega endpoints Rider para crear, consultar y listar reportes, y endpoint Monitor para consultar reportes de alertas asignadas.
+- `ILocationSharingRepository.GetLatestByIncidentIdAsync` queda aprobado para reportes finales y consulta el ultimo snapshot por `IncidentId`, ordenado por `RecordedAtUtc` desc y `ReceivedAtUtc` desc, sin historial, polyline ni monitoreo realtime.
+- Emergency Resolution Report API persiste metricas finales: intentos de notificacion, acknowledgements, acknowledged/declined, primera notificacion, primer acknowledgement, tiempo de respuesta, cierre del incidente, ultima ubicacion conocida y stale flag.
+- Operational Dashboard API implementa endpoints administrativos bajo `/api/v1/admin/dashboard` para metricas globales de usuarios, onboarding, viajes, incidentes, alertas, notificaciones, acknowledgements, reportes de resolucion y procesamiento offline.
+- Operational Dashboard API es Admin-only, solo lectura/agregacion, no acepta `userId` externo, no crea colecciones nuevas y consulta colecciones existentes mediante un repositorio agregado read-only.
+- Operational Dashboard API no implementa frontend, graficas, ML, realtime, monitoreo en vivo, proveedores reales, pagos ni pairing API de smartwatch.
+- Operational Dashboard API deja como pendiente futuro optimizar response times y outcomes con aggregation pipeline si el volumen crece.
+- Notification Outbox API implementa endpoints Admin-only bajo `/api/v1/admin/notifications/outbox` para procesar attempts existentes de forma simulada y controlada.
+- Notification Outbox API mueve attempts `Prepared` a `SimulatedSent` o a `Failed` con reason `simulated_failure_requested`, usando updates atomicos por `Id` y estado esperado.
+- Notification Outbox API permite `retry-failed` para regresar attempts `Failed` a `Prepared`; no procesa attempts `Cancelled` ni `SimulatedSent`.
+- Notification Outbox API no crea colecciones, no modifica incidentes, no modifica alert dispatches, no crea acknowledgements, no crea reportes de resolucion, no envia mensajes reales, no agrega proveedores externos y no ejecuta worker real todavia.
+- Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
+- Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
+- Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.
+- Sin indice unico parcial o control atomico fuerte, dos requests simultaneos extremos podrian crear dos viajes activos; queda como mejora futura una garantia fuerte con operacion atomica o indice parcial.
+- Pendientes futuros de Trips: Offline ingestion, Minor events, Sensor batches, Incidents, SOS, Alerts, Notifications, Live Monitoring, Dashboard y ML.
+- Offline Ingestion API implementa `POST /api/v1/mobile/offline-ingestion/batch` para recibir cola offline movil y devolver ACK durable despues de persistir.
+- Los registros offline se guardan en MongoDB en la coleccion `offlineIngestionRecords`.
+- La idempotency key oficial es `userId + mobileDeviceId + tripId + item.type + item.clientEventId + item.payloadVersion` y tiene indice unico.
+- Duplicados de Offline Ingestion no devuelven `409`; responden `Duplicate` como exito estable con el mismo `AckId` y `remoteRecordId`.
+- Offline Ingestion acepta `minor-event`, `local-incident`, `alert-dispatch-request` y `location-update`, y guarda nuevos registros con `ProcessingStatus = PendingProcessing`.
+- Offline Ingestion no procesa incidentes reales, SOS, alertas, notificaciones, live monitoring, dashboard ni ML todavia.
+- Pendientes futuros de Offline Ingestion: processor real, Incidents API, Alert Dispatch API, Notifications, Live Monitoring, Dashboard, ML y sensor batches completos.
+- Offline Processing API implementa procesamiento controlado de registros `offlineIngestionRecords` pendientes, sin worker real ni coleccion nueva.
+- Offline Processing agrega `POST /api/v1/offline-processing/run` y `GET /api/v1/offline-processing/status`, ambos Rider-only.
+- Offline Processing procesa `local-incident`, `alert-dispatch-request` y `location-update`; `minor-event` queda `Ignored` y se muestra como `Skipped` con reason `minor_event_processing_not_implemented`.
+- Para `local-incident`, si falta `payload.clientIncidentId`, se usa `OfflineIngestionRecord.ClientEventId` como fallback estable; no se genera GUID en backend.
+- Offline Processing usa claim atomico `Id + UserId + PendingProcessing` antes de procesar y mantiene idempotencia de Incidents, Alert Dispatch y Location Sharing.
+- Offline Processing no implementa Hangfire, Quartz, cron externo, WebSockets, SignalR, proveedores reales, notificaciones reales, escalamiento ni ML.
+- Incidents API implementa el registro remoto de incidentes asociados a viajes, sin alertas ni notificaciones reales todavia.
+- Los incidentes se guardan en MongoDB en la coleccion `incidents` con indice unico por `IdempotencyKey`.
+- La idempotency key oficial de Incidents es `userId + tripId + clientIncidentId`; duplicados no devuelven `409` y responden el incidente existente como exito estable.
+- Incidents API requiere JWT Bearer, solo permite `Rider`, toma `userId` exclusivamente del token y no acepta `userId` en el body.
+- Incidents API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
+- `tripId` debe existir y pertenecer al Rider autenticado; puede estar `Active` o `Finished` para sincronizacion tardia.
+- `VehicleId`, `MobileDeviceId` y `SmartwatchDeviceId` del incidente se derivan desde el viaje y no desde el request.
+- Nuevos incidentes se crean con `Status = Open`; cancelar falso positivo aplica `Open -> FalsePositiveCancelled` y cerrar aplica `Open` o `FalsePositiveCancelled -> Closed`.
+- No se borran incidentes fisicamente y cancelar falso positivo sobre `Closed` devuelve `incident_already_closed`.
+- Pendientes futuros de Incidents: Alert Dispatch API real, notificaciones, escalamiento, live monitoring, dashboard operativo, ML, processor real de Offline Ingestion y sensor batches completos.
+- Alert Dispatch API implementa la preparacion y persistencia de solicitudes de alerta asociadas a incidentes existentes, sin envio real de notificaciones todavia.
+- Los alert dispatches se guardan en MongoDB en la coleccion `alertDispatchRequests` con indice unico por `IdempotencyKey`.
+- Alert Dispatch API agrega `POST /api/v1/alert-dispatches`, `GET /api/v1/alert-dispatches`, `GET /api/v1/alert-dispatches/{id}` y `POST /api/v1/alert-dispatches/{id}/cancel`.
+- La idempotency key oficial de Alert Dispatch es `userId + incidentId + clientAlertRequestId`; duplicados no devuelven `409` y responden la solicitud existente como exito estable.
+- Alert Dispatch API requiere JWT Bearer, solo permite `Rider`, toma `userId` exclusivamente del token y no acepta `userId` en el body.
+- Alert Dispatch API requiere onboarding completo y solo permite crear solicitudes para incidentes propios en `Status = Open`.
+- Incidentes `Closed` devuelven `incident_not_ready`; incidentes `FalsePositiveCancelled` devuelven `alert_not_allowed`.
+- `TripId`, `VehicleId`, `MobileDeviceId` y `SmartwatchDeviceId` se derivan desde el incidente y no desde el request.
+- Al crear una solicitud se guarda snapshot de contactos de emergencia elegibles: activos con `InvitationStatus = Invited` o `Linked`.
+- Si no existe al menos un contacto elegible, Alert Dispatch devuelve `alert_not_allowed`.
+- Nuevas solicitudes se crean con `Status = PendingDispatch`; cancelar aplica `PendingDispatch -> Cancelled`, `Cancelled` es idempotente y `Completed` devuelve `alert_dispatch_already_completed`.
+- Pendientes futuros de Alert Dispatch: Notifications API, push, SMS, mensajeria instantanea, correo, escalamiento real, acknowledgement de contacto/monitor, live monitoring, dashboard operativo y ML.
+- Notifications API implementa la preparacion y persistencia de intentos de notificacion asociados a `AlertDispatchRequest`, sin envio real todavia.
+- Los intentos se guardan en MongoDB en la coleccion `notificationDeliveryAttempts` con indice unico por `IdempotencyKey`.
+- Notifications API agrega `POST /api/v1/notifications/delivery-attempts/prepare`, `GET /api/v1/notifications/delivery-attempts`, `GET /api/v1/notifications/delivery-attempts/{id}`, `POST /mark-simulated-sent`, `POST /mark-failed` y `POST /cancel`.
+- La idempotency key oficial de Notifications es `userId + alertDispatchId + emergencyContactId + channel + attemptNumber`, con `attemptNumber = 1` en esta etapa.
+- Notifications API usa exclusivamente `ContactsSnapshot` de Alert Dispatch y no consulta contactos vivos para generar intentos.
+- Se crea un intento por contacto: `Sms` si hay telefono y `Email` como fallback si solo hay correo; contactos sin canal se omiten.
+- Los intentos nuevos quedan `Prepared` y `Provider = None`; `SimulatedSent` existe solo para pruebas internas.
+- No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
+- Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
+- Alert Acknowledgements API implementa la respuesta del contacto/monitor ante alertas preparadas, sin live monitoring ni notificaciones reales todavia.
+- Los acknowledgements se guardan en MongoDB en la coleccion `alertAcknowledgements` con indice unico por `IdempotencyKey`.
+- Alert Acknowledgements API usa `EmergencyContact.LinkedUserId == monitorUserId` como relacion segura para asignar alertas al Monitor.
+- El documento unico de acknowledgement usa `monitorUserId + notificationDeliveryAttemptId`; las acciones repetidas son idempotentes por transicion de estado.
+- Monitor puede listar, ver, marcar vista, confirmar o declinar solo intentos asociados a sus contactos vinculados; intentos ajenos devuelven `not_found`.
+- Rider puede consultar acknowledgements asociados a sus propias alertas pero no responder como Monitor.
+- Pendientes futuros de Alert Acknowledgements: live monitoring, mapa en tiempo real, streaming de ubicacion, chat, llamadas, proveedores reales, escalamiento, dashboard operativo y ML.
+- Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
+- Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.
+- Location Sharing agrega `POST /api/v1/mobile/location-sharing/snapshot`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/location` y `GET /api/v1/rider/incidents/{incidentId}/location`.
+- Publicar ubicacion hace upsert por `UserId + IncidentId`; ubicaciones antiguas o duplicadas por `ClientLocationUpdateId` no reemplazan la ultima ubicacion.
+- Monitor consulta ubicacion solo cuando el intento de notificacion pertenece a un `EmergencyContact` vinculado por `LinkedUserId`.
+- Rider consulta solo ubicacion de incidentes propios; `isStale` indica si la ultima ubicacion supera 5 minutos respecto al reloj del servidor.
+- Pendientes futuros de Location Sharing: live monitoring completo, sockets en tiempo real, mapa en vivo, historial controlado, frecuencia configurable, escalamiento, dashboard operativo y ML.
+- Emergency Status API implementa resumen de emergencia por lectura/agregacion de Incidents, Trips, Alert Dispatch, Notifications, Alert Acknowledgements y Location Sharing, sin coleccion nueva.
+- Emergency Status agrega `GET /api/v1/rider/emergencies/{incidentId}/status`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/status` y `GET /api/v1/rider/emergencies/active`.
+- Rider solo consulta emergencias propias; Monitor solo consulta alertas asignadas mediante `EmergencyContact.LinkedUserId == monitorUserId`.
+- Los conteos de notifications y acknowledgements se acotan por `incidentId` y, cuando existe, por `alertDispatchId`; no se calculan globalmente por usuario.
+- Emergency Status no implementa live tracking, WebSockets, SignalR, streaming, mapa en tiempo real ni proveedores reales de notificacion.
 
 ## Restricciones persistentes
 

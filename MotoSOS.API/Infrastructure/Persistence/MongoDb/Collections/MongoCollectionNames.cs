@@ -19,4 +19,20 @@ public static class MongoCollectionNames
     public const string UserSubscriptions = "userSubscriptions";
 
     public const string OnboardingConfirmations = "onboardingConfirmations";
+
+    public const string Trips = "trips";
+
+    public const string OfflineIngestionRecords = "offlineIngestionRecords";
+
+    public const string Incidents = "incidents";
+
+    public const string AlertDispatchRequests = "alertDispatchRequests";
+
+    public const string NotificationDeliveryAttempts = "notificationDeliveryAttempts";
+
+    public const string AlertAcknowledgements = "alertAcknowledgements";
+
+    public const string EmergencyLocationSnapshots = "emergencyLocationSnapshots";
+
+    public const string EmergencyResolutionReports = "emergencyResolutionReports";
 }

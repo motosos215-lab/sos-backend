@@ -1,11 +1,12 @@
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
+using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 
 namespace MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 
-public sealed class MongoEmergencyContactRepository : IEmergencyContactRepository
+public sealed class MongoEmergencyContactRepository : IEmergencyContactRepository, IMonitorLinkedContactRepository
 {
     private readonly IMongoCollection<EmergencyContact> _contacts;
 
@@ -22,6 +23,9 @@ public sealed class MongoEmergencyContactRepository : IEmergencyContactRepositor
 
     public async Task<EmergencyContact?> GetByLinkingCodeAsync(string linkingCode, CancellationToken cancellationToken) =>
         await _contacts.Find(contact => contact.LinkingCode == linkingCode).FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<EmergencyContact>> GetActiveLinkedByLinkedUserIdAsync(string linkedUserId, CancellationToken cancellationToken) =>
+        await _contacts.Find(contact => contact.LinkedUserId == linkedUserId && contact.IsActive && contact.InvitationStatus == EmergencyContactInvitationStatus.Linked).ToListAsync(cancellationToken);
 
     public async Task<int> CountActiveByUserIdAsync(string userId, CancellationToken cancellationToken)
     {

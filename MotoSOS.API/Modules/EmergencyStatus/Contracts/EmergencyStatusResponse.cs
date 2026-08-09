@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.EmergencyStatus.Contracts;
+
+public sealed record EmergencyStatusResponse(EmergencyIncidentStatusResponse Incident, EmergencyTripStatusResponse? Trip, EmergencyAlertDispatchStatusResponse? AlertDispatch, EmergencyNotificationSummaryResponse Notifications, EmergencyAcknowledgementSummaryResponse Acknowledgements, EmergencyLocationStatusResponse Location, string OverallStatus, bool RequiresAttention, DateTimeOffset LastUpdatedAtUtc);

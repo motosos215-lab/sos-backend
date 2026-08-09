@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.EmergencyResolution.Contracts;
+
+public sealed record EmergencyResolutionReportResponse(string Id, string UserId, string IncidentId, string TripId, string? AlertDispatchId, string Outcome, string ClosedByRole, string Summary, string? Notes, DateTimeOffset IncidentCreatedAtUtc, DateTimeOffset IncidentClosedAtUtc, int NotificationAttemptsTotal, int AcknowledgementsTotal, int AcknowledgedCount, int DeclinedCount, DateTimeOffset? FirstNotificationPreparedAtUtc, DateTimeOffset? FirstAcknowledgedAtUtc, long? ResponseTimeSeconds, double? FinalLatitude, double? FinalLongitude, DateTimeOffset? FinalLocationRecordedAtUtc, bool? LastKnownLocationWasStale, DateTimeOffset CreatedAtUtc, DateTimeOffset? UpdatedAtUtc);

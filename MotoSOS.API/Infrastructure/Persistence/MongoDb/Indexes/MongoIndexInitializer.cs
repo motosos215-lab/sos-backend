@@ -1,12 +1,20 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Collections;
+using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
+using MotoSOS.API.Modules.AlertDispatch.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.EmergencyResolution.Domain;
+using MotoSOS.API.Modules.Incidents.Domain;
+using MotoSOS.API.Modules.LocationSharing.Domain;
+using MotoSOS.API.Modules.Notifications.Domain;
+using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.Trips.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
 
@@ -145,6 +153,111 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_userId", new BsonDocument(nameof(OnboardingConfirmation.UserId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_isOperational", new BsonDocument(nameof(OnboardingConfirmation.IsOperational), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(onboardingConfirmations, "ix_onboardingConfirmations_confirmedAtUtc", new BsonDocument(nameof(OnboardingConfirmation.ConfirmedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<Trip> trips = _database.GetCollection<Trip>(MongoCollectionNames.Trips);
+        await EnsureIndexAsync(trips, "ix_trips_userId", new BsonDocument(nameof(Trip.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(
+            trips,
+            "ix_trips_userId_status",
+            new BsonDocument
+            {
+                [nameof(Trip.UserId)] = 1,
+                [nameof(Trip.Status)] = 1
+            },
+            unique: false,
+            cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_vehicleId", new BsonDocument(nameof(Trip.VehicleId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_mobileDeviceId", new BsonDocument(nameof(Trip.MobileDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_startedAtUtc", new BsonDocument(nameof(Trip.StartedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(trips, "ix_trips_finishedAtUtc", new BsonDocument(nameof(Trip.FinishedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<OfflineIngestionRecord> offlineIngestionRecords = _database.GetCollection<OfflineIngestionRecord>(MongoCollectionNames.OfflineIngestionRecords);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_userId", new BsonDocument(nameof(OfflineIngestionRecord.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_mobileDeviceId", new BsonDocument(nameof(OfflineIngestionRecord.MobileDeviceId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_tripId", new BsonDocument(nameof(OfflineIngestionRecord.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_batchId", new BsonDocument(nameof(OfflineIngestionRecord.BatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_clientEventId", new BsonDocument(nameof(OfflineIngestionRecord.ClientEventId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_type", new BsonDocument(nameof(OfflineIngestionRecord.Type), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ux_offlineIngestionRecords_idempotencyKey", new BsonDocument(nameof(OfflineIngestionRecord.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_ackId", new BsonDocument(nameof(OfflineIngestionRecord.AckId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_processingStatus", new BsonDocument(nameof(OfflineIngestionRecord.ProcessingStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_receivedAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.ReceivedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_occurredAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.OccurredAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<Incident> incidents = _database.GetCollection<Incident>(MongoCollectionNames.Incidents);
+        await EnsureIndexAsync(incidents, "ix_incidents_userId", new BsonDocument(nameof(Incident.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_tripId", new BsonDocument(nameof(Incident.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_userId_status", new BsonDocument { [nameof(Incident.UserId)] = 1, [nameof(Incident.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_clientIncidentId", new BsonDocument(nameof(Incident.ClientIncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ux_incidents_idempotencyKey", new BsonDocument(nameof(Incident.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_occurredAtUtc", new BsonDocument(nameof(Incident.OccurredAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_createdAtUtc", new BsonDocument(nameof(Incident.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(incidents, "ix_incidents_closedAtUtc", new BsonDocument(nameof(Incident.ClosedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<AlertDispatchRequest> alertDispatchRequests = _database.GetCollection<AlertDispatchRequest>(MongoCollectionNames.AlertDispatchRequests);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_userId", new BsonDocument(nameof(AlertDispatchRequest.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_incidentId", new BsonDocument(nameof(AlertDispatchRequest.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_userId_status", new BsonDocument { [nameof(AlertDispatchRequest.UserId)] = 1, [nameof(AlertDispatchRequest.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_clientAlertRequestId", new BsonDocument(nameof(AlertDispatchRequest.ClientAlertRequestId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ux_alertDispatchRequests_idempotencyKey", new BsonDocument(nameof(AlertDispatchRequest.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_requestedAtUtc", new BsonDocument(nameof(AlertDispatchRequest.RequestedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_createdAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_cancelledAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CancelledAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertDispatchRequests, "ix_alertDispatchRequests_completedAtUtc", new BsonDocument(nameof(AlertDispatchRequest.CompletedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<NotificationDeliveryAttempt> notificationDeliveryAttempts = _database.GetCollection<NotificationDeliveryAttempt>(MongoCollectionNames.NotificationDeliveryAttempts);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_userId", new BsonDocument(nameof(NotificationDeliveryAttempt.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_alertDispatchId", new BsonDocument(nameof(NotificationDeliveryAttempt.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_incidentId", new BsonDocument(nameof(NotificationDeliveryAttempt.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_emergencyContactId", new BsonDocument(nameof(NotificationDeliveryAttempt.EmergencyContactId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_userId_status", new BsonDocument { [nameof(NotificationDeliveryAttempt.UserId)] = 1, [nameof(NotificationDeliveryAttempt.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_channel", new BsonDocument(nameof(NotificationDeliveryAttempt.Channel), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ux_notificationDeliveryAttempts_idempotencyKey", new BsonDocument(nameof(NotificationDeliveryAttempt.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_preparedAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.PreparedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_simulatedSentAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.SimulatedSentAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_failedAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.FailedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_cancelledAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CancelledAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(notificationDeliveryAttempts, "ix_notificationDeliveryAttempts_createdAtUtc", new BsonDocument(nameof(NotificationDeliveryAttempt.CreatedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<AlertAcknowledgement> alertAcknowledgements = _database.GetCollection<AlertAcknowledgement>(MongoCollectionNames.AlertAcknowledgements);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_userId", new BsonDocument(nameof(AlertAcknowledgement.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_monitorUserId", new BsonDocument(nameof(AlertAcknowledgement.MonitorUserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_emergencyContactId", new BsonDocument(nameof(AlertAcknowledgement.EmergencyContactId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_alertDispatchId", new BsonDocument(nameof(AlertAcknowledgement.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_notificationDeliveryAttemptId", new BsonDocument(nameof(AlertAcknowledgement.NotificationDeliveryAttemptId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_incidentId", new BsonDocument(nameof(AlertAcknowledgement.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_tripId", new BsonDocument(nameof(AlertAcknowledgement.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_status", new BsonDocument(nameof(AlertAcknowledgement.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_monitorUserId_status", new BsonDocument { [nameof(AlertAcknowledgement.MonitorUserId)] = 1, [nameof(AlertAcknowledgement.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_userId_status", new BsonDocument { [nameof(AlertAcknowledgement.UserId)] = 1, [nameof(AlertAcknowledgement.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ux_alertAcknowledgements_idempotencyKey", new BsonDocument(nameof(AlertAcknowledgement.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_createdAtUtc", new BsonDocument(nameof(AlertAcknowledgement.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_viewedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.ViewedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_acknowledgedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.AcknowledgedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_declinedAtUtc", new BsonDocument(nameof(AlertAcknowledgement.DeclinedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<EmergencyLocationSnapshot> emergencyLocationSnapshots = _database.GetCollection<EmergencyLocationSnapshot>(MongoCollectionNames.EmergencyLocationSnapshots);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_userId", new BsonDocument(nameof(EmergencyLocationSnapshot.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_incidentId", new BsonDocument(nameof(EmergencyLocationSnapshot.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_tripId", new BsonDocument(nameof(EmergencyLocationSnapshot.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ux_emergencyLocationSnapshots_userId_incidentId", new BsonDocument { [nameof(EmergencyLocationSnapshot.UserId)] = 1, [nameof(EmergencyLocationSnapshot.IncidentId)] = 1 }, unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_incidentId_isActive", new BsonDocument { [nameof(EmergencyLocationSnapshot.IncidentId)] = 1, [nameof(EmergencyLocationSnapshot.IsActive)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_recordedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.RecordedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_receivedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.ReceivedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_updatedAtUtc", new BsonDocument(nameof(EmergencyLocationSnapshot.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyLocationSnapshots, "ix_emergencyLocationSnapshots_isActive", new BsonDocument(nameof(EmergencyLocationSnapshot.IsActive), 1), unique: false, cancellationToken);
+
+        IMongoCollection<EmergencyResolutionReport> emergencyResolutionReports = _database.GetCollection<EmergencyResolutionReport>(MongoCollectionNames.EmergencyResolutionReports);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_userId", new BsonDocument(nameof(EmergencyResolutionReport.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ux_emergencyResolutionReports_incidentId", new BsonDocument(nameof(EmergencyResolutionReport.IncidentId), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_tripId", new BsonDocument(nameof(EmergencyResolutionReport.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_alertDispatchId", new BsonDocument(nameof(EmergencyResolutionReport.AlertDispatchId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_outcome", new BsonDocument(nameof(EmergencyResolutionReport.Outcome), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_userId_outcome", new BsonDocument { [nameof(EmergencyResolutionReport.UserId)] = 1, [nameof(EmergencyResolutionReport.Outcome)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_userId_createdAtUtc", new BsonDocument { [nameof(EmergencyResolutionReport.UserId)] = 1, [nameof(EmergencyResolutionReport.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ux_emergencyResolutionReports_idempotencyKey", new BsonDocument(nameof(EmergencyResolutionReport.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_createdAtUtc", new BsonDocument(nameof(EmergencyResolutionReport.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyResolutionReports, "ix_emergencyResolutionReports_updatedAtUtc", new BsonDocument(nameof(EmergencyResolutionReport.UpdatedAtUtc), 1), unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
