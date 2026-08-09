@@ -23,6 +23,7 @@ using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Vehicles.Application;
@@ -91,6 +92,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IEmergencyResolutionRepository, MongoEmergencyResolutionRepository>();
             services.AddScoped<IEmergencyEscalationRepository, MongoEmergencyEscalationRepository>();
             services.AddScoped<IMinorEventRepository, MongoMinorEventRepository>();
+            services.AddScoped<ITelemetrySummaryRepository, MongoTelemetrySummaryRepository>();
             services.AddScoped<IOperationalDashboardRepository, MongoOperationalDashboardRepository>();
         }
         else
@@ -117,6 +119,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IEmergencyResolutionRepository, UnconfiguredEmergencyResolutionRepository>();
             services.AddScoped<IEmergencyEscalationRepository, UnconfiguredEmergencyEscalationRepository>();
             services.AddScoped<IMinorEventRepository, UnconfiguredMinorEventRepository>();
+            services.AddScoped<ITelemetrySummaryRepository, UnconfiguredTelemetrySummaryRepository>();
             services.AddScoped<IOperationalDashboardRepository, UnconfiguredOperationalDashboardRepository>();
         }
 

@@ -17,6 +17,7 @@ using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
 using MotoSOS.API.Modules.Profiles.Domain;
+using MotoSOS.API.Modules.TelemetrySummary.Domain;
 using MotoSOS.API.Modules.Trips.Domain;
 using MotoSOS.API.Modules.Users.Domain;
 using MotoSOS.API.Modules.Vehicles.Domain;
@@ -309,6 +310,20 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(minorEvents, "ix_minorEvents_userId_tripId", new BsonDocument { [nameof(MinorEvent.UserId)] = 1, [nameof(MinorEvent.TripId)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(minorEvents, "ix_minorEvents_eventType_occurredAtUtc", new BsonDocument { [nameof(MinorEvent.EventType)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(minorEvents, "ix_minorEvents_status_occurredAtUtc", new BsonDocument { [nameof(MinorEvent.Status)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false, cancellationToken);
+
+        IMongoCollection<TripTelemetrySummary> tripTelemetrySummaries = _database.GetCollection<TripTelemetrySummary>(MongoCollectionNames.TripTelemetrySummaries);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_userId", new BsonDocument(nameof(TripTelemetrySummary.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_tripId", new BsonDocument(nameof(TripTelemetrySummary.TripId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_vehicleId", new BsonDocument(nameof(TripTelemetrySummary.VehicleId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_tripStatus", new BsonDocument(nameof(TripTelemetrySummary.TripStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_summaryStatus", new BsonDocument(nameof(TripTelemetrySummary.SummaryStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_lastComputedAtUtc", new BsonDocument(nameof(TripTelemetrySummary.LastComputedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_createdAtUtc", new BsonDocument(nameof(TripTelemetrySummary.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_updatedAtUtc", new BsonDocument(nameof(TripTelemetrySummary.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ux_tripTelemetrySummaries_userId_tripId", new BsonDocument { [nameof(TripTelemetrySummary.UserId)] = 1, [nameof(TripTelemetrySummary.TripId)] = 1 }, unique: true, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_userId_lastComputedAtUtc", new BsonDocument { [nameof(TripTelemetrySummary.UserId)] = 1, [nameof(TripTelemetrySummary.LastComputedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_tripStatus_lastComputedAtUtc", new BsonDocument { [nameof(TripTelemetrySummary.TripStatus)] = 1, [nameof(TripTelemetrySummary.LastComputedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(tripTelemetrySummaries, "ix_tripTelemetrySummaries_summaryStatus_lastComputedAtUtc", new BsonDocument { [nameof(TripTelemetrySummary.SummaryStatus)] = 1, [nameof(TripTelemetrySummary.LastComputedAtUtc)] = 1 }, unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
