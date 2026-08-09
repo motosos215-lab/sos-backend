@@ -63,6 +63,16 @@ public sealed class MongoPushNotificationTokenRepository : IPushNotificationToke
             items.OrderByDescending(token => token.RegisteredAtUtc).FirstOrDefault()?.RegisteredAtUtc);
     }
 
+    public async Task<PushNotificationToken?> GetLatestActiveFcmByUserIdAsync(string userId, CancellationToken cancellationToken)
+    {
+        FilterDefinitionBuilder<PushNotificationToken> b = Builders<PushNotificationToken>.Filter;
+        FilterDefinition<PushNotificationToken> filter = b.Eq(token => token.UserId, userId) &
+            b.Eq(token => token.Status, PushNotificationTokenStatus.Active) &
+            b.Eq(token => token.Channel, PushTokenChannel.Fcm) &
+            b.In(token => token.Platform, [PushTokenPlatform.Android, PushTokenPlatform.Web]);
+        return await _tokens.Find(filter).SortByDescending(token => token.LastSeenAtUtc).FirstOrDefaultAsync(cancellationToken);
+    }
+
     private static FilterDefinition<PushNotificationToken> BuildFilter(PushNotificationTokenQuery query)
     {
         FilterDefinitionBuilder<PushNotificationToken> b = Builders<PushNotificationToken>.Filter;

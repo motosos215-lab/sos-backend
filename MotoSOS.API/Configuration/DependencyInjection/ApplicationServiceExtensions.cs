@@ -60,12 +60,17 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAuditLogRetentionService, AuditLogRetentionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationProviderStatusService, NotificationProviderStatusService>();
         services.AddScoped<IPushNotificationTokenService, PushNotificationTokenService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
         services.AddOptions<NotificationOutboxWorkerOptions>();
         services.AddSingleton<INotificationOutboxWorkerStateStore, InMemoryNotificationOutboxWorkerStateStore>();
         services.AddHostedService<NotificationOutboxWorker>();
         services.AddScoped<SimulatedNotificationProvider>();
+        services.AddScoped<FcmNotificationProvider>();
+        services.AddScoped<IFcmPushClient, FirebaseFcmPushClient>();
+        services.AddScoped<IPushNotificationRecipientResolver, PushNotificationRecipientResolver>();
+        services.AddScoped<FcmNotificationMessageFactory>();
         services.AddScoped<INotificationProviderResolver, NotificationProviderResolver>();
         services.AddScoped<IAlertAcknowledgementService, AlertAcknowledgementService>();
         services.AddScoped<ILocationSharingService, LocationSharingService>();
@@ -88,6 +93,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<ResolutionReportExportQueryValidator>();
         services.AddSingleton<RegisterPushNotificationTokenRequestValidator>();
         services.AddSingleton<PushNotificationTokenQueryValidator>();
+        services.AddSingleton<FcmNotificationProviderOptionsValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();

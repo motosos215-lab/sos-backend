@@ -93,8 +93,8 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         {
             NotificationProviderResult result = await SendViaProviderAsync(candidate, simulateFailures, now, cancellationToken);
             NotificationDeliveryAttempt? updated = result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent
-                ? await _attempts.TryMarkSimulatedSentAsync(candidate.Id, result.ProviderMessageId, result.SentAtUtc ?? now, cancellationToken)
-                : await _attempts.TryMarkFailedAsync(candidate.Id, NormalizeFailureReason(result.ErrorCode), result.FailedAtUtc ?? now, cancellationToken);
+                ? await _attempts.TryMarkSentAsync(candidate.Id, MapProvider(result.ProviderType), result.ProviderMessageId, result.SentAtUtc ?? now, cancellationToken)
+                : await _attempts.TryMarkFailedAsync(candidate.Id, MapProvider(result.ProviderType), NormalizeFailureReason(result.ErrorCode), result.FailedAtUtc ?? now, cancellationToken);
             if (updated is null)
             {
                 skipped++;
@@ -144,8 +144,13 @@ public sealed class NotificationOutboxService : INotificationOutboxService
 
     private async Task RecordProviderAsync(string userId, string role, NotificationDeliveryAttempt attempt, NotificationProviderResult result, CancellationToken cancellationToken)
     {
-        AuditAction action = result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderSimulatedSent : AuditAction.NotificationProviderSimulatedFailed;
-        await RecordAsync(userId, role, action, "NotificationDeliveryAttempt", attempt.Id, result.ErrorCode, new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["alertDispatchId"] = attempt.AlertDispatchId, ["incidentId"] = attempt.IncidentId, ["channel"] = attempt.Channel.ToString(), ["providerType"] = result.ProviderType.ToString(), ["deliveryStatus"] = result.DeliveryStatus.ToString(), ["providerMessageId"] = result.ProviderMessageId ?? string.Empty, ["errorCode"] = result.ErrorCode ?? string.Empty }, cancellationToken);
+        AuditAction action = result.ProviderType == NotificationProviderType.Fcm
+            ? result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderFcmSent : AuditAction.NotificationProviderFcmFailed
+            : result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderSimulatedSent : AuditAction.NotificationProviderSimulatedFailed;
+        IReadOnlyDictionary<string, string> metadata = result.ProviderType == NotificationProviderType.Fcm
+            ? new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["provider"] = result.ProviderType.ToString(), ["channel"] = attempt.Channel.ToString(), ["status"] = result.DeliveryStatus.ToString(), ["failureCode"] = result.ErrorCode ?? string.Empty }
+            : new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["alertDispatchId"] = attempt.AlertDispatchId, ["incidentId"] = attempt.IncidentId, ["channel"] = attempt.Channel.ToString(), ["providerType"] = result.ProviderType.ToString(), ["deliveryStatus"] = result.DeliveryStatus.ToString(), ["providerMessageId"] = result.ProviderMessageId ?? string.Empty, ["errorCode"] = result.ErrorCode ?? string.Empty };
+        await RecordAsync(userId, role, action, "NotificationDeliveryAttempt", attempt.Id, result.ErrorCode, metadata, cancellationToken);
     }
 
     private async Task RecordAsync(string userId, string role, AuditAction action, string entityType, string? entityId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken)
@@ -160,6 +165,7 @@ public sealed class NotificationOutboxService : INotificationOutboxService
     }
 
     private static string NormalizeFailureReason(string? errorCode) => string.IsNullOrWhiteSpace(errorCode) ? SimulatedFailureReason : errorCode.Trim();
+    private static NotificationProvider MapProvider(NotificationProviderType providerType) => providerType == NotificationProviderType.Fcm ? NotificationProvider.Fcm : NotificationProvider.Simulated;
     private static bool TryMapChannel(NotificationChannel channel, out NotificationProviderChannel providerChannel)
     {
         providerChannel = channel switch

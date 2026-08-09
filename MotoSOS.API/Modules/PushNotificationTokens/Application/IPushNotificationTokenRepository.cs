@@ -12,6 +12,7 @@ public interface IPushNotificationTokenRepository
     Task<IReadOnlyList<PushNotificationToken>> ListByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken);
     Task<long> CountByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken);
     Task<PushNotificationTokenStatusSummary> GetStatusByUserIdAsync(string userId, CancellationToken cancellationToken);
+    Task<PushNotificationToken?> GetLatestActiveFcmByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<PushNotificationToken?>(null);
     Task<IReadOnlyList<PushNotificationToken>> ListAsync(PushNotificationTokenQuery query, CancellationToken cancellationToken);
     Task<long> CountAsync(PushNotificationTokenQuery query, CancellationToken cancellationToken);
 }

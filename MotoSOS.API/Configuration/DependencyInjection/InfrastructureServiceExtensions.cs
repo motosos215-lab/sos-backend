@@ -20,6 +20,7 @@ using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.MinorEvents.Application;
 using MotoSOS.API.Modules.Notifications.Application;
+using MotoSOS.API.Modules.Notifications.Providers;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
@@ -59,6 +60,7 @@ public static class InfrastructureServiceExtensions
         }
 
         services.AddSingleton<IClock, SystemClock>();
+        services.Configure<FcmNotificationProviderOptions>(configuration.GetSection(FcmNotificationProviderOptions.SectionName));
 
         var mongoSettings = configuration.GetSection(MongoDbSettings.SectionName).Get<MongoDbSettings>() ?? new MongoDbSettings();
 

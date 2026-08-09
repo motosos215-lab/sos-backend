@@ -14,6 +14,7 @@ public sealed class UnconfiguredPushNotificationTokenRepository : IPushNotificat
     public Task<IReadOnlyList<PushNotificationToken>> ListByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken) => throw CreateException();
     public Task<long> CountByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken) => throw CreateException();
     public Task<PushNotificationTokenStatusSummary> GetStatusByUserIdAsync(string userId, CancellationToken cancellationToken) => throw CreateException();
+    public Task<PushNotificationToken?> GetLatestActiveFcmByUserIdAsync(string userId, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<PushNotificationToken>> ListAsync(PushNotificationTokenQuery query, CancellationToken cancellationToken) => throw CreateException();
     public Task<long> CountAsync(PushNotificationTokenQuery query, CancellationToken cancellationToken) => throw CreateException();
 }

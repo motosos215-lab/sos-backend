@@ -2,5 +2,6 @@ namespace MotoSOS.API.Modules.Notifications.Providers;
 
 public enum NotificationProviderType
 {
-    Simulated = 1
+    Simulated = 1,
+    Fcm = 2
 }
