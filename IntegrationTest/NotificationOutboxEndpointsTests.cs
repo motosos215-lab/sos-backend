@@ -26,6 +26,7 @@ public sealed class NotificationOutboxEndpointsTests
         await using WebApplicationFactory<Program> factory = CreateFactory(new Stores()); HttpClient client = factory.CreateClient();
         (await client.PostAsJsonAsync("/api/v1/admin/notifications/outbox/run", new RunNotificationOutboxRequest(null, null))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await client.GetAsync("/api/v1/admin/notifications/outbox/status")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await client.PostAsJsonAsync("/api/v1/admin/notifications/outbox/retry-failed", new RetryFailedNotificationOutboxRequest(null))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -37,6 +38,10 @@ public sealed class NotificationOutboxEndpointsTests
         (await admin.PostAsJsonAsync("/api/v1/admin/notifications/outbox/run", new RunNotificationOutboxRequest(20, false))).StatusCode.Should().Be(HttpStatusCode.OK);
         (await rider.PostAsJsonAsync("/api/v1/admin/notifications/outbox/run", new RunNotificationOutboxRequest(20, false))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await monitor.GetAsync("/api/v1/admin/notifications/outbox/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await rider.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await monitor.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        string workerStatus = await (await admin.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).Content.ReadAsStringAsync();
+        workerStatus.Should().Contain("isEnabled").And.Contain("false").And.NotContain("pass" + "word" + "Hash").And.NotContain("refresh" + "Token").And.NotContain("access" + "Token");
     }
 
     [Fact]

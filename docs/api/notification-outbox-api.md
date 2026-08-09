@@ -8,7 +8,7 @@ Notification Outbox API procesa de forma controlada los `NotificationDeliveryAtt
 - No crea colecciones nuevas.
 - No envia mensajes reales.
 - No llama proveedores externos.
-- No ejecuta worker de fondo real.
+- El worker automatico existe, pero queda deshabilitado por defecto y no reemplaza los endpoints manuales.
 - No modifica incidentes, dispatches, acknowledgements, reportes de resolucion ni ubicaciones.
 - Usa `NotificationProviderResolver` y `SimulatedNotificationProvider` como abstraccion interna.
 
@@ -52,6 +52,18 @@ Devuelve conteos globales por estado:
 - `failed`
 - `cancelled`
 
+### `GET /api/v1/admin/notifications/outbox/worker/status`
+
+Devuelve estado seguro del worker automatico.
+
+Reglas:
+
+- Solo `Admin`.
+- Solo lectura.
+- No dispara procesamiento.
+- No modifica configuracion.
+- El worker queda deshabilitado por defecto.
+
 ### `POST /api/v1/admin/notifications/outbox/retry-failed`
 
 Request:
@@ -74,7 +86,7 @@ Reglas:
 
 Notification Outbox usa una abstraccion interna de proveedor para desacoplar el procesamiento simulado. En esta etapa el resolver siempre devuelve `SimulatedNotificationProvider` para `Sms`, `Email` y `Push`.
 
-No se agregan proveedores reales, SDKs externos, secretos, configuracion sensible ni endpoints nuevos.
+No se agregan proveedores reales, SDKs externos, secretos ni configuracion sensible.
 
 ## Seguridad
 
@@ -82,7 +94,7 @@ Las respuestas no exponen identificadores de usuario, correos, telefonos, hashes
 
 ## Pendiente Futuro
 
-- Worker real controlado por configuracion.
+- Distributed lock para despliegues con multiples replicas.
 - Cola real.
 - Reintentos programados.
 - Integraciones reales de mensajeria.

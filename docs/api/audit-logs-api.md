@@ -69,6 +69,9 @@ Actualmente se auditan estas acciones exitosas:
 - `MinorEventProcessedFromOfflineIngestion`
 - `NotificationProviderSimulatedSent`
 - `NotificationProviderSimulatedFailed`
+- `NotificationOutboxWorkerRun`
+- `NotificationOutboxWorkerFailed`
+- `NotificationOutboxWorkerSkipped`
 
 ## Endpoints
 

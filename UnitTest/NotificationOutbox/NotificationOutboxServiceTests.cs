@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Options;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AuditLogs.Application;
@@ -6,6 +7,7 @@ using MotoSOS.API.Modules.AuditLogs.Contracts;
 using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.NotificationOutbox.Application;
 using MotoSOS.API.Modules.NotificationOutbox.Contracts;
+using MotoSOS.API.Modules.NotificationOutbox.Worker;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.Notifications.Providers;
@@ -134,6 +136,41 @@ public sealed class NotificationOutboxServiceTests
         NotificationOutboxService service = Service(User(UserRole.Admin), new Attempts(failed, prepared), new FailingAudit());
         (await service.RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None)).SimulatedSent.Should().Be(1);
         (await service.RetryFailedAsync("admin", new RetryFailedNotificationOutboxRequest(20), CancellationToken.None)).Retried.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task WorkerRunUsesSharedOutboxRulesWithoutAdminUser()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared);
+        var failed = Attempt(NotificationDeliveryStatus.Failed);
+        var audit = new Audit();
+        NotificationOutboxService service = Service(User(UserRole.Rider), new Attempts(prepared, failed), audit);
+
+        RunNotificationOutboxResponse response = await service.RunWorkerAsync(new RunNotificationOutboxRequest(20, false), 60, CancellationToken.None);
+
+        response.SimulatedSent.Should().Be(1);
+        prepared.Status.Should().Be(NotificationDeliveryStatus.SimulatedSent);
+        failed.Status.Should().Be(NotificationDeliveryStatus.Failed);
+        audit.Actions.Should().Contain(AuditAction.NotificationOutboxWorkerRun);
+        audit.Metadata.Should().Contain(metadata => metadata != null && metadata.ContainsKey("runSource") && metadata["runSource"] == "Worker" && metadata.ContainsKey("intervalSeconds"));
+    }
+
+    [Fact]
+    public async Task WorkerStatusRequiresAdminAndReturnsSafeState()
+    {
+        var state = new InMemoryNotificationOutboxWorkerStateStore();
+        state.MarkStarted(Now.AddMinutes(-1));
+        state.MarkSucceeded(Now, 3, 2, 1, 0);
+        var options = Options.Create(new NotificationOutboxWorkerOptions { Enabled = true });
+        User admin = User(UserRole.Admin);
+        NotificationOutboxService service = new(new Users(admin), new Attempts(), new NotificationProviderResolver(new SimulatedNotificationProvider(new Clock())), new Clock(), workerState: state, workerOptions: options);
+
+        NotificationOutboxWorkerStatusResponse response = await service.GetWorkerStatusAsync(admin.Id, CancellationToken.None);
+
+        response.IsEnabled.Should().BeTrue();
+        response.LastRunProcessed.Should().Be(3);
+        response.LastRunSimulatedSent.Should().Be(2);
+        response.LastRunFailed.Should().Be(1);
     }
 
     private static readonly DateTimeOffset Now = new(2026, 8, 8, 12, 0, 0, TimeSpan.Zero);

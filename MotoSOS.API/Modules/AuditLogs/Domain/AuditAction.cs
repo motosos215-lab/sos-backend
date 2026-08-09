@@ -25,5 +25,8 @@ public enum AuditAction
     MinorEventIgnored = 20,
     MinorEventProcessedFromOfflineIngestion = 21,
     NotificationProviderSimulatedSent = 22,
-    NotificationProviderSimulatedFailed = 23
+    NotificationProviderSimulatedFailed = 23,
+    NotificationOutboxWorkerRun = 24,
+    NotificationOutboxWorkerFailed = 25,
+    NotificationOutboxWorkerSkipped = 26
 }
