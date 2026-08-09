@@ -1,6 +1,9 @@
 using FluentAssertions;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Contracts;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.NotificationOutbox.Application;
 using MotoSOS.API.Modules.NotificationOutbox.Contracts;
 using MotoSOS.API.Modules.Notifications.Application;
@@ -80,6 +83,23 @@ public sealed class NotificationOutboxServiceTests
     }
 
     [Fact]
+    public async Task RunAndRetryFailedWriteAuditLogs()
+    {
+        var failed = Attempt(NotificationDeliveryStatus.Failed);
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared);
+        var attempts = new Attempts(failed, prepared);
+        var audit = new Audit();
+        NotificationOutboxService service = Service(User(UserRole.Admin), attempts, audit);
+
+        await service.RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+        await service.RetryFailedAsync("admin", new RetryFailedNotificationOutboxRequest(20), CancellationToken.None);
+
+        audit.Actions.Should().Contain(AuditAction.NotificationOutboxRun).And.Contain(AuditAction.NotificationOutboxRetryFailed);
+        audit.Metadata.Should().Contain(metadata => metadata.ContainsKey("processed") && metadata.ContainsKey("simulateFailures"));
+        audit.Metadata.Should().Contain(metadata => metadata.ContainsKey("retried"));
+    }
+
+    [Fact]
     public async Task EmptyPreparedReturnsZeroCounts()
     {
         RunNotificationOutboxResponse response = await Service(User(UserRole.Admin), new Attempts()).RunAsync("admin", new RunNotificationOutboxRequest(null, false), CancellationToken.None);
@@ -88,7 +108,7 @@ public sealed class NotificationOutboxServiceTests
     }
 
     private static readonly DateTimeOffset Now = new(2026, 8, 8, 12, 0, 0, TimeSpan.Zero);
-    private static NotificationOutboxService Service(User user, Attempts attempts) => new(new Users(user), attempts, new Clock());
+    private static NotificationOutboxService Service(User user, Attempts attempts, IAuditLogService? audit = null) => new(new Users(user), attempts, new Clock(), audit);
     private static User User(UserRole role) => new() { Id = role.ToString().ToLowerInvariant(), Role = role, IsActive = true, Email = $"{Guid.NewGuid()}@example.com" };
     private static NotificationDeliveryAttempt Attempt(NotificationDeliveryStatus status) => new() { Id = Guid.NewGuid().ToString("N"), Status = status, Channel = NotificationChannel.Sms, Provider = NotificationProvider.None, PreparedAtUtc = Now.AddMinutes(-10), CreatedAtUtc = Now.AddMinutes(-10), LastStatusChangedAtUtc = Now.AddMinutes(-10) };
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => Now; }
@@ -101,4 +121,5 @@ public sealed class NotificationOutboxServiceTests
         public Task<NotificationDeliveryAttempt?> TryResetFailedToPreparedAsync(string attemptId, DateTimeOffset now, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Failed); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.Prepared; a.Provider = NotificationProvider.None; a.FailedAtUtc = null; a.FailureReason = null; a.LastStatusChangedAtUtc = now; a.UpdatedAtUtc = now; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
         public Task<long> CountByStatusAsync(NotificationDeliveryStatus status, CancellationToken ct) => Task.FromResult((long)_items.Count(a => a.Status == status)); public Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) => Task.CompletedTask;
     }
+    private sealed class Audit : IAuditLogService { public List<AuditAction> Actions { get; } = []; public List<IReadOnlyDictionary<string, string>?> Metadata { get; } = []; public Task RecordAsync(string actorUserId, string actorRole, AuditAction action, AuditModule module, string entityType, string? entityId, AuditOutcome outcome, string? reason, string? requestPath, string? httpMethod, IReadOnlyDictionary<string, string>? metadata, CancellationToken cancellationToken) { Actions.Add(action); Metadata.Add(metadata); return Task.CompletedTask; } public Task<GetAuditLogsResponse> ListAsync(string adminUserId, AuditLogQuery query, CancellationToken cancellationToken) => throw new NotImplementedException(); public Task<AuditLogResponse> GetAsync(string adminUserId, string id, CancellationToken cancellationToken) => throw new NotImplementedException(); }
 }

@@ -1,5 +1,7 @@
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Incidents.Contracts;
 using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.Onboarding.Application;
@@ -23,8 +25,9 @@ public sealed class IncidentService : IIncidentService
     private readonly IIncidentRepository _incidents;
     private readonly IIncidentIdempotencyKeyFactory _idempotencyKeys;
     private readonly IClock _clock;
+    private readonly IAuditLogService? _auditLogs;
 
-    public IncidentService(IUserRepository users, IOnboardingService onboarding, ITripRepository trips, IIncidentRepository incidents, IIncidentIdempotencyKeyFactory idempotencyKeys, IClock clock)
+    public IncidentService(IUserRepository users, IOnboardingService onboarding, ITripRepository trips, IIncidentRepository incidents, IIncidentIdempotencyKeyFactory idempotencyKeys, IClock clock, IAuditLogService? auditLogs = null)
     {
         _users = users;
         _onboarding = onboarding;
@@ -32,6 +35,7 @@ public sealed class IncidentService : IIncidentService
         _incidents = incidents;
         _idempotencyKeys = idempotencyKeys;
         _clock = clock;
+        _auditLogs = auditLogs;
     }
 
     public async Task<CreateIncidentResponse> CreateAsync(string userId, CreateIncidentRequest request, CancellationToken cancellationToken)
@@ -67,6 +71,7 @@ public sealed class IncidentService : IIncidentService
         };
 
         (Incident persisted, _) = await _incidents.AddOrGetDuplicateAsync(incident, cancellationToken);
+        await RecordAsync(user, AuditAction.IncidentCreated, persisted.Id, null, new Dictionary<string, string> { ["tripId"] = persisted.TripId, ["status"] = persisted.Status.ToString(), ["riskLevel"] = persisted.RiskLevel.ToString() }, cancellationToken);
         return new CreateIncidentResponse(ToResponse(persisted));
     }
 
@@ -102,6 +107,7 @@ public sealed class IncidentService : IIncidentService
         incident.ClosureReason = NormalizeOptional(request.Reason);
         incident.UpdatedAtUtc = now;
         await _incidents.UpdateAsync(incident, cancellationToken);
+        await RecordAsync(user, AuditAction.IncidentCancelledFalsePositive, incident.Id, incident.ClosureReason, new Dictionary<string, string> { ["previousStatus"] = IncidentStatus.Open.ToString(), ["newStatus"] = incident.Status.ToString() }, cancellationToken);
         return new CancelFalsePositiveResponse(ToResponse(incident));
     }
 
@@ -119,6 +125,7 @@ public sealed class IncidentService : IIncidentService
         incident.ClosureNotes = NormalizeOptional(request.ClosureNotes);
         incident.UpdatedAtUtc = now;
         await _incidents.UpdateAsync(incident, cancellationToken);
+        await RecordAsync(user, AuditAction.IncidentClosed, incident.Id, incident.ClosureReason, new Dictionary<string, string> { ["newStatus"] = incident.Status.ToString() }, cancellationToken);
         return new CloseIncidentResponse(ToResponse(incident));
     }
 
@@ -157,4 +164,5 @@ public sealed class IncidentService : IIncidentService
     private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct => Enum.TryParse(value, ignoreCase: true, out TEnum result) ? result : null;
     private static string NormalizeRequired(string? value) => value?.Trim() ?? string.Empty;
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private Task RecordAsync(User user, AuditAction action, string incidentId, string? reason, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken) => _auditLogs?.RecordAsync(user.Id, user.Role.ToString(), action, AuditModule.Incidents, "Incident", incidentId, AuditOutcome.Success, reason, null, null, metadata, cancellationToken) ?? Task.CompletedTask;
 }

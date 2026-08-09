@@ -1,6 +1,9 @@
 using FluentAssertions;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
+using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.AuditLogs.Contracts;
+using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.Incidents.Contracts;
 using MotoSOS.API.Modules.Incidents.Domain;
@@ -81,6 +84,23 @@ public sealed class IncidentServiceTests
     }
 
     [Fact]
+    public async Task CreateCloseAndCancelWriteAuditLogs()
+    {
+        User user = User(UserRole.Rider);
+        Trip trip = Trip(user.Id, TripStatus.Active);
+        var audit = new Audit();
+        IncidentService service = CreateService(user, trip, new InMemoryIncidentRepository(), audit);
+
+        CreateIncidentResponse created = await service.CreateAsync(user.Id, Request(trip.Id), CancellationToken.None);
+        await service.CloseAsync(user.Id, created.Incident.Id, new CloseIncidentRequest("Resolved", null, Now), CancellationToken.None);
+        Incident falsePositive = Incident(user.Id, IncidentStatus.Open);
+        service = CreateService(user, new InMemoryIncidentRepository(falsePositive), audit);
+        await service.CancelFalsePositiveAsync(user.Id, falsePositive.Id, new CancelFalsePositiveRequest("false_positive", Now), CancellationToken.None);
+
+        audit.Actions.Should().Contain(AuditAction.IncidentCreated).And.Contain(AuditAction.IncidentClosed).And.Contain(AuditAction.IncidentCancelledFalsePositive);
+    }
+
+    [Fact]
     public async Task CancelClosedIncidentFailsAndNonRidersAreForbidden()
     {
         User rider = User(UserRole.Rider);
@@ -91,7 +111,7 @@ public sealed class IncidentServiceTests
     }
 
     private static readonly DateTimeOffset Now = new(2026, 8, 6, 7, 10, 0, TimeSpan.Zero);
-    private static IncidentService CreateService(User user, params object[] deps) => new(new InMemoryUserRepository(user), new StubOnboarding(deps.OfType<bool>().FirstOrDefault(true)), deps.OfType<InMemoryTripRepository>().FirstOrDefault() ?? new InMemoryTripRepository(deps.OfType<Trip>().ToArray()), deps.OfType<InMemoryIncidentRepository>().FirstOrDefault() ?? new InMemoryIncidentRepository(deps.OfType<Incident>().ToArray()), new IncidentIdempotencyKeyFactory(), new TestClock());
+    private static IncidentService CreateService(User user, params object[] deps) => new(new InMemoryUserRepository(user), new StubOnboarding(deps.OfType<bool>().FirstOrDefault(true)), deps.OfType<InMemoryTripRepository>().FirstOrDefault() ?? new InMemoryTripRepository(deps.OfType<Trip>().ToArray()), deps.OfType<InMemoryIncidentRepository>().FirstOrDefault() ?? new InMemoryIncidentRepository(deps.OfType<Incident>().ToArray()), new IncidentIdempotencyKeyFactory(), new TestClock(), deps.OfType<IAuditLogService>().FirstOrDefault());
     private static User User(UserRole role) => new() { Email = $"{Guid.NewGuid()}@example.com", FullName = "Rider", Role = role, IsActive = true };
     private static Trip Trip(string userId, TripStatus status) => new() { UserId = userId, VehicleId = "vehicle", MobileDeviceId = "mobile", SmartwatchDeviceId = "watch", Status = status, StartedAtUtc = Now, FinishedAtUtc = status == TripStatus.Finished ? Now.AddMinutes(5) : null, CreatedAtUtc = Now };
     private static Incident Incident(string userId, IncidentStatus status) => new() { UserId = userId, TripId = "trip", VehicleId = "vehicle", MobileDeviceId = "mobile", ClientIncidentId = Guid.NewGuid().ToString(), IdempotencyKey = Guid.NewGuid().ToString(), Source = IncidentSource.MobileDetection, Cause = IncidentCause.CountdownTimeout, RiskLevel = IncidentRiskLevel.High, Status = status, OccurredAtUtc = Now, CreatedAtUtc = Now };
@@ -101,4 +121,5 @@ public sealed class IncidentServiceTests
     private sealed class InMemoryUserRepository : IUserRepository { private readonly User _user; public InMemoryUserRepository(User user) { _user = user; } public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult<User?>(_user.Id == id ? _user : null); public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult<User?>(null); public Task AddAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask; public Task UpdateAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryTripRepository : ITripRepository { private readonly List<Trip> _trips; public InMemoryTripRepository(params Trip[] trips) { _trips = trips.ToList(); } public Task<Trip?> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(_trips.FirstOrDefault(t => t.UserId == userId && t.Status == TripStatus.Active)); public Task<Trip?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(_trips.FirstOrDefault(t => t.Id == id)); public Task<IReadOnlyList<Trip>> ListByUserIdAsync(string userId, TripStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Trip>>([]); public Task<long> CountByUserIdAsync(string userId, TripStatus? status, CancellationToken cancellationToken) => Task.FromResult(0L); public Task AddAsync(Trip trip, CancellationToken cancellationToken) => Task.CompletedTask; public Task UpdateAsync(Trip trip, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryIncidentRepository : IIncidentRepository { public List<Incident> Incidents { get; } public InMemoryIncidentRepository(params Incident[] incidents) { Incidents = incidents.ToList(); } public Task<Incident?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Incidents.FirstOrDefault(i => i.Id == id)); public Task<Incident?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => Task.FromResult(Incidents.FirstOrDefault(i => i.IdempotencyKey == idempotencyKey)); public Task<(Incident Incident, bool IsDuplicate)> AddOrGetDuplicateAsync(Incident incident, CancellationToken cancellationToken) { Incident? existing = Incidents.FirstOrDefault(i => i.IdempotencyKey == incident.IdempotencyKey); if (existing is not null) return Task.FromResult((existing, true)); Incidents.Add(incident); return Task.FromResult((incident, false)); } public Task<IReadOnlyList<Incident>> ListByUserIdAsync(string userId, IncidentStatus? status, string? tripId, int pageNumber, int pageSize, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Incident>>(Incidents.Where(i => i.UserId == userId && (!status.HasValue || i.Status == status) && (tripId is null || i.TripId == tripId)).ToArray()); public Task<long> CountByUserIdAsync(string userId, IncidentStatus? status, string? tripId, CancellationToken cancellationToken) => Task.FromResult((long)Incidents.Count(i => i.UserId == userId)); public Task UpdateAsync(Incident incident, CancellationToken cancellationToken) => Task.CompletedTask; }
+    private sealed class Audit : IAuditLogService { public List<AuditAction> Actions { get; } = []; public Task RecordAsync(string actorUserId, string actorRole, AuditAction action, AuditModule module, string entityType, string? entityId, AuditOutcome outcome, string? reason, string? requestPath, string? httpMethod, IReadOnlyDictionary<string, string>? metadata, CancellationToken cancellationToken) { Actions.Add(action); return Task.CompletedTask; } public Task<GetAuditLogsResponse> ListAsync(string adminUserId, AuditLogQuery query, CancellationToken cancellationToken) => throw new NotImplementedException(); public Task<AuditLogResponse> GetAsync(string adminUserId, string id, CancellationToken cancellationToken) => throw new NotImplementedException(); }
 }

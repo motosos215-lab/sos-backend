@@ -35,4 +35,6 @@ public static class MongoCollectionNames
     public const string EmergencyLocationSnapshots = "emergencyLocationSnapshots";
 
     public const string EmergencyResolutionReports = "emergencyResolutionReports";
+
+    public const string AuditLogs = "auditLogs";
 }
