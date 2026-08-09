@@ -42,5 +42,8 @@ public enum AuditAction
     AuditLogRetentionDeleteCompleted = 37,
     AuditLogRetentionFailed = 38,
     PushNotificationTokenRegistered = 39,
-    PushNotificationTokenRevoked = 40
+    PushNotificationTokenRevoked = 40,
+    NotificationProviderFcmSent = 41,
+    NotificationProviderFcmFailed = 42,
+    NotificationProviderFcmSkipped = 43
 }

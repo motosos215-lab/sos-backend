@@ -41,23 +41,27 @@ public sealed class MongoNotificationDeliveryAttemptRepository : INotificationDe
     public async Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, DateTimeOffset now, CancellationToken cancellationToken) =>
         await TryMarkSimulatedSentAsync(attemptId, null, now, cancellationToken);
     public async Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, string? providerMessageId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await TryMarkSentAsync(attemptId, NotificationProvider.Simulated, providerMessageId, now, cancellationToken);
+    public async Task<NotificationDeliveryAttempt?> TryMarkSentAsync(string attemptId, NotificationProvider provider, string? providerMessageId, DateTimeOffset sentAtUtc, CancellationToken cancellationToken) =>
         await _attempts.FindOneAndUpdateAsync(
             a => a.Id == attemptId && a.Status == NotificationDeliveryStatus.Prepared,
             Builders<NotificationDeliveryAttempt>.Update
                 .Set(a => a.Status, NotificationDeliveryStatus.SimulatedSent)
-                .Set(a => a.Provider, NotificationProvider.Simulated)
+                .Set(a => a.Provider, provider)
                 .Set(a => a.ProviderMessageId, providerMessageId)
-                .Set(a => a.SimulatedSentAtUtc, now)
-                .Set(a => a.LastStatusChangedAtUtc, now)
-                .Set(a => a.UpdatedAtUtc, now),
+                .Set(a => a.SimulatedSentAtUtc, sentAtUtc)
+                .Set(a => a.LastStatusChangedAtUtc, sentAtUtc)
+                .Set(a => a.UpdatedAtUtc, sentAtUtc),
             new FindOneAndUpdateOptions<NotificationDeliveryAttempt> { ReturnDocument = ReturnDocument.After },
             cancellationToken);
     public async Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, string failureReason, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await TryMarkFailedAsync(attemptId, NotificationProvider.Simulated, failureReason, now, cancellationToken);
+    public async Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, NotificationProvider provider, string failureReason, DateTimeOffset now, CancellationToken cancellationToken) =>
         await _attempts.FindOneAndUpdateAsync(
             a => a.Id == attemptId && a.Status == NotificationDeliveryStatus.Prepared,
             Builders<NotificationDeliveryAttempt>.Update
                 .Set(a => a.Status, NotificationDeliveryStatus.Failed)
-                .Set(a => a.Provider, NotificationProvider.Simulated)
+                .Set(a => a.Provider, provider)
                 .Set(a => a.ProviderMessageId, null)
                 .Set(a => a.FailedAtUtc, now)
                 .Set(a => a.FailureReason, failureReason)

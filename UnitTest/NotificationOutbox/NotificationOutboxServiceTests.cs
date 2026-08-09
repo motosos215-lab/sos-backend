@@ -129,6 +129,31 @@ public sealed class NotificationOutboxServiceTests
     }
 
     [Fact]
+    public async Task FcmProviderResultMarksAttemptAsLegacySentWithFcmProvider()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared); prepared.Channel = NotificationChannel.Push; var attempts = new Attempts(prepared);
+
+        RunNotificationOutboxResponse response = await Service(User(UserRole.Admin), attempts, providers: new StaticResolver(new StaticProvider(new NotificationProviderResult(NotificationProviderType.Fcm, NotificationProviderChannel.Push, NotificationProviderDeliveryStatus.Sent, "fcm-message", "fcm-sent", null, null, Now, null)))).RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+
+        response.SimulatedSent.Should().Be(1);
+        prepared.Status.Should().Be(NotificationDeliveryStatus.SimulatedSent);
+        prepared.Provider.Should().Be(NotificationProvider.Fcm);
+        prepared.ProviderMessageId.Should().Be("fcm-message");
+    }
+
+    [Fact]
+    public async Task FcmProviderFailureMarksAttemptFailedWithFcmProvider()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared); prepared.Channel = NotificationChannel.Push; var attempts = new Attempts(prepared);
+
+        await Service(User(UserRole.Admin), attempts, providers: new StaticResolver(new StaticProvider(new NotificationProviderResult(NotificationProviderType.Fcm, NotificationProviderChannel.Push, NotificationProviderDeliveryStatus.Failed, null, "fcm-failed", "push_token_not_available", "safe", null, Now)))).RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+
+        prepared.Status.Should().Be(NotificationDeliveryStatus.Failed);
+        prepared.Provider.Should().Be(NotificationProvider.Fcm);
+        prepared.FailureReason.Should().Be("push_token_not_available");
+    }
+
+    [Fact]
     public async Task AuditFailureDoesNotBreakRunOrRetry()
     {
         var failed = Attempt(NotificationDeliveryStatus.Failed);
@@ -184,7 +209,9 @@ public sealed class NotificationOutboxServiceTests
         private readonly List<NotificationDeliveryAttempt> _items = items.ToList();
         public Task<NotificationDeliveryAttempt?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(_items.FirstOrDefault(a => a.Id == id)); public Task<NotificationDeliveryAttempt?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct) => Task.FromResult<NotificationDeliveryAttempt?>(null); public Task<(NotificationDeliveryAttempt Attempt, bool IsDuplicate)> AddOrGetDuplicateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) => Task.FromResult((attempt, false)); public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, int pageNumber, int pageSize, CancellationToken ct) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>([]); public Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken ct) => Task.FromResult(0L); public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByStatusAsync(NotificationDeliveryStatus status, int maxItems, CancellationToken ct) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>(_items.Where(a => a.Status == status).OrderBy(a => a.CreatedAtUtc).ThenBy(a => a.PreparedAtUtc).Take(maxItems).ToArray()); public Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, DateTimeOffset now, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Prepared); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.SimulatedSent; a.Provider = NotificationProvider.Simulated; a.SimulatedSentAtUtc = now; a.LastStatusChangedAtUtc = now; a.UpdatedAtUtc = now; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
         public Task<NotificationDeliveryAttempt?> TryMarkSimulatedSentAsync(string attemptId, string? providerMessageId, DateTimeOffset now, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Prepared); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.SimulatedSent; a.Provider = NotificationProvider.Simulated; a.ProviderMessageId = providerMessageId; a.SimulatedSentAtUtc = now; a.LastStatusChangedAtUtc = now; a.UpdatedAtUtc = now; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
+        public Task<NotificationDeliveryAttempt?> TryMarkSentAsync(string attemptId, NotificationProvider provider, string? providerMessageId, DateTimeOffset sentAtUtc, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Prepared); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.SimulatedSent; a.Provider = provider; a.ProviderMessageId = providerMessageId; a.SimulatedSentAtUtc = sentAtUtc; a.LastStatusChangedAtUtc = sentAtUtc; a.UpdatedAtUtc = sentAtUtc; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
         public Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, string reason, DateTimeOffset now, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Prepared); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.Failed; a.Provider = NotificationProvider.Simulated; a.ProviderMessageId = null; a.FailedAtUtc = now; a.FailureReason = reason; a.LastStatusChangedAtUtc = now; a.UpdatedAtUtc = now; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
+        public Task<NotificationDeliveryAttempt?> TryMarkFailedAsync(string attemptId, NotificationProvider provider, string reason, DateTimeOffset now, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Prepared); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.Failed; a.Provider = provider; a.ProviderMessageId = null; a.FailedAtUtc = now; a.FailureReason = reason; a.LastStatusChangedAtUtc = now; a.UpdatedAtUtc = now; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
         public Task<NotificationDeliveryAttempt?> TryResetFailedToPreparedAsync(string attemptId, DateTimeOffset now, CancellationToken ct) { NotificationDeliveryAttempt? a = _items.FirstOrDefault(x => x.Id == attemptId && x.Status == NotificationDeliveryStatus.Failed); if (a is null) return Task.FromResult<NotificationDeliveryAttempt?>(null); a.Status = NotificationDeliveryStatus.Prepared; a.Provider = NotificationProvider.None; a.ProviderMessageId = null; a.FailedAtUtc = null; a.FailureReason = null; a.LastStatusChangedAtUtc = now; a.UpdatedAtUtc = now; return Task.FromResult<NotificationDeliveryAttempt?>(a); }
         public Task<long> CountByStatusAsync(NotificationDeliveryStatus status, CancellationToken ct) => Task.FromResult((long)_items.Count(a => a.Status == status)); public Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) => Task.CompletedTask;
     }
@@ -192,4 +219,6 @@ public sealed class NotificationOutboxServiceTests
     private sealed class FailingAudit : IAuditLogService { public Task RecordAsync(string actorUserId, string actorRole, AuditAction action, AuditModule module, string entityType, string? entityId, AuditOutcome outcome, string? reason, string? requestPath, string? httpMethod, IReadOnlyDictionary<string, string>? metadata, CancellationToken cancellationToken) => throw new InvalidOperationException("audit failed"); public Task<GetAuditLogsResponse> ListAsync(string adminUserId, AuditLogQuery query, CancellationToken cancellationToken) => throw new NotImplementedException(); public Task<AuditLogResponse> GetAsync(string adminUserId, string id, CancellationToken cancellationToken) => throw new NotImplementedException(); }
     private sealed class ThrowingResolver : INotificationProviderResolver { public INotificationProvider Resolve(NotificationProviderChannel channel) => new ThrowingProvider(); }
     private sealed class ThrowingProvider : INotificationProvider { public NotificationProviderType ProviderType => NotificationProviderType.Simulated; public Task<NotificationProviderResult> SendAsync(NotificationProviderRequest request, CancellationToken cancellationToken) => throw new InvalidOperationException("provider failed"); }
+    private sealed class StaticResolver(INotificationProvider provider) : INotificationProviderResolver { public INotificationProvider Resolve(NotificationProviderChannel channel) => provider; }
+    private sealed class StaticProvider(NotificationProviderResult result) : INotificationProvider { public NotificationProviderType ProviderType => result.ProviderType; public Task<NotificationProviderResult> SendAsync(NotificationProviderRequest request, CancellationToken cancellationToken) => Task.FromResult(result); }
 }
