@@ -148,6 +148,16 @@
 - Monitor puede listar, ver, marcar vista, confirmar o declinar solo intentos asociados a sus contactos vinculados; intentos ajenos devuelven `not_found`.
 - Rider puede consultar acknowledgements asociados a sus propias alertas pero no responder como Monitor.
 - Pendientes futuros de Alert Acknowledgements: live monitoring, mapa en tiempo real, streaming de ubicacion, chat, llamadas, proveedores reales, escalamiento, dashboard operativo y ML.
+- Emergency Escalation API implementa escalamiento interno simulado en la coleccion `emergencyEscalations`, sin llamadas reales a servicios de emergencia ni proveedores externos.
+- Emergency Escalation API agrega endpoints Rider `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/escalate`, `GET /api/v1/rider/alert-dispatches/{alertDispatchId}/escalation-status`, `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/mark-unresolved` y `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/cancel-escalation`.
+- Emergency Escalation API agrega `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/escalation-status` para Monitor asignado y `GET /api/v1/admin/escalations` para consulta Admin-only.
+- La idempotency key oficial de Emergency Escalation es `userId + alertDispatchId`; hay indices unicos por `IdempotencyKey` y `AlertDispatchId`, y crear dos veces devuelve el mismo escalamiento sin `409`.
+- Emergency Escalation API no modifica `Incident`, `AlertDispatchRequest`, `NotificationDeliveryAttempt`, `AlertAcknowledgement` ni `EmergencyResolutionReport`; solo persiste el documento de escalamiento y auditoria best-effort.
+- `NoAcknowledgement` requiere incidente `Open`, alert dispatch propio, al menos un attempt existente y al menos un attempt `SimulatedSent`; sin attempts solo se permite `ManualEscalation`.
+- `AllContactsDeclined` requiere acknowledgements existentes, todos `Declined` y ninguno `Acknowledged`; cualquier `Acknowledged` bloquea el escalamiento con `emergency_escalation_not_allowed`.
+- `ManualEscalation` se permite para incidente propio `Open` si no existe acknowledgement `Acknowledged`; incidentes `Closed` o `FalsePositiveCancelled` devuelven `incident_not_ready`.
+- Emergency Escalation API audita `EmergencyEscalationRequested`, `EmergencyEscalationMarkedUnresolved` y `EmergencyEscalationCancelled` con metadata segura limitada.
+- Pendientes futuros de Emergency Escalation: integraciones reales con servicios de emergencia si hay aprobacion legal/operativa, proveedores reales, automatizacion controlada, dashboard avanzado y correlacion operacional completa.
 - Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
 - Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.
 - Location Sharing agrega `POST /api/v1/mobile/location-sharing/snapshot`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/location` y `GET /api/v1/rider/incidents/{incidentId}/location`.

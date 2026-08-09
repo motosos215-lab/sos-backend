@@ -8,6 +8,7 @@ using MotoSOS.API.Modules.Auth.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.EmergencyResolution.Domain;
+using MotoSOS.API.Modules.Escalations.Domain;
 using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.LocationSharing.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
@@ -273,6 +274,20 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(auditLogs, "ix_auditLogs_action_createdAtUtc", new BsonDocument { [nameof(AuditLogEntry.Action)] = 1, [nameof(AuditLogEntry.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(auditLogs, "ix_auditLogs_entityType_entityId", new BsonDocument { [nameof(AuditLogEntry.EntityType)] = 1, [nameof(AuditLogEntry.EntityId)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(auditLogs, "ix_auditLogs_correlationId", new BsonDocument(nameof(AuditLogEntry.CorrelationId), 1), unique: false, cancellationToken);
+
+        IMongoCollection<EmergencyEscalation> emergencyEscalations = _database.GetCollection<EmergencyEscalation>(MongoCollectionNames.EmergencyEscalations);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_userId", new BsonDocument(nameof(EmergencyEscalation.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_incidentId", new BsonDocument(nameof(EmergencyEscalation.IncidentId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ux_emergencyEscalations_alertDispatchId", new BsonDocument(nameof(EmergencyEscalation.AlertDispatchId), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_status", new BsonDocument(nameof(EmergencyEscalation.Status), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_reason", new BsonDocument(nameof(EmergencyEscalation.Reason), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_level", new BsonDocument(nameof(EmergencyEscalation.Level), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_createdAtUtc", new BsonDocument(nameof(EmergencyEscalation.CreatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_updatedAtUtc", new BsonDocument(nameof(EmergencyEscalation.UpdatedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ux_emergencyEscalations_idempotencyKey", new BsonDocument(nameof(EmergencyEscalation.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_userId_createdAtUtc", new BsonDocument { [nameof(EmergencyEscalation.UserId)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_status_createdAtUtc", new BsonDocument { [nameof(EmergencyEscalation.Status)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(emergencyEscalations, "ix_emergencyEscalations_incidentId_createdAtUtc", new BsonDocument { [nameof(EmergencyEscalation.IncidentId)] = 1, [nameof(EmergencyEscalation.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
     }
 
     private static async Task EnsureIndexAsync<TDocument>(

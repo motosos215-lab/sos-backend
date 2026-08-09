@@ -16,5 +16,8 @@ public enum AuditAction
     AlertAcknowledgementAcknowledged = 11,
     AlertAcknowledgementDeclined = 12,
     EmergencyResolutionReportCreated = 13,
-    OfflineProcessingRun = 14
+    OfflineProcessingRun = 14,
+    EmergencyEscalationRequested = 15,
+    EmergencyEscalationMarkedUnresolved = 16,
+    EmergencyEscalationCancelled = 17
 }

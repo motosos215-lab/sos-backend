@@ -60,6 +60,9 @@ Actualmente se auditan estas acciones exitosas:
 - `AlertAcknowledgementDeclined`
 - `EmergencyResolutionReportCreated`
 - `OfflineProcessingRun`
+- `EmergencyEscalationRequested`
+- `EmergencyEscalationMarkedUnresolved`
+- `EmergencyEscalationCancelled`
 
 ## Endpoints
 
