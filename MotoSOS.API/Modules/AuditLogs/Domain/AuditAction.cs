@@ -28,5 +28,9 @@ public enum AuditAction
     NotificationProviderSimulatedFailed = 23,
     NotificationOutboxWorkerRun = 24,
     NotificationOutboxWorkerFailed = 25,
-    NotificationOutboxWorkerSkipped = 26
+    NotificationOutboxWorkerSkipped = 26,
+    AutomaticEscalationWorkerRun = 27,
+    AutomaticEscalationWorkerFailed = 28,
+    AutomaticEscalationWorkerSkipped = 29,
+    EmergencyEscalationAutomaticallyRequested = 30
 }

@@ -8,6 +8,7 @@ using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyResolution.Application;
 using MotoSOS.API.Modules.EmergencyStatus.Application;
 using MotoSOS.API.Modules.Escalations.Application;
+using MotoSOS.API.Modules.Escalations.Worker;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.MinorEvents.Application;
@@ -62,6 +63,10 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IEmergencyResolutionService, EmergencyResolutionService>();
         services.AddScoped<IOperationalDashboardService, OperationalDashboardService>();
         services.AddScoped<IEmergencyEscalationService, EmergencyEscalationService>();
+        services.AddScoped<IAutomaticEscalationService, AutomaticEscalationService>();
+        services.AddOptions<AutomaticEscalationWorkerOptions>();
+        services.AddSingleton<IAutomaticEscalationWorkerStateStore, InMemoryAutomaticEscalationWorkerStateStore>();
+        services.AddHostedService<AutomaticEscalationWorker>();
         services.AddScoped<IMinorEventService, MinorEventService>();
         services.AddSingleton<AuditLogQueryValidator>();
         services.AddSingleton<EscalationQueryValidator>();

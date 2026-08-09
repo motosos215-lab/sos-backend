@@ -31,6 +31,9 @@ public sealed class MongoAlertDispatchRepository : IAlertDispatchRepository
         }
     }
 
+    public async Task<IReadOnlyList<AlertDispatchRequest>> ListCandidatesForAutomaticEscalationAsync(DateTimeOffset cutoffUtc, int maxItems, CancellationToken cancellationToken) =>
+        await _alertDispatches.Find(alert => alert.Status == AlertDispatchStatus.PendingDispatch && alert.RequestedAtUtc <= cutoffUtc).SortBy(alert => alert.RequestedAtUtc).ThenBy(alert => alert.CreatedAtUtc).Limit(maxItems).ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<AlertDispatchRequest>> ListByIncidentIdAsync(string userId, string incidentId, CancellationToken cancellationToken) =>
         await _alertDispatches.Find(alert => alert.UserId == userId && alert.IncidentId == incidentId).SortByDescending(alert => alert.CreatedAtUtc).ToListAsync(cancellationToken);
 
