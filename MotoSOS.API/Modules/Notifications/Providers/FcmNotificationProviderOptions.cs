@@ -6,6 +6,7 @@ public sealed class FcmNotificationProviderOptions
     public bool Enabled { get; set; }
     public string? ProjectId { get; set; }
     public string? ServiceAccountJson { get; set; }
+    public string? ServiceAccountJsonBase64 { get; set; }
     public string? ServiceAccountFilePath { get; set; }
     public string DefaultTitle { get; set; } = "MotoSOS Alert";
     public int DefaultTtlSeconds { get; set; } = 3600;

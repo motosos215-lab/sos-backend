@@ -26,7 +26,8 @@ public sealed class FirebaseFcmPushClient : IFcmPushClient
 
         try
         {
-            FirebaseMessaging messaging = GetMessaging();
+            FirebaseMessaging? messaging = GetMessaging();
+            if (messaging is null) return new FcmPushResult(false, null, "fcm_credentials_invalid", "FCM provider is not configured.");
 #pragma warning disable CS0618
             var message = new Message
             {
@@ -49,7 +50,7 @@ public sealed class FirebaseFcmPushClient : IFcmPushClient
         }
     }
 
-    private FirebaseMessaging GetMessaging()
+    private FirebaseMessaging? GetMessaging()
     {
         if (_messaging is not null) return _messaging;
         lock (_lock)
@@ -59,9 +60,8 @@ public sealed class FirebaseFcmPushClient : IFcmPushClient
             if (app is null)
             {
 #pragma warning disable CS0618
-                GoogleCredential credential = !string.IsNullOrWhiteSpace(_options.ServiceAccountJson)
-                    ? GoogleCredential.FromJson(_options.ServiceAccountJson)
-                    : GoogleCredential.FromFile(_options.ServiceAccountFilePath);
+                GoogleCredential? credential = CreateCredential();
+                if (credential is null) return null;
 #pragma warning restore CS0618
                 app = FirebaseApp.Create(new AppOptions { Credential = credential, ProjectId = _options.ProjectId }, AppName);
             }
@@ -69,6 +69,32 @@ public sealed class FirebaseFcmPushClient : IFcmPushClient
             return _messaging;
         }
     }
+
+    private GoogleCredential? CreateCredential()
+    {
+        try
+        {
+#pragma warning disable CS0618
+            if (!string.IsNullOrWhiteSpace(_options.ServiceAccountJson)) return GoogleCredential.FromJson(_options.ServiceAccountJson);
+            if (!string.IsNullOrWhiteSpace(_options.ServiceAccountJsonBase64)) return GoogleCredential.FromJson(DecodeServiceAccountJsonBase64(_options.ServiceAccountJsonBase64));
+            return GoogleCredential.FromFile(_options.ServiceAccountFilePath);
+#pragma warning restore CS0618
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static string DecodeServiceAccountJsonBase64(string value) => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(value));
 
     private static string? Sanitize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim()[..Math.Min(value.Trim().Length, 200)];
     private static string SanitizeCode(string? value) => string.IsNullOrWhiteSpace(value) ? "fcm_provider_failed" : value.Trim().ToLowerInvariant().Replace(' ', '_');
