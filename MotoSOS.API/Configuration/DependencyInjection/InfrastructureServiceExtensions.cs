@@ -8,19 +8,27 @@ using MotoSOS.API.Infrastructure.Persistence.MongoDb.Repositories;
 using MotoSOS.API.Infrastructure.Persistence.MongoDb.Settings;
 using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertDispatch.Application;
+using MotoSOS.API.Modules.AuditLogRetention.Application;
 using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyResolution.Application;
+using MotoSOS.API.Modules.Escalations.Application;
+using MotoSOS.API.Modules.EvidenceAttachments.Application;
 using MotoSOS.API.Modules.Incidents.Application;
 using MotoSOS.API.Modules.LocationSharing.Application;
+using MotoSOS.API.Modules.MinorEvents.Application;
 using MotoSOS.API.Modules.Notifications.Application;
+using MotoSOS.API.Modules.Notifications.Providers;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
+using MotoSOS.API.Modules.PushNotificationTokens.Application;
+using MotoSOS.API.Modules.ReportExports.Application;
+using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Vehicles.Application;
@@ -52,6 +60,7 @@ public static class InfrastructureServiceExtensions
         }
 
         services.AddSingleton<IClock, SystemClock>();
+        services.Configure<FcmNotificationProviderOptions>(configuration.GetSection(FcmNotificationProviderOptions.SectionName));
 
         var mongoSettings = configuration.GetSection(MongoDbSettings.SectionName).Get<MongoDbSettings>() ?? new MongoDbSettings();
 
@@ -81,12 +90,19 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
             services.AddScoped<IAuditLogRepository, MongoAuditLogRepository>();
+            services.AddScoped<IAuditLogRetentionRunRepository, MongoAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IPushNotificationTokenRepository, MongoPushNotificationTokenRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, MongoEmergencyContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, MongoNotificationDeliveryAttemptRepository>();
             services.AddScoped<IAlertAcknowledgementRepository, MongoAlertAcknowledgementRepository>();
             services.AddScoped<ILocationSharingRepository, MongoLocationSharingRepository>();
             services.AddScoped<IEmergencyResolutionRepository, MongoEmergencyResolutionRepository>();
+            services.AddScoped<IEmergencyEscalationRepository, MongoEmergencyEscalationRepository>();
+            services.AddScoped<IMinorEventRepository, MongoMinorEventRepository>();
+            services.AddScoped<ITelemetrySummaryRepository, MongoTelemetrySummaryRepository>();
+            services.AddScoped<IEvidenceAttachmentRepository, MongoEvidenceAttachmentRepository>();
+            services.AddScoped<IResolutionReportExportRepository, MongoResolutionReportExportRepository>();
             services.AddScoped<IOperationalDashboardRepository, MongoOperationalDashboardRepository>();
         }
         else
@@ -105,12 +121,19 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();
             services.AddScoped<IAuditLogRepository, UnconfiguredAuditLogRepository>();
+            services.AddScoped<IAuditLogRetentionRunRepository, UnconfiguredAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
+            services.AddScoped<IPushNotificationTokenRepository, UnconfiguredPushNotificationTokenRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, UnconfiguredMonitorLinkedContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, UnconfiguredNotificationAttemptMonitorRepository>();
             services.AddScoped<IAlertAcknowledgementRepository, UnconfiguredAlertAcknowledgementRepository>();
             services.AddScoped<ILocationSharingRepository, UnconfiguredLocationSharingRepository>();
             services.AddScoped<IEmergencyResolutionRepository, UnconfiguredEmergencyResolutionRepository>();
+            services.AddScoped<IEmergencyEscalationRepository, UnconfiguredEmergencyEscalationRepository>();
+            services.AddScoped<IMinorEventRepository, UnconfiguredMinorEventRepository>();
+            services.AddScoped<ITelemetrySummaryRepository, UnconfiguredTelemetrySummaryRepository>();
+            services.AddScoped<IEvidenceAttachmentRepository, UnconfiguredEvidenceAttachmentRepository>();
+            services.AddScoped<IResolutionReportExportRepository, UnconfiguredResolutionReportExportRepository>();
             services.AddScoped<IOperationalDashboardRepository, UnconfiguredOperationalDashboardRepository>();
         }
 

@@ -1,5 +1,39 @@
 # Memorias Tecnicas
 
+## FCM Notification Provider
+
+- FCM Notification Provider permite entrega push real para attempts `Push` solo cuando `Notifications:Providers:Fcm:Enabled = true`; por defecto permanece deshabilitado y `Push` usa el provider simulado.
+- Las credenciales se configuran solo por variables de entorno y el orden de prioridad es `ServiceAccountJson`, `ServiceAccountJsonBase64` y `ServiceAccountFilePath`.
+- Para DigitalOcean App Platform se recomienda `Notifications__Providers__Fcm__ServiceAccountJsonBase64` para evitar problemas al pegar JSON completo como variable de entorno.
+- El endpoint Admin-only `GET /api/v1/admin/notifications/providers/status` devuelve solo el origen seguro (`environment_json`, `environment_json_base64`, `environment_file_path` o `none`) y nunca devuelve JSON, Base64, private keys, file paths sensibles ni credenciales.
+- Base64 invalido falla de forma controlada con codigo seguro y sin loggear ni auditar el contenido decodificado.
+
+## Push Notification Tokens API
+
+- Push Notification Tokens API implementa registro, listado, estado y revocacion logica de tokens de notificacion en la coleccion `pushNotificationTokens`.
+- Agrega endpoints `POST /api/v1/push-notification-tokens`, `GET /api/v1/push-notification-tokens`, `GET /api/v1/push-notification-tokens/status`, `POST /api/v1/push-notification-tokens/{id}/revoke`, `GET /api/v1/admin/push-notification-tokens` y `POST /api/v1/admin/push-notification-tokens/{id}/revoke`.
+- `Rider`, `Monitor` y `Admin` pueden registrar tokens propios; Admin puede listar y revocar cualquier token desde rutas admin.
+- `userId` sale siempre del JWT; si el body envia `userId`, `tokenHash`, `status`, `tokenValue` o credenciales de proveedor, se devuelve `validation_error`.
+- La idempotencia usa `userId + tokenHash + platform + channel + deviceId`; registrar el mismo token no duplica y actualiza `LastSeenAtUtc`.
+- Registrar un token nuevo para el mismo scope revoca tokens activos anteriores sin borrado fisico.
+- `TokenValue` se guarda internamente para providers futuros, pero nunca se devuelve, audita ni registra; queda pendiente encryption/protection at rest.
+- `TokenHash` se usa solo internamente y nunca se devuelve ni audita.
+- Si se informa `deviceId`, se valida ownership, estado activo, `LinkStatus = Linked` y `RevokedAtUtc = null`; este modulo no crea ni modifica devices.
+- Soporta combinaciones `Android + Fcm`, `Ios + Apns`, `Web + WebPush` y `Web + Fcm`.
+- Audita best-effort `PushNotificationTokenRegistered` y `PushNotificationTokenRevoked` con metadata minima permitida.
+- No envia notificaciones reales, no llama proveedores externos, no agrega SDKs externos, no agrega secretos, no implementa cobros ni pairing API de smartwatch.
+
+## Audit Log Retention Policy
+
+- Audit Log Retention Policy implementa retencion manual Admin-only sobre la coleccion `auditLogs`.
+- Agrega endpoints `GET /api/v1/admin/audit-logs/retention/policy`, `POST /api/v1/admin/audit-logs/retention/run`, `GET /api/v1/admin/audit-logs/retention/runs` y `GET /api/v1/admin/audit-logs/retention/runs/{id}`.
+- La politica queda definida por codigo con default `180` dias, minimo `90`, maximo `3650`, dry-run default `true`, confirmacion requerida para borrado real y worker automatico deshabilitado.
+- El cutoff se calcula como `now - retentionDays`; el borrado real elimina solo documentos de `auditLogs` con `CreatedAtUtc < cutoffUtc`.
+- Las ejecuciones se guardan como metadata minima en `auditLogRetentionRuns`; esa coleccion no se borra por la politica.
+- Si `dryRun = false` sin `confirmPermanentDelete = true`, se devuelve `validation_error` y no se borra nada.
+- La auditoria de retencion es best-effort con acciones `AuditLogRetentionDryRunCompleted`, `AuditLogRetentionDeleteCompleted` y `AuditLogRetentionFailed`.
+- No se implementa borrado programado, almacenamiento externo, export automatico, compresion, objetos externos, URLs firmadas, correo, proveedores reales, SDKs externos ni cobros.
+
 ## Decisiones actuales
 
 - MotoSOS.API es un proyecto Web API en .NET 9.
@@ -91,7 +125,11 @@
 - Notification Outbox API implementa endpoints Admin-only bajo `/api/v1/admin/notifications/outbox` para procesar attempts existentes de forma simulada y controlada.
 - Notification Outbox API mueve attempts `Prepared` a `SimulatedSent` o a `Failed` con reason `simulated_failure_requested`, usando updates atomicos por `Id` y estado esperado.
 - Notification Outbox API permite `retry-failed` para regresar attempts `Failed` a `Prepared`; no procesa attempts `Cancelled` ni `SimulatedSent`.
-- Notification Outbox API no crea colecciones, no modifica incidentes, no modifica alert dispatches, no crea acknowledgements, no crea reportes de resolucion, no envia mensajes reales, no agrega proveedores externos y no ejecuta worker real todavia.
+- Notification Outbox API no crea colecciones, no modifica incidentes, no modifica alert dispatches, no crea acknowledgements, no crea reportes de resolucion, no envia mensajes reales ni agrega proveedores externos.
+- Notification Outbox Worker queda implementado como `BackgroundService` nativo, registrado pero deshabilitado por defecto con `Enabled = false`, `IntervalSeconds = 60`, `MaxItemsPerRun = 20`, `SimulateFailures = false` y `RunOnStartup = false`.
+- Notification Outbox Worker reutiliza `NotificationOutboxService` y `SimulatedNotificationProvider`; cuando se habilita procesa attempts `Prepared` automaticamente y conserva `Prepared -> SimulatedSent`, `Prepared -> Failed` y `retry-failed` manual como flujos separados.
+- Notification Outbox Worker evita ejecuciones simultaneas en la misma instancia con control en memoria, captura errores como estado seguro y continua en el siguiente intervalo; distributed lock queda pendiente futuro para multiples replicas.
+- Notification Outbox agrega `GET /api/v1/admin/notifications/outbox/worker/status` como endpoint Admin-only, solo lectura, sin activar ni disparar procesamiento.
 - Trips API requiere onboarding completo: `completedSteps = 7`, `currentStep = Completed` e `isOperational = true`.
 - Para iniciar viaje se requiere vehiculo propio activo `Completed` y `MobileApp` propio activo `Linked`; smartwatch es opcional pero debe depender del `MobileApp` si se informa.
 - Trips API permite solo un viaje `Active` por usuario; repetir start con el mismo vehiculo y mobile devuelve el viaje activo existente, y datos distintos devuelven `active_trip_exists`.
@@ -139,6 +177,13 @@
 - Notifications API usa exclusivamente `ContactsSnapshot` de Alert Dispatch y no consulta contactos vivos para generar intentos.
 - Se crea un intento por contacto: `Sms` si hay telefono y `Email` como fallback si solo hay correo; contactos sin canal se omiten.
 - Los intentos nuevos quedan `Prepared` y `Provider = None`; `SimulatedSent` existe solo para pruebas internas.
+- Notification Provider Abstraction agrega `INotificationProvider`, `INotificationProviderResolver`, request/result internos, enums de provider/channel/status y `SimulatedNotificationProvider`.
+- `NotificationProviderResolver` devuelve siempre proveedor simulado para `Sms`, `Email` y `Push`; canales no soportados se manejan como fallo controlado.
+- Notification Outbox usa la abstraccion interna y mantiene sus endpoints, rutas y contratos publicos existentes sin cambios.
+- `simulateFailures = false` conserva `Prepared -> SimulatedSent`; `simulateFailures = true` conserva `Prepared -> Failed`; `retry-failed` conserva `Failed -> Prepared`.
+- El provider simulado genera `ProviderMessageId` seguro `simulated-{guid}` en exito y errores controlados en falla; no realiza I/O externo ni requiere configuracion sensible.
+- Notification Provider Abstraction audita best-effort `NotificationProviderSimulatedSent` y `NotificationProviderSimulatedFailed` con metadata segura limitada.
+- Notification Outbox Worker audita best-effort `NotificationOutboxWorkerRun`, `NotificationOutboxWorkerFailed` y `NotificationOutboxWorkerSkipped` con metadata segura limitada.
 - No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
 - Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
 - Alert Acknowledgements API implementa la respuesta del contacto/monitor ante alertas preparadas, sin live monitoring ni notificaciones reales todavia.
@@ -148,6 +193,55 @@
 - Monitor puede listar, ver, marcar vista, confirmar o declinar solo intentos asociados a sus contactos vinculados; intentos ajenos devuelven `not_found`.
 - Rider puede consultar acknowledgements asociados a sus propias alertas pero no responder como Monitor.
 - Pendientes futuros de Alert Acknowledgements: live monitoring, mapa en tiempo real, streaming de ubicacion, chat, llamadas, proveedores reales, escalamiento, dashboard operativo y ML.
+- Emergency Escalation API implementa escalamiento interno simulado en la coleccion `emergencyEscalations`, sin llamadas reales a servicios de emergencia ni proveedores externos.
+- Emergency Escalation API agrega endpoints Rider `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/escalate`, `GET /api/v1/rider/alert-dispatches/{alertDispatchId}/escalation-status`, `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/mark-unresolved` y `POST /api/v1/rider/alert-dispatches/{alertDispatchId}/cancel-escalation`.
+- Emergency Escalation API agrega `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/escalation-status` para Monitor asignado y `GET /api/v1/admin/escalations` para consulta Admin-only.
+- La idempotency key oficial de Emergency Escalation es `userId + alertDispatchId`; hay indices unicos por `IdempotencyKey` y `AlertDispatchId`, y crear dos veces devuelve el mismo escalamiento sin `409`.
+- Emergency Escalation API no modifica `Incident`, `AlertDispatchRequest`, `NotificationDeliveryAttempt`, `AlertAcknowledgement` ni `EmergencyResolutionReport`; solo persiste el documento de escalamiento y auditoria best-effort.
+- `NoAcknowledgement` requiere incidente `Open`, alert dispatch propio, al menos un attempt existente y al menos un attempt `SimulatedSent`; sin attempts solo se permite `ManualEscalation`.
+- `AllContactsDeclined` requiere acknowledgements existentes, todos `Declined` y ninguno `Acknowledged`; cualquier `Acknowledged` bloquea el escalamiento con `emergency_escalation_not_allowed`.
+- `ManualEscalation` se permite para incidente propio `Open` si no existe acknowledgement `Acknowledged`; incidentes `Closed` o `FalsePositiveCancelled` devuelven `incident_not_ready`.
+- Emergency Escalation API audita `EmergencyEscalationRequested`, `EmergencyEscalationMarkedUnresolved` y `EmergencyEscalationCancelled` con metadata segura limitada.
+- Automatic Escalation Worker queda implementado como `BackgroundService` nativo, registrado pero deshabilitado por defecto con `Enabled = false`, `IntervalSeconds = 60`, `MaxItemsPerRun = 20`, `EscalateAfterSeconds = 300` y `RunOnStartup = false`.
+- Automatic Escalation Worker crea solo `EmergencyEscalation` interna `NoAcknowledgement` / `Level1` cuando el incidente esta `Open`, el alert dispatch esta `PendingDispatch`, no existe escalation previa, no hay acknowledgement `Acknowledged`, existe attempt `SimulatedSent` y el `SimulatedSentAtUtc` mas antiguo ya supero el umbral.
+- Automatic Escalation Worker no escala solo por antiguedad de `AlertDispatchRequest`, no modifica `Incident`, no modifica `AlertDispatchRequest`, no crea attempts, acknowledgements ni reportes de resolucion, y no llama servicios externos.
+- Automatic Escalation Worker agrega endpoints Admin-only `GET /api/v1/admin/escalations/worker/status` y `POST /api/v1/admin/escalations/worker/run`; el run manual no activa el worker permanente ni cambia `Enabled`.
+- Automatic Escalation Worker evita ejecuciones simultaneas en la misma instancia con control en memoria; distributed lock queda pendiente futuro para multiples replicas.
+- Automatic Escalation Worker audita best-effort `AutomaticEscalationWorkerRun`, `AutomaticEscalationWorkerFailed`, `AutomaticEscalationWorkerSkipped` y `EmergencyEscalationAutomaticallyRequested` con metadata segura limitada.
+- Pendientes futuros de Emergency Escalation: integraciones reales con servicios de emergencia si hay aprobacion legal/operativa, proveedores reales, automatizacion controlada, dashboard avanzado y correlacion operacional completa.
+- Minor Events API implementa registro de eventos menores de viaje en la coleccion `minorEvents`, sin convertirlos en emergencias confirmadas.
+- Minor Events API agrega `POST /api/v1/mobile/minor-events`, `GET /api/v1/rider/minor-events`, `GET /api/v1/rider/minor-events/{id}`, `POST /api/v1/rider/minor-events/{id}/mark-reviewed`, `POST /api/v1/rider/minor-events/{id}/ignore` y `GET /api/v1/admin/minor-events`.
+- La idempotency key oficial de Minor Events es `userId + tripId + clientEventId + eventType`; duplicados devuelven el mismo `MinorEvent` sin `409` y sin duplicar documentos.
+- Minor Events API permite crear eventos solo para viajes propios `Active` o `Finished`; `userId` siempre viene del JWT y no se acepta en el body.
+- `mobileDeviceId` y `smartwatchDeviceId`, si se informan, deben pertenecer al Rider y estar vinculados; si no se informan, se permite registrar desde app movil u offline ingestion.
+- Minor Events API sanitiza metadata case-insensitive, elimina claves sensibles y trunca valores a 200 caracteres; no guarda payload completo.
+- Offline Processing procesa item type `minor-event` creando `MinorEvent`, marca el offline record como `Processed` y usa `MinorEvent.Id` como `remoteRecordId`; payload invalido queda como fallo permanente controlado sin romper todo el batch.
+- Minor Events API no crea `Incident`, `AlertDispatchRequest`, `NotificationDeliveryAttempt`, `AlertAcknowledgement`, `EmergencyEscalation` ni `EmergencyResolutionReport`, y no modifica `Trip`.
+- Minor Events API audita best-effort `MinorEventRecorded`, `MinorEventMarkedReviewed`, `MinorEventIgnored` y `MinorEventProcessedFromOfflineIngestion`.
+- Telemetry Summary API implementa resumenes agregados de senales por viaje en la coleccion `tripTelemetrySummaries`, con documento unico por `UserId + TripId`.
+- Telemetry Summary agrega endpoints Rider `GET /api/v1/rider/trips/{tripId}/telemetry-summary`, `POST /api/v1/rider/trips/{tripId}/telemetry-summary/recompute` y endpoints Admin `GET /api/v1/admin/telemetry-summaries`, `GET /api/v1/admin/telemetry-summaries/{id}`.
+- Telemetry Summary calcula desde `MinorEvents`, conserva recompute idempotente, no guarda coordenadas, ruta completa, polyline, metadata, mensajes ni lista completa de eventos.
+- Telemetry Summary no modifica `Trip` ni `MinorEvents`, no crea incidentes, alert dispatches, notification attempts, acknowledgements, escalations ni reportes de resolucion.
+- Telemetry Summary audita best-effort `TelemetrySummaryComputed` y `TelemetrySummaryRecomputed` con metadata segura limitada.
+- Telemetry Summary no implementa monitoreo en vivo, mapa en tiempo real, modelos predictivos reales, score de riesgo real, cobros ni pairing API de smartwatch.
+- Evidence Attachments API implementa registro metadata only de evidencia en la coleccion `evidenceAttachments`.
+- Evidence Attachments agrega endpoints Rider, Monitor y Admin para registrar o consultar metadata segura segun rol.
+- Evidence Attachments exige exactamente un target principal entre incident, alert dispatch o resolution report, con `TargetType` explicito.
+- Evidence Attachments guarda `UserId` como Rider duenio, `RegisteredByUserId` como actor autenticado y `RegisteredByRole` como Rider o Monitor.
+- Evidence Attachments rechaza campos binarios como base64, fileContent, imageBytes, videoBytes y audioBytes; no guarda archivos reales ni usa storage externo.
+- Evidence Attachments implementa idempotencia por owner Rider, `clientEvidenceId`, `targetType` y `targetId`.
+- Evidence Attachments implementa soft delete solo para Rider con `MarkedDeleted` y `DeletedAtUtc`.
+- Evidence Attachments no modifica Incident, AlertDispatch ni EmergencyResolutionReport, no crea entidades externas, no envia notificaciones y no llama proveedores externos.
+- Evidence Attachments audita best-effort `EvidenceAttachmentRegistered` y `EvidenceAttachmentDeleted` con metadata segura limitada.
+- Resolution Report Export API implementa export JSON estructurado de reportes finales y metadata minima en `resolutionReportExports`.
+- Resolution Report Export soporta solo `Json`; no genera PDF real, no descarga binarios, no guarda bytes/base64 y no usa storage externo.
+- Resolution Report Export agrega endpoints Rider, Admin y Monitor para exportar segun permisos, y endpoint Admin para listar metadata de exports.
+- Resolution Report Export usa idempotencia por `UserId + EmergencyResolutionReportId + ExportType`; exportar dos veces no duplica metadata y regenera la vista con datos actuales.
+- Resolution Report Export consolida Incident, Trip, Alert Dispatch, Notifications, Acknowledgements, ultima ubicacion, Resolution Report, Escalation, Telemetry Summary, Evidence Attachments y AuditSummary basico.
+- Resolution Report Export no devuelve historial de ubicaciones, polyline, tracking, lista completa de MinorEvents, metadata completa de evidencias ni metadata completa de auditoria.
+- Resolution Report Export no modifica ni crea entidades externas; solo upsertea metadata minima del export.
+- Resolution Report Export audita best-effort `ResolutionReportExportGenerated` con metadata segura limitada.
+- Pendientes futuros de Minor Events: reglas automaticas, dashboard especifico, analitica, modelos predictivos aprobados, correlacion con incidentes, mapas historicos agregados y telemetria resumida avanzada.
 - Emergency Location Sharing API implementa ultima ubicacion conocida por incidente abierto, sin historial de ruta ni live tracking.
 - Los snapshots se guardan en MongoDB en la coleccion `emergencyLocationSnapshots` con indice unico compuesto `UserId + IncidentId`.
 - Location Sharing agrega `POST /api/v1/mobile/location-sharing/snapshot`, `GET /api/v1/monitor/alerts/{notificationDeliveryAttemptId}/location` y `GET /api/v1/rider/incidents/{incidentId}/location`.

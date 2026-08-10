@@ -232,3 +232,7 @@ curl -X POST "$BASE_URL/api/v1/incidents" \
 - Machine Learning.
 - Processor real de Offline Ingestion.
 - Sensor batches completos.
+
+## Relacion Con Evidence Attachments
+
+Evidence Attachments API puede asociar metadata segura a un `Incident` propio. No sube archivos reales, no guarda bytes ni base64 y no modifica el incidente.

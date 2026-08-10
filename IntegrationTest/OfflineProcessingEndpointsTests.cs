@@ -57,9 +57,9 @@ public sealed class OfflineProcessingEndpointsTests
         string statusBody = await (await riderClient.GetAsync("/api/v1/offline-processing/status")).Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.Should().Contain("Processed").And.Contain("Skipped").And.NotContain("do-not-return");
+        body.Should().Contain("Processed").And.Contain("Failed").And.NotContain("do-not-return");
         body.ToLowerInvariant().Should().NotContain("payload");
-        statusBody.Should().Contain("processed").And.Contain("skipped");
+        statusBody.Should().Contain("processed");
         stores.Records.Items.Single(r => r.UserId == other.Id).ProcessingStatus.Should().Be(OfflineIngestionProcessingStatus.PendingProcessing);
     }
 

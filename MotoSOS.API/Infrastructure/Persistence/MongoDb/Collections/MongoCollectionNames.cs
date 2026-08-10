@@ -30,6 +30,8 @@ public static class MongoCollectionNames
 
     public const string NotificationDeliveryAttempts = "notificationDeliveryAttempts";
 
+    public const string PushNotificationTokens = "pushNotificationTokens";
+
     public const string AlertAcknowledgements = "alertAcknowledgements";
 
     public const string EmergencyLocationSnapshots = "emergencyLocationSnapshots";
@@ -37,4 +39,16 @@ public static class MongoCollectionNames
     public const string EmergencyResolutionReports = "emergencyResolutionReports";
 
     public const string AuditLogs = "auditLogs";
+
+    public const string AuditLogRetentionRuns = "auditLogRetentionRuns";
+
+    public const string EmergencyEscalations = "emergencyEscalations";
+
+    public const string MinorEvents = "minorEvents";
+
+    public const string TripTelemetrySummaries = "tripTelemetrySummaries";
+
+    public const string EvidenceAttachments = "evidenceAttachments";
+
+    public const string ResolutionReportExports = "resolutionReportExports";
 }

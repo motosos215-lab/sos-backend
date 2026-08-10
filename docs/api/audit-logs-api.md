@@ -60,6 +60,32 @@ Actualmente se auditan estas acciones exitosas:
 - `AlertAcknowledgementDeclined`
 - `EmergencyResolutionReportCreated`
 - `OfflineProcessingRun`
+- `EmergencyEscalationRequested`
+- `EmergencyEscalationMarkedUnresolved`
+- `EmergencyEscalationCancelled`
+- `MinorEventRecorded`
+- `MinorEventMarkedReviewed`
+- `MinorEventIgnored`
+- `MinorEventProcessedFromOfflineIngestion`
+- `NotificationProviderSimulatedSent`
+- `NotificationProviderSimulatedFailed`
+- `NotificationOutboxWorkerRun`
+- `NotificationOutboxWorkerFailed`
+- `NotificationOutboxWorkerSkipped`
+- `AutomaticEscalationWorkerRun`
+- `AutomaticEscalationWorkerFailed`
+- `AutomaticEscalationWorkerSkipped`
+- `EmergencyEscalationAutomaticallyRequested`
+- `TelemetrySummaryComputed`
+- `TelemetrySummaryRecomputed`
+- `EvidenceAttachmentRegistered`
+- `EvidenceAttachmentDeleted`
+- `ResolutionReportExportGenerated`
+- `AuditLogRetentionDryRunCompleted`
+- `AuditLogRetentionDeleteCompleted`
+- `AuditLogRetentionFailed`
+- `PushNotificationTokenRegistered`
+- `PushNotificationTokenRevoked`
 
 ## Endpoints
 

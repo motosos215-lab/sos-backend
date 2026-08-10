@@ -24,6 +24,14 @@ public sealed class MongoAuditLogRepository : IAuditLogRepository
 
     public async Task<long> CountAsync(AuditLogQuery query, CancellationToken cancellationToken) => await _auditLogs.CountDocumentsAsync(BuildFilter(query), cancellationToken: cancellationToken);
 
+    public async Task<long> CountOlderThanAsync(DateTimeOffset cutoffUtc, CancellationToken cancellationToken) => await _auditLogs.CountDocumentsAsync(Builders<AuditLogEntry>.Filter.Lt(log => log.CreatedAtUtc, cutoffUtc), cancellationToken: cancellationToken);
+
+    public async Task<long> DeleteOlderThanAsync(DateTimeOffset cutoffUtc, CancellationToken cancellationToken)
+    {
+        DeleteResult result = await _auditLogs.DeleteManyAsync(Builders<AuditLogEntry>.Filter.Lt(log => log.CreatedAtUtc, cutoffUtc), cancellationToken);
+        return result.DeletedCount;
+    }
+
     private static FilterDefinition<AuditLogEntry> BuildFilter(AuditLogQuery query)
     {
         FilterDefinitionBuilder<AuditLogEntry> b = Builders<AuditLogEntry>.Filter;

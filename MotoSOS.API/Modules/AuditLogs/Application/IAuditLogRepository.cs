@@ -8,4 +8,6 @@ public interface IAuditLogRepository
     Task<AuditLogEntry?> GetByIdAsync(string id, CancellationToken cancellationToken);
     Task<IReadOnlyList<AuditLogEntry>> ListAsync(AuditLogQuery query, CancellationToken cancellationToken);
     Task<long> CountAsync(AuditLogQuery query, CancellationToken cancellationToken);
+    Task<long> CountOlderThanAsync(DateTimeOffset cutoffUtc, CancellationToken cancellationToken);
+    Task<long> DeleteOlderThanAsync(DateTimeOffset cutoffUtc, CancellationToken cancellationToken);
 }

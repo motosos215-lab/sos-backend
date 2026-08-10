@@ -57,3 +57,11 @@ La ubicacion final usa el ultimo `EmergencyLocationSnapshot` asociado al inciden
 Las respuestas no exponen hashes de credenciales, tokens de sesion, identificadores de dispositivo, tokens de proveedores, telefonos/correos completos ni datos de cobro.
 
 Esta API no implementa proveedores reales, push real, SMS real, mensajeria real, correo real, protocolos realtime, streaming, dashboard operativo, mapa en tiempo real, cobros en tiendas ni pairing API de smartwatch.
+
+## Relacion Con Evidence Attachments
+
+Evidence Attachments API puede asociar metadata segura a un `EmergencyResolutionReport`. No sube ni descarga archivos reales y no modifica el reporte de resolucion.
+
+## Relacion Con Resolution Report Export
+
+Resolution Report Export API genera una vista JSON estructurada del reporte final y datos agregados relacionados. No genera PDF real ni modifica el reporte.
