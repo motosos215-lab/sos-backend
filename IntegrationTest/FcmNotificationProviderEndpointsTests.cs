@@ -72,9 +72,27 @@ public sealed class FcmNotificationProviderEndpointsTests
         retry.Retried.Should().Be(1);
     }
 
+    [Fact]
+    public async Task ProviderStatusReportsBase64CredentialSourceWithoutExposingCredentialValues()
+    {
+        const string decodedJson = "{\"type\":\"service_account\"}";
+        string encodedJson = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(decodedJson));
+        var stores = new Stores(); await using WebApplicationFactory<Program> factory = CreateFactory(stores, enabled: true, serviceAccountJson: null, serviceAccountJsonBase64: encodedJson); HttpClient admin = factory.CreateClient(); await AuthenticateAsync(admin, "fcm-admin4@example.com", UserRole.Admin, stores);
+
+        HttpResponseMessage response = await admin.GetAsync("/api/v1/admin/notifications/providers/status");
+        string body = await response.Content.ReadAsStringAsync();
+        ProviderStatusEnvelope status = (await response.Content.ReadFromJsonAsync<ProviderStatusEnvelope>())!;
+
+        status.Data.FcmProviderEnabled.Should().BeTrue();
+        status.Data.FcmProviderConfigured.Should().BeTrue();
+        status.Data.FcmCredentialSource.Should().Be("environment_json_base64");
+        body.Should().NotContain(encodedJson);
+        body.Should().NotContain(decodedJson);
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 8, 9, 12, 0, 0, TimeSpan.Zero);
     private static async Task<User> AuthenticateAsync(HttpClient client, string email, UserRole role, Stores stores) { const string secret = "StrongPass1!"; await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, secret, secret, "Moto User", null, role == UserRole.Monitor ? "Monitor" : "Rider", true)); User user = stores.Users.Items.Single(u => u.Email == email); user.Role = role; LoginEnvelope login = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(email, secret))).Content.ReadFromJsonAsync<LoginEnvelope>())!; client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Data.AccessToken); return user; }
-    private static WebApplicationFactory<Program> CreateFactory(Stores stores, bool enabled) => new WebApplicationFactory<Program>().WithWebHostBuilder(builder => { builder.UseEnvironment("Testing"); builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Issuer"] = "MotoSOS", ["Jwt:Audience"] = "MotoSOS.Clients", ["Jwt:Key"] = new string('F', 48), ["Jwt:AccessTokenMinutes"] = "15", ["Jwt:RefreshTokenDays"] = "7", ["Jwt:RefreshTokenRememberMeDays"] = "30", ["MongoDb:" + "Connection" + "String"] = string.Empty, ["MongoDb:DatabaseName"] = "MotoSOS_Test", ["Notifications:Providers:Fcm:Enabled"] = enabled.ToString(), ["Notifications:Providers:Fcm:ProjectId"] = enabled ? "test-project" : null, ["Notifications:Providers:Fcm:ServiceAccountJson"] = enabled ? "{}" : null })); builder.ConfigureTestServices(services => { services.AddSingleton<IUserRepository>(stores.Users); services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens); services.AddSingleton<INotificationDeliveryAttemptRepository>(stores.Attempts); services.AddSingleton<IEmergencyContactRepository>(stores.Contacts); services.AddSingleton<IPushNotificationTokenRepository>(stores.Tokens); services.AddSingleton<IFcmPushClient>(stores.FcmClient); }); });
+    private static WebApplicationFactory<Program> CreateFactory(Stores stores, bool enabled, string? serviceAccountJson = "{}", string? serviceAccountJsonBase64 = null) => new WebApplicationFactory<Program>().WithWebHostBuilder(builder => { builder.UseEnvironment("Testing"); builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Issuer"] = "MotoSOS", ["Jwt:Audience"] = "MotoSOS.Clients", ["Jwt:Key"] = new string('F', 48), ["Jwt:AccessTokenMinutes"] = "15", ["Jwt:RefreshTokenDays"] = "7", ["Jwt:RefreshTokenRememberMeDays"] = "30", ["MongoDb:" + "Connection" + "String"] = string.Empty, ["MongoDb:DatabaseName"] = "MotoSOS_Test", ["Notifications:Providers:Fcm:Enabled"] = enabled.ToString(), ["Notifications:Providers:Fcm:ProjectId"] = enabled ? "test-project" : null, ["Notifications:Providers:Fcm:ServiceAccountJson"] = enabled ? serviceAccountJson : null, ["Notifications:Providers:Fcm:ServiceAccountJsonBase64"] = enabled ? serviceAccountJsonBase64 : null })); builder.ConfigureTestServices(services => { services.AddSingleton<IUserRepository>(stores.Users); services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens); services.AddSingleton<INotificationDeliveryAttemptRepository>(stores.Attempts); services.AddSingleton<IEmergencyContactRepository>(stores.Contacts); services.AddSingleton<IPushNotificationTokenRepository>(stores.Tokens); services.AddSingleton<IFcmPushClient>(stores.FcmClient); }); });
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
     private sealed record ProviderStatusEnvelope(bool Success, NotificationProviderStatusResponse Data);
     private sealed record RunEnvelope(bool Success, RunNotificationOutboxResponse Data);

@@ -1,5 +1,13 @@
 # Memorias Tecnicas
 
+## FCM Notification Provider
+
+- FCM Notification Provider permite entrega push real para attempts `Push` solo cuando `Notifications:Providers:Fcm:Enabled = true`; por defecto permanece deshabilitado y `Push` usa el provider simulado.
+- Las credenciales se configuran solo por variables de entorno y el orden de prioridad es `ServiceAccountJson`, `ServiceAccountJsonBase64` y `ServiceAccountFilePath`.
+- Para DigitalOcean App Platform se recomienda `Notifications__Providers__Fcm__ServiceAccountJsonBase64` para evitar problemas al pegar JSON completo como variable de entorno.
+- El endpoint Admin-only `GET /api/v1/admin/notifications/providers/status` devuelve solo el origen seguro (`environment_json`, `environment_json_base64`, `environment_file_path` o `none`) y nunca devuelve JSON, Base64, private keys, file paths sensibles ni credenciales.
+- Base64 invalido falla de forma controlada con codigo seguro y sin loggear ni auditar el contenido decodificado.
+
 ## Push Notification Tokens API
 
 - Push Notification Tokens API implementa registro, listado, estado y revocacion logica de tokens de notificacion en la coleccion `pushNotificationTokens`.
