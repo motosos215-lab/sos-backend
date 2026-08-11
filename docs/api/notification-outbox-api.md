@@ -1,13 +1,13 @@
 # Notification Outbox API
 
-Notification Outbox API procesa de forma controlada los `NotificationDeliveryAttempts` existentes. Es un outbox simulado para ambientes de desarrollo y validacion operativa.
+Notification Outbox API procesa de forma controlada los `NotificationDeliveryAttempts` existentes. El worker automatico puede procesar attempts `Prepared` en produccion cuando esta habilitado por configuracion; `Push` usa FCM si FCM esta habilitado y configurado, mientras `Sms` y `Email` siguen simulados.
 
 ## Alcance
 
 - Solo trabaja sobre attempts existentes.
 - No crea colecciones nuevas.
-- No envia mensajes reales.
-- No llama proveedores externos.
+- No envia SMS ni Email reales.
+- Para `Push`, puede llamar FCM solo cuando `Notifications:Providers:Fcm:Enabled = true` y las credenciales estan configuradas.
 - El worker automatico existe, pero queda deshabilitado por defecto y no reemplaza los endpoints manuales.
 - No modifica incidentes, dispatches, acknowledgements, reportes de resolucion ni ubicaciones.
 - Usa `NotificationProviderResolver` y `SimulatedNotificationProvider` como abstraccion interna.
@@ -64,6 +64,20 @@ Reglas:
 - No modifica configuracion.
 - El worker queda deshabilitado por defecto.
 
+Campos seguros:
+
+- `enabled`
+- `running`
+- `intervalSeconds`
+- `maxItemsPerRun`
+- `simulateFailures`
+- `runOnStartup`
+- `lastRunStartedAtUtc`
+- `lastRunCompletedAtUtc`
+- `lastProcessedCount`
+- `lastFailedCount`
+- `lastError`
+
 ### `POST /api/v1/admin/notifications/outbox/retry-failed`
 
 Request:
@@ -84,9 +98,9 @@ Reglas:
 
 ## Provider Abstraction
 
-Notification Outbox usa una abstraccion interna de proveedor para desacoplar el procesamiento simulado. En esta etapa el resolver siempre devuelve `SimulatedNotificationProvider` para `Sms`, `Email` y `Push`.
+Notification Outbox usa una abstraccion interna de proveedor. `Sms` y `Email` usan `SimulatedNotificationProvider`; `Push` usa FCM si el provider esta habilitado/configurado y, si no, usa el provider simulado.
 
-No se agregan proveedores reales, SDKs externos, secretos ni configuracion sensible.
+No se agregan SMS real, Email real, WhatsApp real, secretos ni configuracion sensible en codigo.
 
 ## Seguridad
 

@@ -36,7 +36,7 @@ namespace MotoSOS.API.Configuration.DependencyInjection;
 
 public static class ApplicationServiceExtensions
 {
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddValidatorsFromAssemblyContaining<AuthService>();
         services.AddScoped<IAuthService, AuthService>();
@@ -65,7 +65,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<INotificationProviderStatusService, NotificationProviderStatusService>();
         services.AddScoped<IPushNotificationTokenService, PushNotificationTokenService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
-        services.AddOptions<NotificationOutboxWorkerOptions>();
+        services.Configure<NotificationOutboxWorkerOptions>(configuration.GetSection(NotificationOutboxWorkerOptions.SectionName));
         services.AddSingleton<INotificationOutboxWorkerStateStore, InMemoryNotificationOutboxWorkerStateStore>();
         services.AddHostedService<NotificationOutboxWorker>();
         services.AddScoped<SimulatedNotificationProvider>();

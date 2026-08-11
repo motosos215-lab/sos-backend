@@ -36,7 +36,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddApiConfiguration(builder.Configuration)
-    .AddApplicationServices()
+    .AddApplicationServices(builder.Configuration)
     .AddInfrastructureServices(builder.Configuration, builder.Environment)
     .AddSecurityServices(builder.Configuration);
 

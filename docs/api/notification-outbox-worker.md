@@ -4,6 +4,8 @@ Notification Outbox Worker procesa automaticamente `NotificationDeliveryAttempts
 
 Push Notification Tokens API permite que attempts `Push` se resuelvan hacia el Monitor vinculado. Si FCM esta habilitado y configurado, el worker puede procesar Push con FCM; SMS y Email siguen simulados.
 
+Flujo final de produccion: `POST /api/v1/mobile/sos-alerts` crea incidente, alert dispatch y attempts `Prepared`; el worker procesa despues esos attempts. El endpoint SOS no ejecuta outbox ni envia notificaciones directamente.
+
 ## Estado Actual
 
 - Implementado como `BackgroundService` nativo de .NET.
@@ -28,6 +30,20 @@ Defaults por codigo:
 | `RunOnStartup` | `false` |
 
 Con `Enabled = false`, el worker no procesa nada aunque este registrado como hosted service.
+
+## Configuracion DigitalOcean
+
+El worker se configura desde la seccion exacta `Notifications:OutboxWorker`. En DigitalOcean App Platform usar variables de entorno con doble guion bajo:
+
+```text
+Notifications__OutboxWorker__Enabled=true
+Notifications__OutboxWorker__IntervalSeconds=30
+Notifications__OutboxWorker__MaxItemsPerRun=20
+Notifications__OutboxWorker__SimulateFailures=false
+Notifications__OutboxWorker__RunOnStartup=true
+```
+
+Para Push real tambien se requiere FCM habilitado y configurado en `Notifications:Providers:Fcm`. Si FCM no esta habilitado, `Push` usa provider simulado. `Sms` y `Email` siguen simulados.
 
 ## Procesamiento
 
@@ -60,7 +76,7 @@ El worker evita ejecuciones simultaneas dentro de la misma instancia usando cont
 
 Si una ejecucion sigue activa y llega otra, la segunda se marca como skipped interno y no procesa attempts.
 
-Distributed lock queda pendiente futuro para despliegues con multiples replicas.
+Distributed lock queda pendiente futuro para despliegues con multiples replicas. Con una sola replica DigitalOcean se puede habilitar el worker; con multiples replicas puede haber procesamiento duplicado antes del update final aunque el cambio de estado sea atomico por estado esperado. Para multiples replicas se requiere un distributed lock futuro.
 
 ## Estado Seguro
 
@@ -81,19 +97,19 @@ Reglas:
 
 Respuesta segura:
 
-- `isEnabled`
-- `isRunning`
+- `enabled`
+- `running`
+- `intervalSeconds`
+- `maxItemsPerRun`
+- `simulateFailures`
+- `runOnStartup`
 - `lastRunStartedAtUtc`
 - `lastRunCompletedAtUtc`
-- `lastRunSucceeded`
-- `lastRunProcessed`
-- `lastRunSimulatedSent`
-- `lastRunFailed`
-- `lastRunSkipped`
-- `lastErrorCode`
-- `lastErrorMessage`
+- `lastProcessedCount`
+- `lastFailedCount`
+- `lastError`
 
-No expone payloads, datos de contacto completos, credenciales, tokens, stack traces ni errores internos.
+No expone tokens, `tokenHash`, `tokenValue`, payloads, emails, telefonos, credenciales FCM, service accounts, connection strings, stack traces ni errores internos.
 
 ## Errores
 

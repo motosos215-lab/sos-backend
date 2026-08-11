@@ -4,7 +4,7 @@
 
 SOS Alert Orchestration API simplifica el flujo movil de emergencia en un solo endpoint. No reemplaza los endpoints individuales de Incidents, Alert Dispatch ni Notifications; solo los orquesta para que la app movil no tenga que llamar manualmente tres endpoints separados.
 
-El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente.
+El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente. Cuando el worker procesa attempts `Push`, usa FCM si `Notifications:Providers:Fcm` esta habilitado/configurado; SMS y Email siguen simulados.
 
 ## Endpoint
 
@@ -95,6 +95,7 @@ Codigo HTTP exito: `200 OK`.
 3. Prepara attempts usando la misma logica de `POST /api/v1/notifications/delivery-attempts/prepare`.
 4. No ejecuta outbox.
 5. No envia SMS, email, WhatsApp ni push directamente.
+6. El worker procesa despues los attempts `Prepared` si `Notifications:OutboxWorker:Enabled = true`.
 
 Mapeo interno:
 
@@ -144,6 +145,12 @@ La seleccion de canales es la misma de Notifications API:
 - No devuelve `tokenValue` ni `tokenHash`.
 - No devuelve credenciales de providers.
 - No ejecuta proveedores externos directamente.
+
+## Operacion Admin
+
+- `GET /api/v1/admin/notifications/outbox/status`: conteos globales por estado.
+- `GET /api/v1/admin/notifications/outbox/worker/status`: configuracion efectiva segura y ultima corrida del worker.
+- `GET /api/v1/admin/notifications/providers/status`: estado seguro de providers, incluido FCM sin credenciales.
 
 ## Fuera De Alcance
 

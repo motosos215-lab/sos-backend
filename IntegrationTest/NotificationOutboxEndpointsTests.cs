@@ -41,7 +41,7 @@ public sealed class NotificationOutboxEndpointsTests
         (await rider.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await monitor.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         string workerStatus = await (await admin.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).Content.ReadAsStringAsync();
-        workerStatus.Should().Contain("isEnabled").And.Contain("false").And.NotContain("pass" + "word" + "Hash").And.NotContain("refresh" + "Token").And.NotContain("access" + "Token");
+        workerStatus.Should().Contain("enabled").And.Contain("intervalSeconds").And.Contain("maxItemsPerRun").And.Contain("simulateFailures").And.Contain("runOnStartup").And.Contain("lastProcessedCount").And.Contain("lastFailedCount").And.Contain("lastError").And.NotContain("pass" + "word" + "Hash").And.NotContain("refresh" + "Token").And.NotContain("access" + "Token").And.NotContain("token").And.NotContain("payload");
     }
 
     [Fact]
@@ -76,11 +76,27 @@ public sealed class NotificationOutboxEndpointsTests
         body.Should().Contain("simulated_failure_requested");
     }
 
+    [Fact]
+    public async Task WorkerStatusReflectsConfiguredSafeOptions()
+    {
+        var stores = new Stores(); await using WebApplicationFactory<Program> factory = CreateFactory(stores, new Dictionary<string, string?> { ["Notifications:OutboxWorker:Enabled"] = "true", ["Notifications:OutboxWorker:IntervalSeconds"] = "30", ["Notifications:OutboxWorker:MaxItemsPerRun"] = "20", ["Notifications:OutboxWorker:SimulateFailures"] = "false", ["Notifications:OutboxWorker:RunOnStartup"] = "false" }); HttpClient admin = factory.CreateClient(); await AuthenticateAsync(admin, "outbox-admin4@example.com", UserRole.Admin, stores);
+
+        NotificationOutboxWorkerStatusEnvelope response = (await (await admin.GetAsync("/api/v1/admin/notifications/outbox/worker/status")).Content.ReadFromJsonAsync<NotificationOutboxWorkerStatusEnvelope>())!;
+
+        response.Data.Enabled.Should().BeTrue();
+        response.Data.IntervalSeconds.Should().Be(30);
+        response.Data.MaxItemsPerRun.Should().Be(20);
+        response.Data.SimulateFailures.Should().BeFalse();
+        response.Data.RunOnStartup.Should().BeFalse();
+        response.Data.LastError.Should().BeNull();
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 8, 8, 12, 0, 0, TimeSpan.Zero);
     private static NotificationDeliveryAttempt Attempt(NotificationDeliveryStatus status) => new() { Id = Guid.NewGuid().ToString("N"), Status = status, Channel = NotificationChannel.Sms, Provider = NotificationProvider.None, PreparedAtUtc = Now, CreatedAtUtc = Now };
     private static async Task<User> AuthenticateAsync(HttpClient client, string email, UserRole role, Stores stores) { var register = new RegisterRequest(email, "StrongPass1!", "StrongPass1!", "Moto Rider", "+52 555", "Rider", true); await client.PostAsJsonAsync("/api/v1/auth/register", register); User user = stores.Users.Items.Single(u => u.Email == email); user.Role = role; LoginEnvelope login = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(email, register.Password))).Content.ReadFromJsonAsync<LoginEnvelope>())!; client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Data.AccessToken); return user; }
-    private static WebApplicationFactory<Program> CreateFactory(Stores stores) => new WebApplicationFactory<Program>().WithWebHostBuilder(builder => { builder.UseEnvironment("Testing"); builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Issuer"] = "MotoSOS", ["Jwt:Audience"] = "MotoSOS.Clients", ["Jwt:Key"] = new string('O', 48), ["Jwt:AccessTokenMinutes"] = "15", ["Jwt:RefreshTokenDays"] = "7", ["Jwt:RefreshTokenRememberMeDays"] = "30", ["MongoDb:" + "Connection" + "String"] = string.Empty, ["MongoDb:DatabaseName"] = "MotoSOS_Test" })); builder.ConfigureTestServices(services => { services.AddSingleton<IUserRepository>(stores.Users); services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens); services.AddSingleton<INotificationDeliveryAttemptRepository>(stores.Attempts); }); });
+    private static WebApplicationFactory<Program> CreateFactory(Stores stores, IReadOnlyDictionary<string, string?>? workerOptions = null) => new WebApplicationFactory<Program>().WithWebHostBuilder(builder => { builder.UseEnvironment("Testing"); builder.ConfigureAppConfiguration((_, c) => { var values = new Dictionary<string, string?> { ["Jwt:Issuer"] = "MotoSOS", ["Jwt:Audience"] = "MotoSOS.Clients", ["Jwt:Key"] = new string('O', 48), ["Jwt:AccessTokenMinutes"] = "15", ["Jwt:RefreshTokenDays"] = "7", ["Jwt:RefreshTokenRememberMeDays"] = "30", ["MongoDb:" + "Connection" + "String"] = string.Empty, ["MongoDb:DatabaseName"] = "MotoSOS_Test" }; if (workerOptions is not null) foreach (KeyValuePair<string, string?> item in workerOptions) values[item.Key] = item.Value; c.AddInMemoryCollection(values); }); builder.ConfigureTestServices(services => { services.AddSingleton<IUserRepository>(stores.Users); services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens); services.AddSingleton<INotificationDeliveryAttemptRepository>(stores.Attempts); }); });
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
+    private sealed record NotificationOutboxWorkerStatusEnvelope(bool Success, NotificationOutboxWorkerStatusResponse Data);
     private sealed class Stores { public Users Users { get; } = new(); public RefreshTokens RefreshTokens { get; } = new(); public Attempts Attempts { get; } = new(); }
     private sealed class Users : IUserRepository { public List<User> Items { get; } = []; public Task<User?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(u => u.Id == id)); public Task<User?> GetByEmailAsync(string email, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(u => u.Email == email)); public Task AddAsync(User u, CancellationToken ct) { Items.Add(u); return Task.CompletedTask; } public Task UpdateAsync(User u, CancellationToken ct) => Task.CompletedTask; }
     private sealed class RefreshTokens : IRefreshTokenRepository { public List<RefreshToken> Items { get; } = []; public Task<RefreshToken?> GetByHashAsync(string h, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(t => t.TokenHash == h)); public Task AddAsync(RefreshToken t, CancellationToken ct) { Items.Add(t); return Task.CompletedTask; } public Task UpdateAsync(RefreshToken t, CancellationToken ct) => Task.CompletedTask; }
