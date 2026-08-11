@@ -4,11 +4,20 @@
 
 Offline Processing API procesa registros ya recibidos por Offline Ingestion API y los convierte en entidades reales cuando aplica.
 
-Este modulo no es un worker real de produccion. No implementa Hangfire, Quartz, cron externo, Azure Functions, WebSockets, SignalR, streaming, push real, SMS real, WhatsApp real, correo real, Twilio, SendGrid, FCM, escalamiento automatico, ML, dashboard operativo completo, pagos ni pairing API de smartwatch.
+El modulo incluye un worker automatico nativo de .NET, deshabilitado por defecto. No implementa Hangfire, Quartz, cron externo, Azure Functions, WebSockets, SignalR, streaming, push real, SMS real, WhatsApp real, correo real, Twilio, SendGrid, FCM, escalamiento automatico, ML, dashboard operativo completo, pagos ni pairing API de smartwatch.
 
 ## Relacion Con Offline Ingestion
 
 Offline Ingestion persiste items offline y devuelve ACK durable. Offline Processing toma registros `PendingProcessing` de `offlineIngestionRecords`, los marca atomicamente como `Processing` y luego los finaliza como `Processed`, `Ignored` o `FailedPermanent`.
+
+Flujo Android offline:
+
+1. Android guarda eventos localmente mientras no hay conexion.
+2. Al recuperar conexion, envia `POST /api/v1/mobile/offline-ingestion/batch`.
+3. Backend persiste cada item y responde ACK durable.
+4. Offline Processing Worker procesa automaticamente registros `PendingProcessing` si esta habilitado.
+5. Rider puede consultar su status scoped con `GET /api/v1/offline-processing/status`.
+6. Admin puede consultar status global seguro del worker con `GET /api/v1/admin/offline-processing/worker/status`.
 
 No devuelve payload completo en responses.
 
@@ -17,7 +26,7 @@ No devuelve payload completo en responses.
 - `local-incident`: crea o recupera un Incident usando idempotencia `userId + tripId + clientIncidentId`.
 - `alert-dispatch-request`: crea o recupera AlertDispatch usando idempotencia `userId + incidentId + clientAlertRequestId`.
 - `location-update`: actualiza el ultimo snapshot de Location Sharing por `UserId + IncidentId`.
-- `minor-event`: queda `Ignored` y se muestra como `Skipped` con reason `minor_event_processing_not_implemented`.
+- `minor-event`: crea o recupera MinorEvent usando idempotencia del modulo de Minor Events.
 
 ## Idempotencia
 
@@ -85,6 +94,8 @@ Response:
 
 Requiere JWT Bearer. Solo `Rider`.
 
+Este endpoint se mantiene scoped al Rider autenticado. No devuelve configuracion global del worker ni conteos globales.
+
 Response:
 
 ```json
@@ -101,6 +112,67 @@ Response:
 }
 ```
 
+### GET /api/v1/admin/offline-processing/worker/status
+
+Requiere JWT Bearer. Solo `Admin`.
+
+Devuelve configuracion efectiva segura y conteos globales sin payloads ni datos sensibles:
+
+```json
+{
+  "success": true,
+  "data": {
+    "workerEnabled": true,
+    "workerRunning": false,
+    "intervalSeconds": 30,
+    "maxItemsPerRun": 20,
+    "runOnStartup": true,
+    "recoveryMinutes": 10,
+    "pendingCount": 0,
+    "processingCount": 0,
+    "processedCount": 0,
+    "failedCount": 0,
+    "lastRunStartedAtUtc": null,
+    "lastRunCompletedAtUtc": null,
+    "lastProcessedCount": 0,
+    "lastFailedCount": 0,
+    "lastRecoveredCount": 0,
+    "lastError": null
+  },
+  "error": null
+}
+```
+
+## Worker Automatico
+
+Se configura desde la seccion exacta `Mobile:OfflineProcessingWorker`. En DigitalOcean App Platform usar:
+
+```text
+Mobile__OfflineProcessingWorker__Enabled=true
+Mobile__OfflineProcessingWorker__IntervalSeconds=30
+Mobile__OfflineProcessingWorker__MaxItemsPerRun=20
+Mobile__OfflineProcessingWorker__RunOnStartup=true
+Mobile__OfflineProcessingWorker__RecoveryMinutes=10
+```
+
+Defaults por codigo:
+
+| Opcion | Default |
+| --- | --- |
+| `Enabled` | `false` |
+| `IntervalSeconds` | `60` |
+| `MaxItemsPerRun` | `20` |
+| `RunOnStartup` | `false` |
+| `RecoveryMinutes` | `10` |
+
+El worker procesa globalmente registros de distintos Riders, pero no expone payloads ni datos personales en status.
+
+## Recovery
+
+Antes de procesar, el worker recupera registros `Processing` antiguos cuyo `ProcessingStartedAtUtc` sea menor o igual a `now - RecoveryMinutes`. Si `ProcessingStartedAtUtc` no existe, usa `UpdatedAtUtc` como fallback. Los registros recuperados vuelven a `PendingProcessing` y pueden ser reclamados otra vez por el claim atomico normal.
+
+La recuperacion depende de la idempotencia de Incidents, Alert Dispatch, Location Sharing y Minor Events. Si un proceso muy lento sigue vivo despues de `RecoveryMinutes`, puede haber doble intento antes del cierre terminal; por eso `RecoveryMinutes` debe ser conservador.
+
 ## Seguridad
 
 - `userId` solo desde JWT.
@@ -109,6 +181,7 @@ Response:
 - Monitor y Admin reciben `403`.
 - No devuelve payload completo.
 - No devuelve tokens.
+- No devuelve credenciales ni connection strings.
 - No devuelve device identifiers.
 - No devuelve stack traces.
 - No expone errores internos de MongoDB.
@@ -116,9 +189,9 @@ Response:
 
 ## Concurrencia
 
-Mongo usa claim atomico con filtro `Id + UserId + PendingProcessing`. Esto evita que dos ejecuciones procesen el mismo registro al mismo tiempo.
+Mongo usa claim atomico con filtro `Id + UserId + PendingProcessing`. Esto evita que dos ejecuciones reclamen el mismo registro `PendingProcessing` al mismo tiempo.
 
-Riesgo pendiente: si un proceso se interrumpe despues de marcar un registro como `Processing`, puede quedar pendiente definir recuperacion de registros `Processing` antiguos.
+Con una sola replica DigitalOcean se puede habilitar el worker. Con multiples replicas puede haber doble procesamiento antes de cerrar estado, especialmente durante recovery. Para produccion multi-replica se requiere distributed lock futuro.
 
 ## Errores Esperados
 
@@ -130,10 +203,8 @@ Riesgo pendiente: si un proceso se interrumpe despues de marcar un registro como
 
 ## Pendientes Futuros
 
-- Worker real.
 - Cola real.
 - Reintentos programados.
-- Recuperacion de registros `Processing` antiguos.
-- Minor Events API.
+- Distributed lock para multiples replicas.
 - Sensor batches completos.
 - Analytics / ML.

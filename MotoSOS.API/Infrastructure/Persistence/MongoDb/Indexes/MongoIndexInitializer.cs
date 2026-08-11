@@ -189,6 +189,7 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(offlineIngestionRecords, "ux_offlineIngestionRecords_idempotencyKey", new BsonDocument(nameof(OfflineIngestionRecord.IdempotencyKey), 1), unique: true, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_ackId", new BsonDocument(nameof(OfflineIngestionRecord.AckId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_processingStatus", new BsonDocument(nameof(OfflineIngestionRecord.ProcessingStatus), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_processingStatus_processingStartedAtUtc", new BsonDocument { [nameof(OfflineIngestionRecord.ProcessingStatus)] = 1, [nameof(OfflineIngestionRecord.ProcessingStartedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_receivedAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.ReceivedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_occurredAtUtc", new BsonDocument(nameof(OfflineIngestionRecord.OccurredAtUtc), 1), unique: false, cancellationToken);
 

@@ -26,6 +26,17 @@
 - `GET /api/v1/admin/notifications/outbox/worker/status` devuelve configuracion efectiva no sensible y ultima corrida sin tokens, payloads, emails, telefonos, credenciales FCM, service accounts ni connection strings.
 - No se implementa distributed lock: con una sola replica DigitalOcean se puede habilitar; con multiples replicas puede haber envio duplicado antes del update atomico final y se requiere distributed lock futuro.
 
+## Offline Processing Worker Recovery
+
+- Offline Processing Worker queda implementado como `BackgroundService` nativo, deshabilitado por defecto y configurado desde `Mobile:OfflineProcessingWorker`.
+- Variables DigitalOcean: `Mobile__OfflineProcessingWorker__Enabled`, `Mobile__OfflineProcessingWorker__IntervalSeconds`, `Mobile__OfflineProcessingWorker__MaxItemsPerRun`, `Mobile__OfflineProcessingWorker__RunOnStartup` y `Mobile__OfflineProcessingWorker__RecoveryMinutes`.
+- `POST /api/v1/mobile/offline-ingestion/batch` sigue respondiendo ACK durable despues de persistir records `PendingProcessing`; el worker procesa esos records despues sin depender del run manual.
+- `POST /api/v1/offline-processing/run` se mantiene Rider-only y scoped al Rider autenticado para soporte/manual testing.
+- `GET /api/v1/offline-processing/status` se mantiene Rider-only y scoped; no expone conteos globales ni configuracion del worker.
+- `GET /api/v1/admin/offline-processing/worker/status` agrega status global seguro Admin-only con configuracion efectiva, conteos y ultima corrida sin payloads, tokens, credenciales, connection strings ni datos personales.
+- Recovery reutiliza estados existentes: `Processing` antiguo vuelve a `PendingProcessing` usando `ProcessingStartedAtUtc <= now - RecoveryMinutes` y fallback `UpdatedAtUtc` cuando falta `ProcessingStartedAtUtc`.
+- La recuperacion depende de idempotencia en Incidents, Alert Dispatch, Location Sharing y Minor Events. Con una sola replica DigitalOcean se puede habilitar; con multiples replicas puede haber doble procesamiento antes de cerrar estado y se requiere distributed lock futuro.
+
 ## Emergency Contact Invitation Accept
 
 - Emergency Contacts API agrega `POST /api/v1/emergency-contacts/invitations/{code}/accept` para que un `Monitor` acepte una invitacion vigente.

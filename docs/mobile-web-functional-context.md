@@ -4,7 +4,7 @@ Esta guia resume el estado funcional actual de MotoSOS API para equipos mobile, 
 
 ## Estado General De La API
 
-MotoSOS API es la API central del producto. Actualmente expone flujos funcionales para autenticacion, onboarding de riders, perfil, vehiculos, contactos de emergencia, dispositivos, planes, viajes, incidentes, dispatch de alertas, intentos de notificacion simulados, acknowledgements de monitores, ubicacion de emergencia, estado agregado de emergencia, reporte de resolucion, procesamiento offline y dashboard operacional admin.
+MotoSOS API es la API central del producto. Actualmente expone flujos funcionales para autenticacion, onboarding de riders, perfil, vehiculos, contactos de emergencia, dispositivos, planes, viajes, incidentes, dispatch de alertas, intentos de notificacion, acknowledgements de monitores, ubicacion de emergencia, estado agregado de emergencia, reporte de resolucion, procesamiento offline automatico y dashboard operacional admin.
 
 La API usa JSON con propiedades en `camelCase` y responde normalmente mediante el wrapper estandar `ApiResponse<T>`.
 
@@ -65,10 +65,11 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 12. Para emergencia movil, usar `POST /api/v1/mobile/sos-alerts` para crear incidente, alert dispatch y attempts en una sola llamada.
 13. Alternativamente, mantener flujo manual con `POST /api/v1/incidents`, `POST /api/v1/alert-dispatches` y `POST /api/v1/notifications/delivery-attempts/prepare`.
 14. El outbox sigue separado; el endpoint SOS no envia notificaciones directamente. El worker procesa despues attempts `Prepared` si esta habilitado.
-15. Compartir ubicacion con `POST /api/v1/mobile/location-sharing/snapshot`.
-16. Consultar estado con `GET /api/v1/rider/emergencies/{incidentId}/status`.
-17. Cerrar incidente o cancelar falso positivo.
-18. Crear reporte de resolucion con `POST /api/v1/rider/emergencies/{incidentId}/resolution-report`.
+15. Para modo offline, guardar eventos localmente y enviar `POST /api/v1/mobile/offline-ingestion/batch` al recuperar conexion; backend responde ACK durable y el worker procesa automaticamente.
+16. Compartir ubicacion con `POST /api/v1/mobile/location-sharing/snapshot`.
+17. Consultar estado con `GET /api/v1/rider/emergencies/{incidentId}/status`.
+18. Cerrar incidente o cancelar falso positivo.
+19. Crear reporte de resolucion con `POST /api/v1/rider/emergencies/{incidentId}/resolution-report`.
 
 ## Flujo Recomendado Para Web
 
@@ -90,8 +91,9 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 6. Consultar outbox con `GET /api/v1/admin/notifications/outbox/status`.
 7. Consultar worker con `GET /api/v1/admin/notifications/outbox/worker/status`.
 8. Consultar providers con `GET /api/v1/admin/notifications/providers/status`.
-9. Ejecutar procesamiento manual con `POST /api/v1/admin/notifications/outbox/run`.
-10. Reintentar fallidos con `POST /api/v1/admin/notifications/outbox/retry-failed`.
+9. Consultar worker offline con `GET /api/v1/admin/offline-processing/worker/status`.
+10. Ejecutar procesamiento manual con `POST /api/v1/admin/notifications/outbox/run`.
+11. Reintentar fallidos con `POST /api/v1/admin/notifications/outbox/retry-failed`.
 
 ## Matriz De Endpoints Reales
 
@@ -140,6 +142,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | POST | `/api/v1/mobile/offline-ingestion/batch` | Rider | Ingerir lote offline movil | Funcional |
 | POST | `/api/v1/offline-processing/run` | Rider | Procesar eventos offline pendientes | Funcional manual |
 | GET | `/api/v1/offline-processing/status` | Rider | Estado de procesamiento offline | Funcional |
+| GET | `/api/v1/admin/offline-processing/worker/status` | Admin | Estado global seguro del Offline Processing Worker | Funcional |
 | POST | `/api/v1/incidents` | Rider | Crear incidente | Funcional |
 | POST | `/api/v1/mobile/sos-alerts` | Rider | Orquestar incidente, alert dispatch y attempts para emergencia movil | Funcional, deja attempts Prepared |
 | GET | `/api/v1/incidents` | Rider | Listar incidentes | Funcional |

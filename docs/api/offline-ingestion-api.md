@@ -4,7 +4,7 @@
 
 Offline Ingestion API recibe elementos de la cola offline cifrada de la app movil MotoSOS y devuelve ACK durable cuando el backend ya persistio cada item.
 
-Este modulo es receptor de datos operativos offline. No procesa incidentes reales, no crea SOS real, no envia alertas reales, no envia push notifications, SMS, WhatsApp ni correo, y no alimenta live monitoring, dashboard operativo ni Machine Learning en esta etapa.
+Este modulo es receptor de datos operativos offline. Devuelve ACK durable despues de persistir; el procesamiento posterior queda a cargo de Offline Processing Worker si esta habilitado o del run manual. No envia push notifications, SMS, WhatsApp ni correo, y no alimenta live monitoring, dashboard operativo ni Machine Learning en esta etapa.
 
 Para Wear OS, la app Android actua como gateway: recibe datos del smartwatch mediante Wear OS Data Layer, combina senales localmente y envia a la API solo batches resumidos usando la sesion del Rider. La API no administra pairing, QR, codigos, nodeId, Bluetooth ni estado Connected/Disconnected del reloj.
 
@@ -145,6 +145,7 @@ Tipos aceptados:
 - Recursos ajenos devuelven `404 not_found`.
 - Recursos propios no aptos devuelven `trip_not_ready`.
 - Todo record nuevo queda `ProcessingStatus = PendingProcessing`.
+- El worker automatico puede procesarlo despues sin que Android llame `POST /api/v1/offline-processing/run`.
 - No se devuelve payload completo en responses.
 
 ## Errores Esperados
@@ -178,6 +179,7 @@ Indices:
 - `IdempotencyKey` unico
 - `AckId`
 - `ProcessingStatus`
+- `ProcessingStatus + ProcessingStartedAtUtc`
 - `ReceivedAtUtc`
 - `OccurredAtUtc`
 
@@ -208,9 +210,7 @@ curl -X POST "$BASE_URL/api/v1/mobile/offline-ingestion/batch" \
 
 ## Pendientes Futuros
 
-- Processor real.
-- Incidents API.
-- Alert Dispatch API.
+- Distributed lock para worker multi-replica.
 - Notifications.
 - Live Monitoring.
 - Dashboard operativo.
