@@ -10,6 +10,15 @@ Auth Codes implementa recuperacion de password y login con codigo temporal sin e
 - `AuthCodes__MaxAttempts=5`
 - `AuthCodes__RateLimitMinutes=1`
 - `AuthCodes__Provider=Simulated`
+- `AuthCodes__Provider=Email`
+- `AuthCodes__Email__Enabled=true`
+- `AuthCodes__Email__FromEmail=`
+- `AuthCodes__Email__FromName=MotoSOS`
+- `AuthCodes__Email__SmtpHost=`
+- `AuthCodes__Email__SmtpPort=587`
+- `AuthCodes__Email__SmtpUsername=`
+- `AuthCodes__Email__SmtpPassword=`
+- `AuthCodes__Email__UseSsl=true`
 
 ## Seguridad
 
@@ -94,4 +103,10 @@ Response: mismo contrato que `POST /api/v1/auth/login`, con `accessToken`, `refr
 
 `SimulatedAuthCodeDeliveryProvider` queda como provider por defecto. No envia email/SMS real y no loguea el codigo. En tests se puede reemplazar por un fake provider mediante DI para capturar el codigo y validar flujos end-to-end.
 
-Email/SMS real queda para otra integracion.
+## Provider Email
+
+`AuthCodes__Provider=Email` envia el codigo por SMTP. Requiere configuracion completa, incluyendo username y password. `AuthCodes__Email__SmtpPassword` debe ser secret variable en DigitalOcean.
+
+El codigo solo aparece en el cuerpo del email. No se devuelve por API, no se guarda plano y no se registra en logs. Si falla el envio, la solicitud sigue respondiendo `204 No Content` y el registro interno queda con `DeliveryStatus = Failed`.
+
+SMS y WhatsApp reales quedan para otra integracion.

@@ -250,8 +250,10 @@ public sealed class AuthService : IAuthService
             DeliveryStatus = AuthCodeDeliveryStatus.Pending
         };
 
-        authCode.DeliveryStatus = await _authCodeDeliveryProvider.DeliverAsync(normalizedEmail, purpose, code, cancellationToken);
         await _authCodes.AddAsync(authCode, cancellationToken);
+
+        authCode.DeliveryStatus = await _authCodeDeliveryProvider.DeliverAsync(normalizedEmail, purpose, code, cancellationToken);
+        await _authCodes.UpdateAsync(authCode, cancellationToken);
     }
 
     private async Task<(AuthCode AuthCode, User User)> ValidateCodeAsync(string email, string code, AuthCodePurpose purpose, CancellationToken cancellationToken)
