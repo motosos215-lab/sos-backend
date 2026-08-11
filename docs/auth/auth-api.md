@@ -175,7 +175,7 @@ Request:
 
 Response `204 No Content` si el email tiene formato valido, exista o no exista el usuario.
 
-No devuelve codigos ni revela existencia de usuarios. El provider simulado no envia correo, SMS o WhatsApp real.
+No devuelve codigos ni revela existencia de usuarios. Con `AuthCodes__Provider=Email`, el codigo se envia por SMTP al correo del usuario. Con `Provider=Simulated`, no se envia correo real.
 
 ## POST /api/v1/auth/reset-password
 
@@ -211,7 +211,7 @@ Request:
 
 Response `204 No Content` si el email tiene formato valido, exista o no exista el usuario.
 
-No devuelve codigos ni revela existencia de usuarios. El provider simulado no envia email/SMS real.
+No devuelve codigos ni revela existencia de usuarios. Con `AuthCodes__Provider=Email`, el codigo se envia por SMTP al correo del usuario. Con `Provider=Simulated`, no se envia correo real.
 
 ## POST /api/v1/auth/login-with-code
 

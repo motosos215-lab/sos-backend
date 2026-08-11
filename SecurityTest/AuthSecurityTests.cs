@@ -149,12 +149,33 @@ public sealed class AuthSecurityTests
         stores.AuthCodes.Codes.Single().CodeHash.Should().NotBe(code);
     }
 
+    [Fact]
+    public async Task EmailProviderRequestDoesNotExposeCodeOrSmtpConfiguration()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores, useEmailProvider: true);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("email-provider-safe@example.com");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/request-access-code", new RequestAccessCodeRequest(register.Email));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        content.Should().BeEmpty();
+        content.Should().NotContain("smtp-secret");
+        content.Should().NotContain("smtp-user");
+        content.Should().NotContain("smtp.example.test");
+        stores.EmailSender.Messages.Should().ContainSingle();
+        stores.AuthCodes.Codes.Single().CodeHash.Should().NotBe(stores.EmailSender.Messages.Single().Body);
+    }
+
     private static RegisterRequest CreateRegisterRequest(string email)
     {
         return new RegisterRequest(email, "StrongPass1!", "StrongPass1!", "Safe Rider", null, "Rider", true);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(TestStores stores)
+    private static WebApplicationFactory<Program> CreateFactory(TestStores stores, bool useEmailProvider = false)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -175,7 +196,15 @@ public sealed class AuthSecurityTests
                     ["AuthCodes:TtlMinutes"] = "10",
                     ["AuthCodes:MaxAttempts"] = "5",
                     ["AuthCodes:RateLimitMinutes"] = "1",
-                    ["AuthCodes:Provider"] = "Simulated",
+                    ["AuthCodes:Provider"] = useEmailProvider ? "Email" : "Simulated",
+                    ["AuthCodes:Email:Enabled"] = "true",
+                    ["AuthCodes:Email:FromEmail"] = "noreply@example.com",
+                    ["AuthCodes:Email:FromName"] = "MotoSOS",
+                    ["AuthCodes:Email:SmtpHost"] = "smtp.example.test",
+                    ["AuthCodes:Email:SmtpPort"] = "587",
+                    ["AuthCodes:Email:SmtpUsername"] = "smtp-user",
+                    ["AuthCodes:Email:SmtpPassword"] = "smtp-secret",
+                    ["AuthCodes:Email:UseSsl"] = "true",
                     ["MongoDb:ConnectionString"] = string.Empty,
                     ["MongoDb:DatabaseName"] = "MotoSOS_Test"
                 });
@@ -186,7 +215,11 @@ public sealed class AuthSecurityTests
                 services.AddSingleton<IUserRepository>(stores.Users);
                 services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens);
                 services.AddSingleton<IAuthCodeRepository>(stores.AuthCodes);
-                services.AddSingleton<IAuthCodeDeliveryProvider>(stores.Delivery);
+                services.AddSingleton<IAuthCodeEmailSender>(stores.EmailSender);
+                if (!useEmailProvider)
+                {
+                    services.AddSingleton<IAuthCodeDeliveryProvider>(stores.Delivery);
+                }
             });
         });
     }
@@ -200,6 +233,8 @@ public sealed class AuthSecurityTests
         public InMemoryAuthCodeRepository AuthCodes { get; } = new();
 
         public FakeAuthCodeDeliveryProvider Delivery { get; } = new();
+
+        public FakeAuthCodeEmailSender EmailSender { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -278,6 +313,19 @@ public sealed class AuthSecurityTests
 
         public string LastCodeFor(string email, AuthCodePurpose purpose) => _codes[$"{email.Trim().ToLowerInvariant()}:{purpose}"];
     }
+
+    private sealed class FakeAuthCodeEmailSender : IAuthCodeEmailSender
+    {
+        public List<EmailMessage> Messages { get; } = [];
+
+        public Task SendAsync(string toEmail, string subject, string body, AuthCodeEmailOptions options, CancellationToken cancellationToken)
+        {
+            Messages.Add(new EmailMessage(toEmail, subject, body));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed record EmailMessage(string ToEmail, string Subject, string Body);
 
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
 }

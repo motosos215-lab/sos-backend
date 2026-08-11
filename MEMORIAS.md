@@ -1,5 +1,13 @@
 # Memorias Tecnicas
 
+## Auth Code Email Provider
+
+- Auth Codes agrega provider SMTP real con `AuthCodes__Provider=Email` y configuracion `AuthCodes__Email__Enabled`, `FromEmail`, `FromName`, `SmtpHost`, `SmtpPort`, `SmtpUsername`, `SmtpPassword` y `UseSsl`.
+- `Provider=Email` requiere configuracion completa, incluido username/password; ambientes sin email real deben usar `Provider=Simulated`.
+- `SmtpPassword` debe ser secret variable en DigitalOcean y no debe registrarse en codigo, docs con valor real, tests ni logs.
+- El codigo solo aparece en el cuerpo del email; no se devuelve por API, no se guarda plano y no se loguea junto con email, proposito, hash ni configuracion SMTP.
+- Si el envio falla, `forgot-password` y `request-access-code` siguen respondiendo `204 No Content`; internamente el codigo queda con `DeliveryStatus = Failed`.
+
 ## Auth Password Reset And Code Login
 
 - Auth Codes agrega la coleccion `authCodes` para codigos temporales `PasswordReset` y `AccessLogin`, configurada por `AuthCodes__Enabled`, `AuthCodes__CodeLength`, `AuthCodes__TtlMinutes`, `AuthCodes__MaxAttempts`, `AuthCodes__RateLimitMinutes` y `AuthCodes__Provider`.

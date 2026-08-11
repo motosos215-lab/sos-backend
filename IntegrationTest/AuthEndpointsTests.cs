@@ -194,6 +194,42 @@ public sealed class AuthEndpointsTests
     }
 
     [Fact]
+    public async Task ForgotPasswordWithEmailProviderInvokesEmailSender()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores, useEmailProvider: true);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("forgot-email@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new ForgotPasswordRequest(register.Email));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        content.Should().BeEmpty();
+        stores.EmailSender.Messages.Should().ContainSingle().Which.Subject.Should().Be("MotoSOS - Código para restablecer contraseña");
+        stores.AuthCodes.Codes.Single().DeliveryStatus.Should().Be(AuthCodeDeliveryStatus.Delivered);
+        content.Should().NotContain(stores.AuthCodes.Codes.Single().CodeHash);
+    }
+
+    [Fact]
+    public async Task EmailDeliveryFailureKeepsRequestNeutralAndMarksDeliveryFailed()
+    {
+        var stores = new TestStores { EmailSender = { ShouldFail = true } };
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores, useEmailProvider: true);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("forgot-failed@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new ForgotPasswordRequest(register.Email));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        content.Should().BeEmpty();
+        stores.AuthCodes.Codes.Single().DeliveryStatus.Should().Be(AuthCodeDeliveryStatus.Failed);
+    }
+
+    [Fact]
     public async Task ResetPasswordChangesPasswordAndRevokesRefreshTokens()
     {
         var stores = new TestStores();
@@ -284,6 +320,22 @@ public sealed class AuthEndpointsTests
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         stores.AuthCodes.Codes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RequestAccessCodeWithEmailProviderInvokesEmailSender()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores, useEmailProvider: true);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("access-email@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/request-access-code", new RequestAccessCodeRequest(register.Email));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        stores.EmailSender.Messages.Should().ContainSingle().Which.Subject.Should().Be("MotoSOS - Código de acceso");
+        stores.AuthCodes.Codes.Single().DeliveryStatus.Should().Be(AuthCodeDeliveryStatus.Delivered);
     }
 
     [Fact]
@@ -396,6 +448,20 @@ public sealed class AuthEndpointsTests
     }
 
     [Fact]
+    public async Task AuthCodesDisabledDoesNotSendEmailWhenEmailProviderIsConfigured()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores, authCodesEnabled: false, useEmailProvider: true);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/request-access-code", new RequestAccessCodeRequest("disabled-email@example.com"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        stores.EmailSender.Messages.Should().BeEmpty();
+        stores.AuthCodes.Codes.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CurrentUserReturnsUserWithValidToken()
     {
         var stores = new TestStores();
@@ -432,7 +498,7 @@ public sealed class AuthEndpointsTests
         return new RegisterRequest(email, "StrongPass1!", "StrongPass1!", "Moto Rider", "+52 555 555 5555", accountType, true);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(TestStores stores, bool authCodesEnabled = true)
+    private static WebApplicationFactory<Program> CreateFactory(TestStores stores, bool authCodesEnabled = true, bool useEmailProvider = false)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -453,7 +519,15 @@ public sealed class AuthEndpointsTests
                     ["AuthCodes:TtlMinutes"] = "10",
                     ["AuthCodes:MaxAttempts"] = "5",
                     ["AuthCodes:RateLimitMinutes"] = "1",
-                    ["AuthCodes:Provider"] = "Simulated",
+                    ["AuthCodes:Provider"] = useEmailProvider ? "Email" : "Simulated",
+                    ["AuthCodes:Email:Enabled"] = "true",
+                    ["AuthCodes:Email:FromEmail"] = "noreply@example.com",
+                    ["AuthCodes:Email:FromName"] = "MotoSOS",
+                    ["AuthCodes:Email:SmtpHost"] = "smtp.example.test",
+                    ["AuthCodes:Email:SmtpPort"] = "587",
+                    ["AuthCodes:Email:SmtpUsername"] = "smtp-user",
+                    ["AuthCodes:Email:SmtpPassword"] = "smtp-secret",
+                    ["AuthCodes:Email:UseSsl"] = "true",
                     ["MongoDb:ConnectionString"] = string.Empty,
                     ["MongoDb:DatabaseName"] = "MotoSOS_Test"
                 });
@@ -464,7 +538,11 @@ public sealed class AuthEndpointsTests
                 services.AddSingleton<IUserRepository>(stores.Users);
                 services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens);
                 services.AddSingleton<IAuthCodeRepository>(stores.AuthCodes);
-                services.AddSingleton<IAuthCodeDeliveryProvider>(stores.Delivery);
+                services.AddSingleton<IAuthCodeEmailSender>(stores.EmailSender);
+                if (!useEmailProvider)
+                {
+                    services.AddSingleton<IAuthCodeDeliveryProvider>(stores.Delivery);
+                }
             });
         });
     }
@@ -478,6 +556,8 @@ public sealed class AuthEndpointsTests
         public InMemoryAuthCodeRepository AuthCodes { get; } = new();
 
         public FakeAuthCodeDeliveryProvider Delivery { get; } = new();
+
+        public FakeAuthCodeEmailSender EmailSender { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -566,6 +646,25 @@ public sealed class AuthEndpointsTests
 
         public string LastCodeFor(string email, AuthCodePurpose purpose) => _codes[$"{email.Trim().ToLowerInvariant()}:{purpose}"];
     }
+
+    private sealed class FakeAuthCodeEmailSender : IAuthCodeEmailSender
+    {
+        public List<EmailMessage> Messages { get; } = [];
+        public bool ShouldFail { get; set; }
+
+        public Task SendAsync(string toEmail, string subject, string body, AuthCodeEmailOptions options, CancellationToken cancellationToken)
+        {
+            if (ShouldFail)
+            {
+                throw new InvalidOperationException("SMTP failed.");
+            }
+
+            Messages.Add(new EmailMessage(toEmail, subject, body));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed record EmailMessage(string ToEmail, string Subject, string Body);
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);
 

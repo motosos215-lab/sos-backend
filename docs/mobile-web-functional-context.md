@@ -233,7 +233,7 @@ POST /api/v1/auth/request-access-code
 }
 ```
 
-El codigo no se devuelve por API. El usuario debe capturarlo desde el canal configurado.
+El codigo no se devuelve por API. El usuario debe capturarlo desde el canal configurado; con `AuthCodes__Provider=Email`, lo recibe por correo.
 
 ### Forgot Password
 
@@ -248,6 +248,8 @@ POST /api/v1/auth/forgot-password
 ```
 
 Response: `204 No Content`, exista o no exista el usuario.
+
+Con `AuthCodes__Provider=Email`, el usuario recibe el codigo por correo y luego llama `reset-password`.
 
 ### Reset Password
 
@@ -277,6 +279,8 @@ POST /api/v1/auth/login-with-code
 ```
 
 Devuelve el mismo contrato que el login normal. El codigo no se devuelve por API y solo puede usarse una vez.
+
+Con `AuthCodes__Provider=Email`, el flujo mobile/web es: solicitar codigo, leerlo desde el correo y enviarlo a `login-with-code`.
 
 ### Perfil
 
