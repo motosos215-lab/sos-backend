@@ -26,6 +26,7 @@ using MotoSOS.API.Modules.Plans.Application;
 using MotoSOS.API.Modules.Profiles.Application;
 using MotoSOS.API.Modules.PushNotificationTokens.Application;
 using MotoSOS.API.Modules.ReportExports.Application;
+using MotoSOS.API.Modules.SosAlerts.Application;
 using MotoSOS.API.Modules.TelemetrySummary.Application;
 using MotoSOS.API.Modules.Trips.Application;
 using MotoSOS.API.Modules.Users.Application;
@@ -60,6 +61,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAuditLogRetentionService, AuditLogRetentionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<ICreateSosAlertService, CreateSosAlertService>();
         services.AddScoped<INotificationProviderStatusService, NotificationProviderStatusService>();
         services.AddScoped<IPushNotificationTokenService, PushNotificationTokenService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
