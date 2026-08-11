@@ -8,6 +8,15 @@
 - El endpoint Admin-only `GET /api/v1/admin/notifications/providers/status` devuelve solo el origen seguro (`environment_json`, `environment_json_base64`, `environment_file_path` o `none`) y nunca devuelve JSON, Base64, private keys, file paths sensibles ni credenciales.
 - Base64 invalido falla de forma controlada con codigo seguro y sin loggear ni auditar el contenido decodificado.
 
+## Emergency Contact Invitation Accept
+
+- Emergency Contacts API agrega `POST /api/v1/emergency-contacts/invitations/{code}/accept` para que un `Monitor` acepte una invitacion vigente.
+- La aceptacion valida contacto activo, codigo existente, expiracion, `InvitationStatus = Invited` y coincidencia de email o telefono normalizado con el Monitor autenticado.
+- El telefono se compara por todos sus digitos normalizados; no se comparan solo los ultimos digitos para evitar vinculos incorrectos.
+- Al aceptar se mantiene `UserId` como Rider propietario y se setea `LinkedUserId`, `InvitationStatus = Linked`, `LinkedAtUtc` y `UpdatedAtUtc`.
+- Aceptar una invitacion ya vinculada al mismo Monitor es idempotente; si esta vinculada a otro Monitor devuelve `invitation_already_linked`.
+- Notifications prepare crea attempts `Push` para contactos `Linked` cuando el Monitor vinculado tiene token FCM activo Android o Web; SMS y Email siguen simulados.
+
 ## Push Notification Tokens API
 
 - Push Notification Tokens API implementa registro, listado, estado y revocacion logica de tokens de notificacion en la coleccion `pushNotificationTokens`.
@@ -82,7 +91,7 @@
 - Los contactos se guardan en MongoDB en la coleccion `emergencyContacts` con indices por `UserId`, `UserId + IsActive`, `InvitationStatus` y `LinkingCode`.
 - El plan Basico permite solo 1 contacto activo por usuario hasta que exista modulo Plans real.
 - `/invite` genera codigo de vinculacion legible con expiracion de 24 horas y no envia SMS/correo real.
-- La aceptacion real de invitaciones por app monitor queda pendiente; no se setea `LinkedUserId` en esta etapa.
+- La app monitor puede aceptar invitaciones y setear `LinkedUserId`; `/invite` sigue sin enviar SMS/correo real.
 - Onboarding avanza a `4/7`, `57%` y `Devices` solo cuando Profile y Vehicle estan `Completed` y existe contacto activo `Invited` o `Linked`.
 - Devices API implementa el paso 5 del wizard web-first: Vinculacion de dispositivos.
 - Los codigos de activacion movil se guardan en MongoDB en la coleccion `deviceActivationCodes` y expiran en 15 minutos.

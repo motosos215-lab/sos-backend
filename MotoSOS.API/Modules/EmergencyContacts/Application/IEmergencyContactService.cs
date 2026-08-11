@@ -17,4 +17,6 @@ public interface IEmergencyContactService
     Task<InviteEmergencyContactResponse> InviteMyContactAsync(string userId, string contactId, CancellationToken cancellationToken);
 
     Task<GetEmergencyContactInvitationResponse> GetInvitationAsync(string code, CancellationToken cancellationToken);
+
+    Task<AcceptEmergencyContactInvitationResponse> AcceptInvitationAsync(string monitorUserId, string code, CancellationToken cancellationToken);
 }

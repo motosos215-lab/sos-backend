@@ -193,6 +193,66 @@ public sealed class EmergencyContactEndpointsTests
         completedBody.Should().Contain("\"status\":\"Completed\"");
     }
 
+    [Fact]
+    public async Task MonitorCanAcceptInvitationAndRiderListShowsLinkedUserId()
+    {
+        var stores = new TestStores(); await using WebApplicationFactory<Program> factory = CreateFactory(stores); HttpClient rider = factory.CreateClient(); HttpClient monitor = factory.CreateClient(); await AuthenticateAsync(rider, "rider-accept@example.com", "Rider"); await AuthenticateAsync(monitor, "maria@example.com", "Monitor"); User monitorUser = stores.Users.Users.Single(user => user.Email == "maria@example.com"); ContactEnvelope created = await CreateContactAsync(rider); InviteEnvelope invite = (await (await rider.PostAsync($"/api/v1/emergency-contacts/{created.Data.Contact.Id}/invite", null)).Content.ReadFromJsonAsync<InviteEnvelope>())!;
+
+        AcceptEnvelope accepted = (await (await monitor.PostAsync($"/api/v1/emergency-contacts/invitations/{invite.Data.Contact.LinkingCode}/accept", null)).Content.ReadFromJsonAsync<AcceptEnvelope>())!;
+        string listBody = await (await rider.GetAsync("/api/v1/emergency-contacts")).Content.ReadAsStringAsync();
+
+        accepted.Data.Contact.InvitationStatus.Should().Be("Linked");
+        accepted.Data.Contact.LinkedUserId.Should().Be(monitorUser.Id);
+        listBody.Should().Contain("\"invitationStatus\":\"Linked\"");
+        listBody.Should().Contain($"\"linkedUserId\":\"{monitorUser.Id}\"");
+    }
+
+    [Theory]
+    [InlineData("Rider")]
+    [InlineData("Admin")]
+    public async Task RiderAndAdminCannotAcceptInvitation(string role)
+    {
+        var stores = new TestStores(); await using WebApplicationFactory<Program> factory = CreateFactory(stores); HttpClient rider = factory.CreateClient(); HttpClient actor = factory.CreateClient(); await AuthenticateAsync(rider, "rider-role-accept@example.com", "Rider"); if (role == "Admin") { const string secret = "StrongPass1!"; var register = new RegisterRequest("actor-admin@example.com", secret, secret, "Moto Rider", "+52 555 555 5555", "Rider", true); await actor.PostAsJsonAsync("/api/v1/auth/register", register); stores.Users.Users.Single(user => user.Email == register.Email).Role = UserRole.Admin; await LoginAsync(actor, register.Email, secret); } else { await AuthenticateAsync(actor, $"actor-{role}@example.com", role); }
+        ContactEnvelope created = await CreateContactAsync(rider); InviteEnvelope invite = (await (await rider.PostAsync($"/api/v1/emergency-contacts/{created.Data.Contact.Id}/invite", null)).Content.ReadFromJsonAsync<InviteEnvelope>())!;
+
+        HttpResponseMessage response = await actor.PostAsync($"/api/v1/emergency-contacts/invitations/{invite.Data.Contact.LinkingCode}/accept", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AcceptInvitationReturnsControlledErrors()
+    {
+        var stores = new TestStores(); await using WebApplicationFactory<Program> factory = CreateFactory(stores); HttpClient monitor = factory.CreateClient(); await AuthenticateAsync(monitor, "maria@example.com", "Monitor"); User monitorUser = stores.Users.Users.Single(user => user.Email == "maria@example.com");
+        stores.Contacts.Contacts.Add(new EmergencyContact { Id = "expired", UserId = "rider", IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited, LinkingCode = "EXPIRED", LinkingCodeExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1), Email = monitorUser.Email, PhoneNumber = monitorUser.PhoneNumber });
+        stores.Contacts.Contacts.Add(new EmergencyContact { Id = "mismatch", UserId = "rider", IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Invited, LinkingCode = "MISMATCH", LinkingCodeExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1), Email = "other@example.com", PhoneNumber = "+52 111 111 1111" });
+        stores.Contacts.Contacts.Add(new EmergencyContact { Id = "pending", UserId = "rider", IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Pending, LinkingCode = "PENDING", LinkingCodeExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1), Email = monitorUser.Email, PhoneNumber = monitorUser.PhoneNumber });
+
+        string missing = await (await monitor.PostAsync("/api/v1/emergency-contacts/invitations/MISSING/accept", null)).Content.ReadAsStringAsync();
+        string expired = await (await monitor.PostAsync("/api/v1/emergency-contacts/invitations/EXPIRED/accept", null)).Content.ReadAsStringAsync();
+        string mismatch = await (await monitor.PostAsync("/api/v1/emergency-contacts/invitations/MISMATCH/accept", null)).Content.ReadAsStringAsync();
+        string pending = await (await monitor.PostAsync("/api/v1/emergency-contacts/invitations/PENDING/accept", null)).Content.ReadAsStringAsync();
+
+        missing.Should().Contain("invitation_not_found");
+        expired.Should().Contain("invitation_expired");
+        mismatch.Should().Contain("invitation_link_not_allowed");
+        pending.Should().Contain("invitation_not_invited");
+    }
+
+    [Fact]
+    public async Task AcceptInvitationIsIdempotentForSameMonitorAndRejectedForAnotherMonitor()
+    {
+        var stores = new TestStores(); await using WebApplicationFactory<Program> factory = CreateFactory(stores); HttpClient first = factory.CreateClient(); HttpClient second = factory.CreateClient(); await AuthenticateAsync(first, "first-monitor@example.com", "Monitor"); await AuthenticateAsync(second, "second-monitor@example.com", "Monitor"); User firstMonitor = stores.Users.Users.Single(user => user.Email == "first-monitor@example.com"); stores.Contacts.Contacts.Add(new EmergencyContact { Id = "linked", UserId = "rider", IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked, LinkingCode = "LINKED", LinkingCodeExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1), LinkedUserId = firstMonitor.Id, LinkedAtUtc = DateTimeOffset.UtcNow, Email = firstMonitor.Email });
+
+        HttpResponseMessage same = await first.PostAsync("/api/v1/emergency-contacts/invitations/LINKED/accept", null);
+        HttpResponseMessage other = await second.PostAsync("/api/v1/emergency-contacts/invitations/LINKED/accept", null);
+        string otherBody = await other.Content.ReadAsStringAsync();
+
+        same.StatusCode.Should().Be(HttpStatusCode.OK);
+        other.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        otherBody.Should().Contain("invitation_already_linked");
+    }
+
     private static async Task<ContactEnvelope> CreateContactAsync(HttpClient client)
     {
         HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/emergency-contacts", ValidCreateRequest());
@@ -330,4 +390,5 @@ public sealed class EmergencyContactEndpointsTests
     private sealed record LoginData(string AccessToken, string RefreshToken);
     private sealed record ContactEnvelope(bool Success, CreateEmergencyContactResponse Data);
     private sealed record InviteEnvelope(bool Success, InviteEmergencyContactResponse Data);
+    private sealed record AcceptEnvelope(bool Success, AcceptEmergencyContactInvitationResponse Data);
 }
