@@ -15,7 +15,7 @@ public sealed class SimulatedAuthCodeDeliveryProvider : IAuthCodeDeliveryProvide
 
     public Task<AuthCodeDeliveryStatus> DeliverAsync(string emailNormalized, AuthCodePurpose purpose, string code, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Auth code delivery simulated for purpose {Purpose}.", purpose);
+        _logger.LogInformation("Auth code delivery simulated.");
         return Task.FromResult(AuthCodeDeliveryStatus.Delivered);
     }
 }
