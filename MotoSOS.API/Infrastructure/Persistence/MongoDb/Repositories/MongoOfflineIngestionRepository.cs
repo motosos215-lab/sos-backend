@@ -35,6 +35,12 @@ public sealed class MongoOfflineIngestionRepository : IOfflineIngestionRepositor
         }
     }
 
+    public async Task<IReadOnlyList<OfflineIngestionRecord>> ListPendingAsync(int maxItems, CancellationToken cancellationToken) =>
+        await _records.Find(record => record.ProcessingStatus == OfflineIngestionProcessingStatus.PendingProcessing)
+            .SortBy(record => record.ReceivedAtUtc)
+            .Limit(maxItems)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<OfflineIngestionRecord>> ListPendingByUserIdAsync(string userId, int maxItems, CancellationToken cancellationToken) =>
         await _records.Find(record => record.UserId == userId && record.ProcessingStatus == OfflineIngestionProcessingStatus.PendingProcessing)
             .SortBy(record => record.ReceivedAtUtc)
@@ -51,6 +57,36 @@ public sealed class MongoOfflineIngestionRepository : IOfflineIngestionRepositor
         return await _records.FindOneAndUpdateAsync(filter, update, new FindOneAndUpdateOptions<OfflineIngestionRecord> { ReturnDocument = ReturnDocument.After }, cancellationToken);
     }
 
+    public async Task<int> RecoverStaleProcessingAsync(DateTimeOffset cutoffUtc, DateTimeOffset now, int maxItems, CancellationToken cancellationToken)
+    {
+        FilterDefinition<OfflineIngestionRecord> staleFilter = Builders<OfflineIngestionRecord>.Filter.And(
+            Builders<OfflineIngestionRecord>.Filter.Eq(record => record.ProcessingStatus, OfflineIngestionProcessingStatus.Processing),
+            Builders<OfflineIngestionRecord>.Filter.Or(
+                Builders<OfflineIngestionRecord>.Filter.Lte(record => record.ProcessingStartedAtUtc, cutoffUtc),
+                Builders<OfflineIngestionRecord>.Filter.And(
+                    Builders<OfflineIngestionRecord>.Filter.Eq(record => record.ProcessingStartedAtUtc, null),
+                    Builders<OfflineIngestionRecord>.Filter.Lte(record => record.UpdatedAtUtc, cutoffUtc))));
+        List<string> ids = await _records.Find(staleFilter)
+            .SortBy(record => record.UpdatedAtUtc)
+            .Limit(maxItems)
+            .Project(record => record.Id)
+            .ToListAsync(cancellationToken);
+        if (ids.Count == 0) return 0;
+
+        UpdateResult result = await _records.UpdateManyAsync(
+            Builders<OfflineIngestionRecord>.Filter.And(
+                Builders<OfflineIngestionRecord>.Filter.In(record => record.Id, ids),
+                Builders<OfflineIngestionRecord>.Filter.Eq(record => record.ProcessingStatus, OfflineIngestionProcessingStatus.Processing)),
+            Builders<OfflineIngestionRecord>.Update
+                .Set(record => record.ProcessingStatus, OfflineIngestionProcessingStatus.PendingProcessing)
+                .Set(record => record.UpdatedAtUtc, now)
+                .Set(record => record.ProcessingReason, "recovered_stale_processing")
+                .Set(record => record.ProcessingErrorCode, null)
+                .Set(record => record.ProcessingErrorMessage, null),
+            cancellationToken: cancellationToken);
+        return (int)result.ModifiedCount;
+    }
+
     public async Task MarkProcessedAsync(string id, string userId, string remoteRecordId, DateTimeOffset now, CancellationToken cancellationToken) =>
         await UpdateProcessingStatusAsync(id, userId, OfflineIngestionProcessingStatus.Processed, now, Builders<OfflineIngestionRecord>.Update.Set(record => record.RemoteRecordId, remoteRecordId).Set(record => record.ProcessedAtUtc, now), cancellationToken);
 
@@ -62,6 +98,9 @@ public sealed class MongoOfflineIngestionRepository : IOfflineIngestionRepositor
 
     public async Task<long> CountByUserIdAndStatusAsync(string userId, OfflineIngestionProcessingStatus status, CancellationToken cancellationToken) =>
         await _records.CountDocumentsAsync(record => record.UserId == userId && record.ProcessingStatus == status, cancellationToken: cancellationToken);
+
+    public async Task<long> CountByStatusAsync(OfflineIngestionProcessingStatus status, CancellationToken cancellationToken) =>
+        await _records.CountDocumentsAsync(record => record.ProcessingStatus == status, cancellationToken: cancellationToken);
 
     private async Task UpdateProcessingStatusAsync(string id, string userId, OfflineIngestionProcessingStatus status, DateTimeOffset now, UpdateDefinition<OfflineIngestionRecord> extraUpdate, CancellationToken cancellationToken)
     {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AlertDispatch.Application;
@@ -15,6 +16,7 @@ using MotoSOS.API.Modules.MinorEvents.Contracts;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.OfflineProcessing.Contracts;
+using MotoSOS.API.Modules.OfflineProcessing.Worker;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
 
@@ -33,8 +35,10 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
     private readonly IMinorEventService _minorEvents;
     private readonly IClock _clock;
     private readonly IAuditLogService? _auditLogs;
+    private readonly IOfflineProcessingWorkerStateStore? _workerState;
+    private readonly IOptions<OfflineProcessingWorkerOptions>? _workerOptions;
 
-    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IMinorEventService minorEvents, IClock clock, IAuditLogService? auditLogs = null)
+    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IMinorEventService minorEvents, IClock clock, IAuditLogService? auditLogs = null, IOfflineProcessingWorkerStateStore? workerState = null, IOptions<OfflineProcessingWorkerOptions>? workerOptions = null)
     {
         _users = users;
         _records = records;
@@ -44,6 +48,8 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
         _minorEvents = minorEvents;
         _clock = clock;
         _auditLogs = auditLogs;
+        _workerState = workerState;
+        _workerOptions = workerOptions;
     }
 
     public async Task<RunOfflineProcessingResponse> RunAsync(string userId, RunOfflineProcessingRequest request, CancellationToken cancellationToken)
@@ -70,6 +76,18 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
         return response;
     }
 
+    public async Task<RunOfflineProcessingResponse> RunWorkerAsync(int maxItems, int recoveryMinutes, CancellationToken cancellationToken)
+    {
+        int clampedMaxItems = Math.Clamp(maxItems, 1, 100);
+        int clampedRecoveryMinutes = Math.Max(1, recoveryMinutes);
+        DateTimeOffset now = _clock.UtcNow;
+        int recovered = await _records.RecoverStaleProcessingAsync(now.AddMinutes(-clampedRecoveryMinutes), now, clampedMaxItems, cancellationToken);
+        IReadOnlyList<OfflineIngestionRecord> pending = await _records.ListPendingAsync(clampedMaxItems, cancellationToken);
+        RunOfflineProcessingResponse response = (await ProcessRecordsAsync(pending, clampedMaxItems, cancellationToken)) with { Recovered = recovered };
+        await (_auditLogs?.RecordAsync("offline-processing-worker", "System", AuditAction.OfflineProcessingRun, AuditModule.OfflineProcessing, "OfflineProcessingWorker", null, AuditOutcome.Success, null, null, null, new Dictionary<string, string> { ["processed"] = response.Processed.ToString(CultureInfo.InvariantCulture), ["skipped"] = response.Skipped.ToString(CultureInfo.InvariantCulture), ["failed"] = response.Failed.ToString(CultureInfo.InvariantCulture), ["recovered"] = recovered.ToString(CultureInfo.InvariantCulture), ["maxItems"] = clampedMaxItems.ToString(CultureInfo.InvariantCulture), ["recoveryMinutes"] = clampedRecoveryMinutes.ToString(CultureInfo.InvariantCulture), ["runSource"] = "Worker" }, cancellationToken) ?? Task.CompletedTask);
+        return response;
+    }
+
     public async Task<GetOfflineProcessingStatusResponse> GetStatusAsync(string userId, CancellationToken cancellationToken)
     {
         User rider = await GetRiderAsync(userId, cancellationToken);
@@ -79,6 +97,49 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
             await _records.CountByUserIdAndStatusAsync(rider.Id, OfflineIngestionProcessingStatus.Processed, cancellationToken),
             await _records.CountByUserIdAndStatusAsync(rider.Id, OfflineIngestionProcessingStatus.FailedPermanent, cancellationToken),
             await _records.CountByUserIdAndStatusAsync(rider.Id, OfflineIngestionProcessingStatus.Ignored, cancellationToken));
+    }
+
+    public async Task<OfflineProcessingWorkerStatusResponse> GetWorkerStatusAsync(string adminUserId, CancellationToken cancellationToken)
+    {
+        User admin = await GetUserAsync(adminUserId, cancellationToken);
+        if (admin.Role != UserRole.Admin) throw new ForbiddenAppException("Offline Processing Worker status is available only for admins.");
+        OfflineProcessingWorkerOptions options = _workerOptions?.Value ?? new OfflineProcessingWorkerOptions();
+        OfflineProcessingWorkerState state = _workerState?.GetSnapshot() ?? new OfflineProcessingWorkerState(false, null, null, null, 0, 0, 0, null, null);
+        return new OfflineProcessingWorkerStatusResponse(
+            options.Enabled,
+            state.IsRunning,
+            options.IntervalSeconds,
+            options.MaxItemsPerRun,
+            options.RunOnStartup,
+            options.RecoveryMinutes,
+            await _records.CountByStatusAsync(OfflineIngestionProcessingStatus.PendingProcessing, cancellationToken),
+            await _records.CountByStatusAsync(OfflineIngestionProcessingStatus.Processing, cancellationToken),
+            await _records.CountByStatusAsync(OfflineIngestionProcessingStatus.Processed, cancellationToken),
+            await _records.CountByStatusAsync(OfflineIngestionProcessingStatus.FailedPermanent, cancellationToken),
+            state.LastRunStartedAtUtc,
+            state.LastRunCompletedAtUtc,
+            state.LastProcessedCount,
+            state.LastFailedCount,
+            state.LastRecoveredCount,
+            BuildLastError(state));
+    }
+
+    private async Task<RunOfflineProcessingResponse> ProcessRecordsAsync(IReadOnlyList<OfflineIngestionRecord> pending, int maxItems, CancellationToken cancellationToken)
+    {
+        var results = new List<OfflineProcessingItemResultResponse>();
+        foreach (OfflineIngestionRecord pendingRecord in pending.Take(maxItems))
+        {
+            DateTimeOffset now = _clock.UtcNow;
+            OfflineIngestionRecord? record = await _records.TryMarkProcessingAsync(pendingRecord.Id, pendingRecord.UserId, now, cancellationToken);
+            if (record is null) continue;
+            results.Add(await ProcessRecordAsync(record.UserId, record, cancellationToken));
+        }
+
+        return new RunOfflineProcessingResponse(
+            results.Count(result => result.Status == "Processed"),
+            results.Count(result => result.Status == "Skipped"),
+            results.Count(result => result.Status == "Failed"),
+            results);
     }
 
     private async Task<OfflineProcessingItemResultResponse> ProcessRecordAsync(string userId, OfflineIngestionRecord record, CancellationToken cancellationToken)
@@ -163,13 +224,26 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
 
     private async Task<User> GetRiderAsync(string userId, CancellationToken cancellationToken)
     {
-        User? user = await _users.GetByIdAsync(userId, cancellationToken);
-        if (user is null || !user.IsActive) throw new UnauthorizedAppException("Invalid authentication credentials.");
+        User user = await GetUserAsync(userId, cancellationToken);
         if (user.Role != UserRole.Rider) throw new ForbiddenAppException("Offline Processing API is available only for riders.");
         return user;
     }
 
+    private async Task<User> GetUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        User? user = await _users.GetByIdAsync(userId, cancellationToken);
+        if (user is null || !user.IsActive) throw new UnauthorizedAppException("Invalid authentication credentials.");
+        return user;
+    }
+
     private static T Deserialize<T>(string payload) => JsonSerializer.Deserialize<T>(payload, SerializerOptions) ?? throw new OfflineProcessingFailedAppException("Offline record payload is invalid.");
+    private static string? BuildLastError(OfflineProcessingWorkerState state)
+    {
+        if (string.IsNullOrWhiteSpace(state.LastErrorCode)) return string.IsNullOrWhiteSpace(state.LastErrorMessage) ? null : state.LastErrorMessage;
+        if (string.IsNullOrWhiteSpace(state.LastErrorMessage)) return state.LastErrorCode;
+        return $"{state.LastErrorCode}: {state.LastErrorMessage}";
+    }
+
     private static string ToContractType(OfflineIngestionItemType type) => type switch
     {
         OfflineIngestionItemType.MinorEvent => "minor-event",
