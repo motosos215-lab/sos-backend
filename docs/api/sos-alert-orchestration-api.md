@@ -6,6 +6,8 @@ SOS Alert Orchestration API simplifica el flujo movil de emergencia en un solo e
 
 El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente. Cuando el worker procesa attempts `Push`, usa FCM si `Notifications:Providers:Fcm` esta habilitado/configurado; SMS y Email siguen simulados.
 
+Para SOS offline, Android debe usar `POST /api/v1/mobile/offline-ingestion/batch` con item `type = offline-sos-alert`. Ese flujo reutiliza internamente esta misma orquestacion durante Offline Processing.
+
 ## Endpoint
 
 ```http

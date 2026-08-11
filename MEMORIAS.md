@@ -37,6 +37,15 @@
 - Recovery reutiliza estados existentes: `Processing` antiguo vuelve a `PendingProcessing` usando `ProcessingStartedAtUtc <= now - RecoveryMinutes` y fallback `UpdatedAtUtc` cuando falta `ProcessingStartedAtUtc`.
 - La recuperacion depende de idempotencia en Incidents, Alert Dispatch, Location Sharing y Minor Events. Con una sola replica DigitalOcean se puede habilitar; con multiples replicas puede haber doble procesamiento antes de cerrar estado y se requiere distributed lock futuro.
 
+## Offline SOS Alert Correlation
+
+- Offline Ingestion agrega el tipo `offline-sos-alert` para que Android sincronice una emergencia SOS creada totalmente offline en un solo item autosuficiente.
+- Offline Processing reutiliza `CreateSosAlertService` para crear Incident, AlertDispatch y NotificationAttempts `Prepared`; no envia Push directamente.
+- Si el payload no trae `tripId`, se usa `OfflineIngestionRecord.TripId`; si no trae `detectedAtUtc`, se usa `OfflineIngestionRecord.OccurredAtUtc`.
+- El record offline se marca `Processed` con `remoteRecordId = incident.id` cuando la orquestacion termina correctamente.
+- El flujo online `POST /api/v1/mobile/sos-alerts` no cambia. El flujo offline usa `POST /api/v1/mobile/offline-ingestion/batch` con `type = offline-sos-alert`.
+- La idempotencia queda en tres niveles: offline ingestion por `clientEventId + payloadVersion`, Incident por `clientIncidentId`, AlertDispatch por `clientAlertRequestId` y attempts por reglas existentes de Notifications.
+
 ## Emergency Contact Invitation Accept
 
 - Emergency Contacts API agrega `POST /api/v1/emergency-contacts/invitations/{code}/accept` para que un `Monitor` acepte una invitacion vigente.

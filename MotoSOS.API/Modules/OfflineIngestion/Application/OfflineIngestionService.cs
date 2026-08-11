@@ -113,6 +113,7 @@ public sealed class OfflineIngestionService : IOfflineIngestionService
         "local-incident" => OfflineIngestionItemType.LocalIncident,
         "alert-dispatch-request" => OfflineIngestionItemType.AlertDispatchRequest,
         "location-update" => OfflineIngestionItemType.LocationUpdate,
+        "offline-sos-alert" => OfflineIngestionItemType.OfflineSosAlert,
         _ => throw new ValidationAppException("Unsupported offline ingestion item type.")
     };
 
@@ -122,6 +123,7 @@ public sealed class OfflineIngestionService : IOfflineIngestionService
         OfflineIngestionItemType.LocalIncident => "local-incident",
         OfflineIngestionItemType.AlertDispatchRequest => "alert-dispatch-request",
         OfflineIngestionItemType.LocationUpdate => "location-update",
+        OfflineIngestionItemType.OfflineSosAlert => "offline-sos-alert",
         _ => type.ToString()
     };
 

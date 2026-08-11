@@ -17,6 +17,8 @@ using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.OfflineProcessing.Contracts;
 using MotoSOS.API.Modules.OfflineProcessing.Worker;
+using MotoSOS.API.Modules.SosAlerts.Application;
+using MotoSOS.API.Modules.SosAlerts.Contracts;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
 
@@ -33,12 +35,13 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
     private readonly IAlertDispatchService _alertDispatches;
     private readonly ILocationSharingService _locations;
     private readonly IMinorEventService _minorEvents;
+    private readonly ICreateSosAlertService _sosAlerts;
     private readonly IClock _clock;
     private readonly IAuditLogService? _auditLogs;
     private readonly IOfflineProcessingWorkerStateStore? _workerState;
     private readonly IOptions<OfflineProcessingWorkerOptions>? _workerOptions;
 
-    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IMinorEventService minorEvents, IClock clock, IAuditLogService? auditLogs = null, IOfflineProcessingWorkerStateStore? workerState = null, IOptions<OfflineProcessingWorkerOptions>? workerOptions = null)
+    public OfflineProcessingService(IUserRepository users, IOfflineIngestionRepository records, IIncidentService incidents, IAlertDispatchService alertDispatches, ILocationSharingService locations, IMinorEventService minorEvents, ICreateSosAlertService sosAlerts, IClock clock, IAuditLogService? auditLogs = null, IOfflineProcessingWorkerStateStore? workerState = null, IOptions<OfflineProcessingWorkerOptions>? workerOptions = null)
     {
         _users = users;
         _records = records;
@@ -46,6 +49,7 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
         _alertDispatches = alertDispatches;
         _locations = locations;
         _minorEvents = minorEvents;
+        _sosAlerts = sosAlerts;
         _clock = clock;
         _auditLogs = auditLogs;
         _workerState = workerState;
@@ -152,6 +156,7 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
                 OfflineIngestionItemType.AlertDispatchRequest => await ProcessAlertDispatchAsync(userId, record, cancellationToken),
                 OfflineIngestionItemType.LocationUpdate => await ProcessLocationUpdateAsync(userId, record, cancellationToken),
                 OfflineIngestionItemType.MinorEvent => await ProcessMinorEventAsync(userId, record, cancellationToken),
+                OfflineIngestionItemType.OfflineSosAlert => await ProcessOfflineSosAlertAsync(userId, record, cancellationToken),
                 _ => await MarkIgnoredAsync(record, "unsupported_offline_record_type", cancellationToken)
             };
         }
@@ -199,6 +204,18 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
 
         CreateMinorEventResponse response = await _minorEvents.CreateFromOfflineAsync(userId, record.Id, record.TripId, record.ClientEventId, record.MobileDeviceId, record.OccurredAtUtc, payload, cancellationToken);
         return await MarkProcessedAsync(record, response.MinorEvent.Id, cancellationToken);
+    }
+
+    private async Task<OfflineProcessingItemResultResponse> ProcessOfflineSosAlertAsync(string userId, OfflineIngestionRecord record, CancellationToken cancellationToken)
+    {
+        CreateSosAlertRequest payload = Deserialize<CreateSosAlertRequest>(record.Payload);
+        var request = payload with
+        {
+            TripId = string.IsNullOrWhiteSpace(payload.TripId) ? record.TripId : payload.TripId,
+            DetectedAtUtc = payload.DetectedAtUtc ?? record.OccurredAtUtc
+        };
+        CreateSosAlertResponse response = await _sosAlerts.CreateAsync(userId, request, cancellationToken);
+        return await MarkProcessedAsync(record, response.Incident.Id, cancellationToken);
     }
 
     private async Task<OfflineProcessingItemResultResponse> MarkProcessedAsync(OfflineIngestionRecord record, string remoteRecordId, CancellationToken cancellationToken)
@@ -250,6 +267,7 @@ public sealed class OfflineProcessingService : IOfflineProcessingService
         OfflineIngestionItemType.LocalIncident => "local-incident",
         OfflineIngestionItemType.AlertDispatchRequest => "alert-dispatch-request",
         OfflineIngestionItemType.LocationUpdate => "location-update",
+        OfflineIngestionItemType.OfflineSosAlert => "offline-sos-alert",
         _ => type.ToString()
     };
 }
