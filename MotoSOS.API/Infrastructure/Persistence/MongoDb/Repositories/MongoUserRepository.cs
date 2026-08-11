@@ -25,6 +25,11 @@ public sealed class MongoUserRepository : IUserRepository
         return await _users.Find(user => user.Email == normalizedEmail).FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<long> CountByRoleAsync(UserRole role, CancellationToken cancellationToken)
+    {
+        return await _users.CountDocumentsAsync(user => user.Role == role, cancellationToken: cancellationToken);
+    }
+
     public async Task AddAsync(User user, CancellationToken cancellationToken)
     {
         await _users.InsertOneAsync(user, cancellationToken: cancellationToken);

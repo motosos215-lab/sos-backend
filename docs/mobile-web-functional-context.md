@@ -16,7 +16,7 @@ La API prepara registros de notificacion. El worker puede procesar attempts `Pre
 
 `Monitor`: contacto/monitor de emergencia. Puede consultar alertas asignadas, ver estado/ubicacion/reporte de una emergencia asignada y responder con view, acknowledge o decline.
 
-`Admin`: operador administrativo. Puede consultar dashboard operacional y ejecutar herramientas admin del notification outbox simulado.
+`Admin`: operador administrativo. Puede consultar dashboard operacional y ejecutar herramientas admin del notification outbox simulado. El Admin inicial se crea solo por `AdminBootstrap` privado de arranque; el registro publico no permite crear Admin.
 
 Los endpoints declaran `RequireAuthorization()` cuando requieren token. El rol efectivo se valida en la capa de servicio para los flujos Rider, Monitor y Admin.
 

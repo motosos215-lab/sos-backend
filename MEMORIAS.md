@@ -1,5 +1,13 @@
 # Memorias Tecnicas
 
+## Admin Bootstrap Seed
+
+- Admin Bootstrap queda deshabilitado por defecto y se configura con `AdminBootstrap__Enabled`, `AdminBootstrap__Email`, `AdminBootstrap__Password`, `AdminBootstrap__FullName` y `AdminBootstrap__RunOnlyWhenNoAdminsExist`.
+- Al iniciar la API, el bootstrap valida email, password y nombre con la politica actual de registro, crea `Role = Admin` solo si corresponde y guarda la password con el hasher actual.
+- El flujo es idempotente: con `RunOnlyWhenNoAdminsExist=true` no crea otro Admin si ya existe uno; si el email configurado ya existe, no cambia rol ni password.
+- `POST /api/v1/auth/register` sigue rechazando Admin y no se agrega endpoint publico para crear administradores.
+- Los logs del bootstrap son operativos y no incluyen password, hash, tokens, connection strings ni valores de variables de entorno.
+
 ## SOS Alert Orchestration API
 
 - SOS Alert Orchestration API agrega `POST /api/v1/mobile/sos-alerts` para que la app movil cree incidente, alert dispatch y notification attempts en una sola llamada autenticada de Rider.
