@@ -28,4 +28,13 @@ public sealed class MongoRefreshTokenRepository : IRefreshTokenRepository
     {
         await _refreshTokens.ReplaceOneAsync(existing => existing.Id == refreshToken.Id, refreshToken, cancellationToken: cancellationToken);
     }
+
+    public async Task RevokeActiveByUserIdAsync(string userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken)
+    {
+        var update = Builders<RefreshToken>.Update.Set(token => token.RevokedAtUtc, revokedAtUtc);
+        await _refreshTokens.UpdateManyAsync(
+            token => token.UserId == userId && token.RevokedAtUtc == null && token.ExpiresAtUtc > revokedAtUtc,
+            update,
+            cancellationToken: cancellationToken);
+    }
 }

@@ -46,6 +46,10 @@ public sealed class MongoIndexInitializerTests
             RefreshTokenUserIdIndex("legacy_user_id"),
             RefreshTokenUserRevokedExpirationIndex("legacy_user_revoked_expiration"),
             RefreshTokenUserExpirationIndex("legacy_user_expiration"),
+            AuthCodeEmailPurposeStatusIndex("legacy_auth_code_email_purpose_status"),
+            AuthCodeUserPurposeStatusIndex("legacy_auth_code_user_purpose_status"),
+            AuthCodeExpiresAtIndex("legacy_auth_code_expires"),
+            AuthCodeCreatedAtIndex("legacy_auth_code_created"),
             DriverProfileUserIdIndex("legacy_driver_profile_user_id"),
             DriverProfileCompletionStatusIndex("legacy_driver_profile_completion"),
             DriverVehicleUserIdIndex("legacy_driver_vehicle_user_id"),
@@ -204,6 +208,9 @@ public sealed class MongoIndexInitializerTests
             Times.Never);
         indexes.RefreshTokenIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<RefreshToken>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        indexes.AuthCodeIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<AuthCode>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
             Times.Never);
         indexes.DriverProfileIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<DriverProfile>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()),
@@ -467,6 +474,7 @@ public sealed class MongoIndexInitializerTests
         var database = new Mock<IMongoDatabase>();
         var users = new Mock<IMongoCollection<User>>();
         var refreshTokens = new Mock<IMongoCollection<RefreshToken>>();
+        var authCodes = new Mock<IMongoCollection<AuthCode>>();
         var driverProfiles = new Mock<IMongoCollection<DriverProfile>>();
         var driverVehicles = new Mock<IMongoCollection<DriverVehicle>>();
         var emergencyContacts = new Mock<IMongoCollection<EmergencyContact>>();
@@ -492,6 +500,7 @@ public sealed class MongoIndexInitializerTests
         var resolutionReportExports = new Mock<IMongoCollection<ResolutionReportExport>>();
         var userIndexes = new Mock<IMongoIndexManager<User>>();
         var refreshTokenIndexes = new Mock<IMongoIndexManager<RefreshToken>>();
+        var authCodeIndexes = new Mock<IMongoIndexManager<AuthCode>>();
         var driverProfileIndexes = new Mock<IMongoIndexManager<DriverProfile>>();
         var driverVehicleIndexes = new Mock<IMongoIndexManager<DriverVehicle>>();
         var emergencyContactIndexes = new Mock<IMongoIndexManager<EmergencyContact>>();
@@ -518,6 +527,7 @@ public sealed class MongoIndexInitializerTests
 
         users.SetupGet(collection => collection.Indexes).Returns(userIndexes.Object);
         refreshTokens.SetupGet(collection => collection.Indexes).Returns(refreshTokenIndexes.Object);
+        authCodes.SetupGet(collection => collection.Indexes).Returns(authCodeIndexes.Object);
         driverProfiles.SetupGet(collection => collection.Indexes).Returns(driverProfileIndexes.Object);
         driverVehicles.SetupGet(collection => collection.Indexes).Returns(driverVehicleIndexes.Object);
         emergencyContacts.SetupGet(collection => collection.Indexes).Returns(emergencyContactIndexes.Object);
@@ -547,6 +557,9 @@ public sealed class MongoIndexInitializerTests
         database
             .Setup(db => db.GetCollection<RefreshToken>(MongoCollectionNames.RefreshTokens, It.IsAny<MongoCollectionSettings>()))
             .Returns(refreshTokens.Object);
+        database
+            .Setup(db => db.GetCollection<AuthCode>(MongoCollectionNames.AuthCodes, It.IsAny<MongoCollectionSettings>()))
+            .Returns(authCodes.Object);
         database
             .Setup(db => db.GetCollection<DriverProfile>(MongoCollectionNames.DriverProfiles, It.IsAny<MongoCollectionSettings>()))
             .Returns(driverProfiles.Object);
@@ -623,6 +636,9 @@ public sealed class MongoIndexInitializerTests
         refreshTokenIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.RefreshTokens)));
+        authCodeIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.AuthCodes)));
         driverProfileIndexes
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.DriverProfiles)));
@@ -693,7 +709,7 @@ public sealed class MongoIndexInitializerTests
             .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BsonDocumentCursor(existingIndexes.Where(index => index.GetValue("collection", string.Empty) == MongoCollectionNames.ResolutionReportExports)));
 
-        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, pushNotificationTokenIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, auditLogRetentionRunIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
+        return new TestMongoIndexes(database, userIndexes, refreshTokenIndexes, authCodeIndexes, driverProfileIndexes, driverVehicleIndexes, emergencyContactIndexes, deviceActivationCodeIndexes, userDeviceIndexes, userSubscriptionIndexes, onboardingConfirmationIndexes, tripIndexes, offlineIngestionIndexes, incidentIndexes, alertDispatchIndexes, notificationIndexes, pushNotificationTokenIndexes, alertAcknowledgementIndexes, emergencyLocationIndexes, emergencyResolutionIndexes, auditLogIndexes, auditLogRetentionRunIndexes, emergencyEscalationIndexes, minorEventIndexes, telemetrySummaryIndexes, evidenceAttachmentIndexes, resolutionReportExportIndexes);
     }
 
     private static MongoCommandException CreateIndexNameConflictException()
@@ -739,6 +755,14 @@ public sealed class MongoIndexInitializerTests
             [nameof(RefreshToken.ExpiresAtUtc)] = 1
         },
         unique: false);
+
+    private static BsonDocument AuthCodeEmailPurposeStatusIndex(string name) => Index(MongoCollectionNames.AuthCodes, name, new BsonDocument { [nameof(AuthCode.EmailNormalized)] = 1, [nameof(AuthCode.Purpose)] = 1, [nameof(AuthCode.Status)] = 1 }, unique: false);
+
+    private static BsonDocument AuthCodeUserPurposeStatusIndex(string name) => Index(MongoCollectionNames.AuthCodes, name, new BsonDocument { [nameof(AuthCode.UserId)] = 1, [nameof(AuthCode.Purpose)] = 1, [nameof(AuthCode.Status)] = 1 }, unique: false);
+
+    private static BsonDocument AuthCodeExpiresAtIndex(string name) => Index(MongoCollectionNames.AuthCodes, name, new BsonDocument(nameof(AuthCode.ExpiresAtUtc), 1), unique: false);
+
+    private static BsonDocument AuthCodeCreatedAtIndex(string name) => Index(MongoCollectionNames.AuthCodes, name, new BsonDocument(nameof(AuthCode.CreatedAtUtc), 1), unique: false);
 
     private static BsonDocument DriverProfileUserIdIndex(string name) => Index(MongoCollectionNames.DriverProfiles, name, new BsonDocument(nameof(DriverProfile.UserId), 1), unique: true);
 
@@ -991,6 +1015,7 @@ public sealed class MongoIndexInitializerTests
         Mock<IMongoDatabase> Database,
         Mock<IMongoIndexManager<User>> UserIndexes,
         Mock<IMongoIndexManager<RefreshToken>> RefreshTokenIndexes,
+        Mock<IMongoIndexManager<AuthCode>> AuthCodeIndexes,
         Mock<IMongoIndexManager<DriverProfile>> DriverProfileIndexes,
         Mock<IMongoIndexManager<DriverVehicle>> DriverVehicleIndexes,
         Mock<IMongoIndexManager<EmergencyContact>> EmergencyContactIndexes,

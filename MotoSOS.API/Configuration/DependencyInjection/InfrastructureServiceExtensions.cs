@@ -78,6 +78,7 @@ public static class InfrastructureServiceExtensions
             services.AddHostedService<MongoIndexInitializerHostedService>();
             services.AddScoped<IUserRepository, MongoUserRepository>();
             services.AddScoped<IRefreshTokenRepository, MongoRefreshTokenRepository>();
+            services.AddScoped<IAuthCodeRepository, MongoAuthCodeRepository>();
             services.AddScoped<IDriverProfileRepository, MongoDriverProfileRepository>();
             services.AddScoped<IDriverVehicleRepository, MongoDriverVehicleRepository>();
             services.AddScoped<IEmergencyContactRepository, MongoEmergencyContactRepository>();
@@ -109,6 +110,7 @@ public static class InfrastructureServiceExtensions
         {
             services.AddScoped<IUserRepository, UnconfiguredUserRepository>();
             services.AddScoped<IRefreshTokenRepository, UnconfiguredRefreshTokenRepository>();
+            services.AddScoped<IAuthCodeRepository, UnconfiguredAuthCodeRepository>();
             services.AddScoped<IDriverProfileRepository, UnconfiguredDriverProfileRepository>();
             services.AddScoped<IDriverVehicleRepository, UnconfiguredDriverVehicleRepository>();
             services.AddScoped<IEmergencyContactRepository, UnconfiguredEmergencyContactRepository>();

@@ -102,8 +102,9 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | POST | `/api/v1/auth/register` | Public | Registro de usuario Rider o Monitor | Funcional |
 | POST | `/api/v1/auth/login` | Public | Login con email/password | Funcional |
 | POST | `/api/v1/auth/forgot-password` | Public | Solicitud de reset password | Funcional como solicitud |
+| POST | `/api/v1/auth/reset-password` | Public | Reset password con codigo temporal | Funcional |
 | POST | `/api/v1/auth/request-access-code` | Public | Solicitar codigo de acceso | Funcional como solicitud |
-| POST | `/api/v1/auth/login-with-code` | Public | Login con codigo de acceso | Preparado, responde `501 feature_not_implemented` |
+| POST | `/api/v1/auth/login-with-code` | Public | Login con codigo de acceso | Funcional |
 | POST | `/api/v1/auth/refresh` | Public | Renovar access token | Funcional |
 | POST | `/api/v1/auth/logout` | Public | Cerrar sesion/refresh token | Funcional |
 | GET | `/api/v1/users/me` | Auth | Obtener usuario actual | Funcional |
@@ -232,6 +233,36 @@ POST /api/v1/auth/request-access-code
 }
 ```
 
+El codigo no se devuelve por API. El usuario debe capturarlo desde el canal configurado.
+
+### Forgot Password
+
+```http
+POST /api/v1/auth/forgot-password
+```
+
+```json
+{
+  "email": "rider@example.com"
+}
+```
+
+Response: `204 No Content`, exista o no exista el usuario.
+
+### Reset Password
+
+```http
+POST /api/v1/auth/reset-password
+```
+
+```json
+{
+  "email": "rider@example.com",
+  "code": "123456",
+  "newPassword": "NewStrongPass1!"
+}
+```
+
 ### Login With Code
 
 ```http
@@ -245,7 +276,7 @@ POST /api/v1/auth/login-with-code
 }
 ```
 
-Estado actual: responde `501 feature_not_implemented` porque el proveedor externo esta pendiente.
+Devuelve el mismo contrato que el login normal. El codigo no se devuelve por API y solo puede usarse una vez.
 
 ### Perfil
 
@@ -754,7 +785,6 @@ El outbox no crea acknowledgements, no crea resolution reports, no cierra incide
 
 ## Que No Esta Implementado Todavia
 
-- Login real con codigo externo: `POST /api/v1/auth/login-with-code` esta preparado pero responde `501 feature_not_implemented`.
 - Envio real de SMS.
 - Envio real de email.
 - Envio real de push notifications.

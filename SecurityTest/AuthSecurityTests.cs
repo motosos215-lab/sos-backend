@@ -106,8 +106,8 @@ public sealed class AuthSecurityTests
             new LoginWithCodeRequest("safe@example.com", "123456"));
         string content = await response.Content.ReadAsStringAsync();
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
-        content.Should().Contain("feature_not_implemented");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        content.Should().Contain("invalid_or_expired_code");
         content.Should().NotContain("accessToken");
         content.Should().NotContain("123456");
     }
@@ -126,6 +126,27 @@ public sealed class AuthSecurityTests
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         content.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AuthCodeResponsesDoNotExposeCodesOrHashes()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("auth-code-safe@example.com");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+        await client.PostAsJsonAsync("/api/v1/auth/request-access-code", new RequestAccessCodeRequest(register.Email));
+        string code = stores.Delivery.LastCodeFor(register.Email, AuthCodePurpose.AccessLogin);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/auth/login-with-code", new LoginWithCodeRequest(register.Email, code));
+        string content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        content.Should().NotContain(code);
+        content.Should().NotContain("CodeHash");
+        content.Should().NotContain("PasswordHash");
+        stores.AuthCodes.Codes.Single().CodeHash.Should().NotBe(code);
     }
 
     private static RegisterRequest CreateRegisterRequest(string email)
@@ -149,6 +170,12 @@ public sealed class AuthSecurityTests
                     ["Jwt:AccessTokenMinutes"] = "15",
                     ["Jwt:RefreshTokenDays"] = "7",
                     ["Jwt:RefreshTokenRememberMeDays"] = "30",
+                    ["AuthCodes:Enabled"] = "true",
+                    ["AuthCodes:CodeLength"] = "6",
+                    ["AuthCodes:TtlMinutes"] = "10",
+                    ["AuthCodes:MaxAttempts"] = "5",
+                    ["AuthCodes:RateLimitMinutes"] = "1",
+                    ["AuthCodes:Provider"] = "Simulated",
                     ["MongoDb:ConnectionString"] = string.Empty,
                     ["MongoDb:DatabaseName"] = "MotoSOS_Test"
                 });
@@ -158,6 +185,8 @@ public sealed class AuthSecurityTests
             {
                 services.AddSingleton<IUserRepository>(stores.Users);
                 services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens);
+                services.AddSingleton<IAuthCodeRepository>(stores.AuthCodes);
+                services.AddSingleton<IAuthCodeDeliveryProvider>(stores.Delivery);
             });
         });
     }
@@ -167,6 +196,10 @@ public sealed class AuthSecurityTests
         public InMemoryUserRepository Users { get; } = new();
 
         public InMemoryRefreshTokenRepository RefreshTokens { get; } = new();
+
+        public InMemoryAuthCodeRepository AuthCodes { get; } = new();
+
+        public FakeAuthCodeDeliveryProvider Delivery { get; } = new();
     }
 
     private sealed class InMemoryUserRepository : IUserRepository
@@ -202,6 +235,48 @@ public sealed class AuthSecurityTests
         }
 
         public Task UpdateAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class InMemoryAuthCodeRepository : IAuthCodeRepository
+    {
+        public List<AuthCode> Codes { get; } = [];
+
+        public Task<AuthCode?> GetLatestByEmailAndPurposeAsync(string emailNormalized, AuthCodePurpose purpose, CancellationToken cancellationToken) =>
+            Task.FromResult(Codes.Where(item => item.EmailNormalized == emailNormalized && item.Purpose == purpose).OrderByDescending(item => item.CreatedAtUtc).FirstOrDefault());
+
+        public Task AddAsync(AuthCode authCode, CancellationToken cancellationToken)
+        {
+            Codes.Add(authCode);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(AuthCode authCode, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task RevokeActiveAsync(string emailNormalized, AuthCodePurpose purpose, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken)
+        {
+            foreach (AuthCode authCode in Codes.Where(item => item.EmailNormalized == emailNormalized && item.Purpose == purpose && item.Status == AuthCodeStatus.Active))
+            {
+                authCode.Status = AuthCodeStatus.Revoked;
+                authCode.RevokedAtUtc = revokedAtUtc;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeAuthCodeDeliveryProvider : IAuthCodeDeliveryProvider
+    {
+        private readonly Dictionary<string, string> _codes = [];
+
+        public AuthCodeDeliveryChannel Channel => AuthCodeDeliveryChannel.Simulated;
+
+        public Task<AuthCodeDeliveryStatus> DeliverAsync(string emailNormalized, AuthCodePurpose purpose, string code, CancellationToken cancellationToken)
+        {
+            _codes[$"{emailNormalized}:{purpose}"] = code;
+            return Task.FromResult(AuthCodeDeliveryStatus.Delivered);
+        }
+
+        public string LastCodeFor(string email, AuthCodePurpose purpose) => _codes[$"{email.Trim().ToLowerInvariant()}:{purpose}"];
     }
 
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);

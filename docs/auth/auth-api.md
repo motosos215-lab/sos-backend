@@ -175,7 +175,29 @@ Request:
 
 Response `204 No Content` si el email tiene formato valido, exista o no exista el usuario.
 
-Esta funcionalidad queda preparada sin envio real de correo, SMS o WhatsApp. No devuelve tokens de recuperacion y no revela existencia de usuarios.
+No devuelve codigos ni revela existencia de usuarios. El provider simulado no envia correo, SMS o WhatsApp real.
+
+## POST /api/v1/auth/reset-password
+
+Request:
+
+```json
+{
+  "email": "rider@example.com",
+  "code": "123456",
+  "newPassword": "NewStrongPass1!"
+}
+```
+
+Response `200 OK`:
+
+```json
+{
+  "success": true,
+  "data": null,
+  "error": null
+}
+```
 
 ## POST /api/v1/auth/request-access-code
 
@@ -189,7 +211,7 @@ Request:
 
 Response `204 No Content` si el email tiene formato valido, exista o no exista el usuario.
 
-Esta funcionalidad queda preparada sin proveedor externo real y no revela existencia de usuarios.
+No devuelve codigos ni revela existencia de usuarios. El provider simulado no envia email/SMS real.
 
 ## POST /api/v1/auth/login-with-code
 
@@ -202,20 +224,22 @@ Request:
 }
 ```
 
-Response `501 Not Implemented`:
+Response `200 OK`, con el mismo contrato de `POST /api/v1/auth/login`.
+
+Errores de codigo invalido, expirado, usado, bloqueado, usuario inactivo o proposito incorrecto devuelven `400 Bad Request`:
 
 ```json
 {
   "success": false,
   "data": null,
   "error": {
-    "code": "feature_not_implemented",
-    "message": "Access code login is prepared but pending an external provider."
+    "code": "invalid_or_expired_code",
+    "message": "The code is invalid or expired."
   }
 }
 ```
 
-No hay OTP hardcodeado y no se acepta cualquier codigo.
+No hay OTP hardcodeado y no se acepta cualquier codigo. El codigo es de un solo uso y no se devuelve por API.
 
 ## GET /api/v1/users/me
 
@@ -258,4 +282,4 @@ Sin token valido responde `401 Unauthorized`.
 5. Ejecutar `POST /api/v1/auth/refresh` con `{{refreshToken}}` para rotar tokens.
 6. Ejecutar `POST /api/v1/auth/logout` con el refresh token vigente.
 7. Probar `forgot-password` y `request-access-code`; ambos responden `204` con emails validos.
-8. Probar `login-with-code`; debe responder `501 feature_not_implemented` hasta integrar proveedor externo real.
+8. Probar `reset-password` o `login-with-code` con el codigo recibido por el canal configurado.
