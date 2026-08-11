@@ -17,6 +17,15 @@
 - El endpoint Admin-only `GET /api/v1/admin/notifications/providers/status` devuelve solo el origen seguro (`environment_json`, `environment_json_base64`, `environment_file_path` o `none`) y nunca devuelve JSON, Base64, private keys, file paths sensibles ni credenciales.
 - Base64 invalido falla de forma controlada con codigo seguro y sin loggear ni auditar el contenido decodificado.
 
+## Notification Outbox Worker Production Readiness
+
+- Notification Outbox Worker ahora bindea configuracion real desde `Notifications:OutboxWorker`, compatible con variables DigitalOcean `Notifications__OutboxWorker__Enabled`, `Notifications__OutboxWorker__IntervalSeconds`, `Notifications__OutboxWorker__MaxItemsPerRun`, `Notifications__OutboxWorker__SimulateFailures` y `Notifications__OutboxWorker__RunOnStartup`.
+- `Enabled = false` sigue siendo el default por codigo; el worker solo procesa si se habilita por configuracion.
+- `POST /api/v1/mobile/sos-alerts` sigue separado del outbox: crea incidente, alert dispatch y attempts `Prepared`, pero no ejecuta procesamiento ni llama providers.
+- El worker procesa attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, y `Sms`/`Email` siguen simulados.
+- `GET /api/v1/admin/notifications/outbox/worker/status` devuelve configuracion efectiva no sensible y ultima corrida sin tokens, payloads, emails, telefonos, credenciales FCM, service accounts ni connection strings.
+- No se implementa distributed lock: con una sola replica DigitalOcean se puede habilitar; con multiples replicas puede haber envio duplicado antes del update atomico final y se requiere distributed lock futuro.
+
 ## Emergency Contact Invitation Accept
 
 - Emergency Contacts API agrega `POST /api/v1/emergency-contacts/invitations/{code}/accept` para que un `Monitor` acepte una invitacion vigente.
@@ -195,15 +204,15 @@
 - Notifications API usa exclusivamente `ContactsSnapshot` de Alert Dispatch y no consulta contactos vivos para generar intentos.
 - Se crea un intento por contacto: `Sms` si hay telefono y `Email` como fallback si solo hay correo; contactos sin canal se omiten.
 - Los intentos nuevos quedan `Prepared` y `Provider = None`; `SimulatedSent` existe solo para pruebas internas.
-- Notification Provider Abstraction agrega `INotificationProvider`, `INotificationProviderResolver`, request/result internos, enums de provider/channel/status y `SimulatedNotificationProvider`.
-- `NotificationProviderResolver` devuelve siempre proveedor simulado para `Sms`, `Email` y `Push`; canales no soportados se manejan como fallo controlado.
+- Notification Provider Abstraction agrega `INotificationProvider`, `INotificationProviderResolver`, request/result internos, enums de provider/channel/status, `SimulatedNotificationProvider` y provider FCM para Push habilitable por configuracion.
+- `NotificationProviderResolver` devuelve proveedor simulado para `Sms` y `Email`; para `Push` devuelve FCM si esta habilitado/configurado y, si no, simulado. Canales no soportados se manejan como fallo controlado.
 - Notification Outbox usa la abstraccion interna y mantiene sus endpoints, rutas y contratos publicos existentes sin cambios.
 - `simulateFailures = false` conserva `Prepared -> SimulatedSent`; `simulateFailures = true` conserva `Prepared -> Failed`; `retry-failed` conserva `Failed -> Prepared`.
 - El provider simulado genera `ProviderMessageId` seguro `simulated-{guid}` en exito y errores controlados en falla; no realiza I/O externo ni requiere configuracion sensible.
 - Notification Provider Abstraction audita best-effort `NotificationProviderSimulatedSent` y `NotificationProviderSimulatedFailed` con metadata segura limitada.
 - Notification Outbox Worker audita best-effort `NotificationOutboxWorkerRun`, `NotificationOutboxWorkerFailed` y `NotificationOutboxWorkerSkipped` con metadata segura limitada.
-- No se agregan proveedores reales, secretos, push real, SMS real, correo real, mensajeria real ni escalamiento real.
-- Pendientes futuros de Notifications: providers reales, push, SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
+- No se agregan SMS real, correo real, mensajeria real, secretos ni escalamiento real.
+- Pendientes futuros de Notifications: SMS real, mensajeria instantanea, correo real, escalamiento, acknowledgement, live monitoring, dashboard operativo y ML.
 - Alert Acknowledgements API implementa la respuesta del contacto/monitor ante alertas preparadas, sin live monitoring ni notificaciones reales todavia.
 - Los acknowledgements se guardan en MongoDB en la coleccion `alertAcknowledgements` con indice unico por `IdempotencyKey`.
 - Alert Acknowledgements API usa `EmergencyContact.LinkedUserId == monitorUserId` como relacion segura para asignar alertas al Monitor.

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using MotoSOS.API.Common.Abstractions;
@@ -10,6 +11,31 @@ namespace UnitTest.NotificationOutbox;
 
 public sealed class NotificationOutboxWorkerTests
 {
+    [Fact]
+    public void OptionsBindFromNotificationsOutboxWorkerSection()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Notifications:OutboxWorker:Enabled"] = "true",
+                ["Notifications:OutboxWorker:IntervalSeconds"] = "30",
+                ["Notifications:OutboxWorker:MaxItemsPerRun"] = "20",
+                ["Notifications:OutboxWorker:SimulateFailures"] = "false",
+                ["Notifications:OutboxWorker:RunOnStartup"] = "true"
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.Configure<NotificationOutboxWorkerOptions>(configuration.GetSection(NotificationOutboxWorkerOptions.SectionName));
+
+        NotificationOutboxWorkerOptions options = services.BuildServiceProvider().GetRequiredService<IOptions<NotificationOutboxWorkerOptions>>().Value;
+
+        options.Enabled.Should().BeTrue();
+        options.IntervalSeconds.Should().Be(30);
+        options.MaxItemsPerRun.Should().Be(20);
+        options.SimulateFailures.Should().BeFalse();
+        options.RunOnStartup.Should().BeTrue();
+    }
+
     [Fact]
     public async Task DisabledWorkerDoesNotProcess()
     {

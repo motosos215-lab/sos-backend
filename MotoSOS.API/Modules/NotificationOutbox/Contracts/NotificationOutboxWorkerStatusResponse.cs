@@ -1,14 +1,14 @@
 namespace MotoSOS.API.Modules.NotificationOutbox.Contracts;
 
 public sealed record NotificationOutboxWorkerStatusResponse(
-    bool IsEnabled,
-    bool IsRunning,
+    bool Enabled,
+    bool Running,
+    int IntervalSeconds,
+    int MaxItemsPerRun,
+    bool SimulateFailures,
+    bool RunOnStartup,
     DateTimeOffset? LastRunStartedAtUtc,
     DateTimeOffset? LastRunCompletedAtUtc,
-    bool? LastRunSucceeded,
-    int LastRunProcessed,
-    int LastRunSimulatedSent,
-    int LastRunFailed,
-    int LastRunSkipped,
-    string? LastErrorCode,
-    string? LastErrorMessage);
+    int LastProcessedCount,
+    int LastFailedCount,
+    string? LastError);

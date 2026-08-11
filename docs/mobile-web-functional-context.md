@@ -8,7 +8,7 @@ MotoSOS API es la API central del producto. Actualmente expone flujos funcionale
 
 La API usa JSON con propiedades en `camelCase` y responde normalmente mediante el wrapper estandar `ApiResponse<T>`.
 
-Las notificaciones actuales son simuladas. La API prepara y procesa registros de notificacion, pero no envia SMS, email, push ni WhatsApp reales.
+La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, mientras SMS, email y WhatsApp reales siguen fuera de alcance.
 
 ## Roles
 
@@ -64,7 +64,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 11. Iniciar viaje con `POST /api/v1/trips/start`.
 12. Para emergencia movil, usar `POST /api/v1/mobile/sos-alerts` para crear incidente, alert dispatch y attempts en una sola llamada.
 13. Alternativamente, mantener flujo manual con `POST /api/v1/incidents`, `POST /api/v1/alert-dispatches` y `POST /api/v1/notifications/delivery-attempts/prepare`.
-14. El outbox sigue separado; el endpoint SOS no envia notificaciones directamente.
+14. El outbox sigue separado; el endpoint SOS no envia notificaciones directamente. El worker procesa despues attempts `Prepared` si esta habilitado.
 15. Compartir ubicacion con `POST /api/v1/mobile/location-sharing/snapshot`.
 16. Consultar estado con `GET /api/v1/rider/emergencies/{incidentId}/status`.
 17. Cerrar incidente o cancelar falso positivo.
@@ -88,8 +88,10 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 4. Revisar tiempos de respuesta con `GET /api/v1/admin/dashboard/response-times`.
 5. Revisar outcomes de resolucion con `GET /api/v1/admin/dashboard/resolution-outcomes`.
 6. Consultar outbox con `GET /api/v1/admin/notifications/outbox/status`.
-7. Ejecutar procesamiento simulado con `POST /api/v1/admin/notifications/outbox/run`.
-8. Reintentar fallidos con `POST /api/v1/admin/notifications/outbox/retry-failed`.
+7. Consultar worker con `GET /api/v1/admin/notifications/outbox/worker/status`.
+8. Consultar providers con `GET /api/v1/admin/notifications/providers/status`.
+9. Ejecutar procesamiento manual con `POST /api/v1/admin/notifications/outbox/run`.
+10. Reintentar fallidos con `POST /api/v1/admin/notifications/outbox/retry-failed`.
 
 ## Matriz De Endpoints Reales
 
@@ -139,7 +141,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | POST | `/api/v1/offline-processing/run` | Rider | Procesar eventos offline pendientes | Funcional manual |
 | GET | `/api/v1/offline-processing/status` | Rider | Estado de procesamiento offline | Funcional |
 | POST | `/api/v1/incidents` | Rider | Crear incidente | Funcional |
-| POST | `/api/v1/mobile/sos-alerts` | Rider | Orquestar incidente, alert dispatch y attempts para emergencia movil | Funcional, no envia real |
+| POST | `/api/v1/mobile/sos-alerts` | Rider | Orquestar incidente, alert dispatch y attempts para emergencia movil | Funcional, deja attempts Prepared |
 | GET | `/api/v1/incidents` | Rider | Listar incidentes | Funcional |
 | GET | `/api/v1/incidents/{id}` | Rider | Obtener incidente | Funcional |
 | POST | `/api/v1/incidents/{id}/cancel-false-positive` | Rider | Cancelar falso positivo | Funcional |
@@ -170,8 +172,10 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | GET | `/api/v1/rider/emergencies/{incidentId}/resolution-report` | Rider | Obtener reporte propio | Funcional |
 | GET | `/api/v1/rider/emergencies/resolution-reports` | Rider | Listar reportes propios | Funcional |
 | GET | `/api/v1/monitor/alerts/{notificationDeliveryAttemptId}/resolution-report` | Monitor | Ver reporte de alerta asignada | Funcional |
-| POST | `/api/v1/admin/notifications/outbox/run` | Admin | Procesar outbox simulado | Funcional, no envia real |
+| POST | `/api/v1/admin/notifications/outbox/run` | Admin | Procesar outbox manual | Funcional, Push usa FCM si esta habilitado |
 | GET | `/api/v1/admin/notifications/outbox/status` | Admin | Consultar conteos de outbox | Funcional |
+| GET | `/api/v1/admin/notifications/outbox/worker/status` | Admin | Consultar configuracion efectiva y ultima corrida del worker | Funcional |
+| GET | `/api/v1/admin/notifications/providers/status` | Admin | Consultar estado seguro de providers de notificacion | Funcional |
 | POST | `/api/v1/admin/notifications/outbox/retry-failed` | Admin | Reintentar fallidos | Funcional |
 | GET | `/api/v1/admin/dashboard/summary` | Admin | Resumen operacional | Funcional |
 | GET | `/api/v1/admin/dashboard/incidents` | Admin | Incidentes para dashboard | Funcional |
