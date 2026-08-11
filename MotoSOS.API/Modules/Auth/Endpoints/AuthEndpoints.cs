@@ -69,6 +69,23 @@ public static class AuthEndpoints
             return Results.NoContent();
         });
 
+        group.MapPost("/reset-password", async (
+            ResetPasswordRequest request,
+            IValidator<ResetPasswordRequest> validator,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            var validation = await validator.ValidateAsync(request, cancellationToken);
+
+            if (!validation.IsValid)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail(new ApiError("validation_error", validation.Errors[0].ErrorMessage)));
+            }
+
+            await authService.ResetPasswordAsync(request, cancellationToken);
+            return Results.Ok(new ApiResponse<object>(true));
+        });
+
         group.MapPost("/request-access-code", async (
             RequestAccessCodeRequest request,
             IValidator<RequestAccessCodeRequest> validator,
@@ -89,6 +106,7 @@ public static class AuthEndpoints
         group.MapPost("/login-with-code", async (
             LoginWithCodeRequest request,
             IValidator<LoginWithCodeRequest> validator,
+            IAuthService authService,
             CancellationToken cancellationToken) =>
         {
             var validation = await validator.ValidateAsync(request, cancellationToken);
@@ -98,8 +116,8 @@ public static class AuthEndpoints
                 return Results.BadRequest(ApiResponse<object>.Fail(new ApiError("validation_error", validation.Errors[0].ErrorMessage)));
             }
 
-            var response = ApiResponse<object>.Fail(new ApiError("feature_not_implemented", "Access code login is prepared but pending an external provider."));
-            return Results.Json(response, statusCode: StatusCodes.Status501NotImplemented);
+            LoginResponse response = await authService.LoginWithCodeAsync(request, cancellationToken);
+            return Results.Ok(ApiResponse<LoginResponse>.Ok(response));
         });
 
         group.MapPost("/refresh", async (

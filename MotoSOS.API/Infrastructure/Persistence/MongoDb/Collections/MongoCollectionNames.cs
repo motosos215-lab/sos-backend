@@ -6,6 +6,8 @@ public static class MongoCollectionNames
 
     public const string RefreshTokens = "refreshTokens";
 
+    public const string AuthCodes = "authCodes";
+
     public const string DriverProfiles = "driverProfiles";
 
     public const string DriverVehicles = "driverVehicles";

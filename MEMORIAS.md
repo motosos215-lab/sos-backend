@@ -1,5 +1,14 @@
 # Memorias Tecnicas
 
+## Auth Password Reset And Code Login
+
+- Auth Codes agrega la coleccion `authCodes` para codigos temporales `PasswordReset` y `AccessLogin`, configurada por `AuthCodes__Enabled`, `AuthCodes__CodeLength`, `AuthCodes__TtlMinutes`, `AuthCodes__MaxAttempts`, `AuthCodes__RateLimitMinutes` y `AuthCodes__Provider`.
+- Los codigos se generan con `RandomNumberGenerator` y se guardan solo hasheados reutilizando el password hasher actual; no se guarda ni loguea el codigo plano.
+- `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/request-access-code` responden `204 No Content` de forma neutra aunque el email no exista, el usuario este inactivo, se alcance rate limit o Auth Codes este deshabilitado.
+- `POST /api/v1/auth/reset-password` valida codigo, proposito, expiracion, intentos y usuario activo, cambia el password con el hasher actual, marca el codigo como usado y revoca refresh tokens activos.
+- `POST /api/v1/auth/login-with-code` valida codigo `AccessLogin` de un solo uso y devuelve el mismo contrato de login normal.
+- El provider por defecto `SimulatedAuthCodeDeliveryProvider` no envia email/SMS real y no loguea codigos; providers reales quedan para una integracion posterior.
+
 ## Admin Bootstrap Seed
 
 - Admin Bootstrap queda deshabilitado por defecto y se configura con `AdminBootstrap__Enabled`, `AdminBootstrap__Email`, `AdminBootstrap__Password`, `AdminBootstrap__FullName` y `AdminBootstrap__RunOnlyWhenNoAdminsExist`.

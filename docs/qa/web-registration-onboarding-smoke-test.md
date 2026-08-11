@@ -525,7 +525,7 @@ Response esperada: `204 No Content`.
 - Intentar `accountType = "Admin"` en registro publico y validar `400 validation_error`.
 - Validar que responses no exponen `passwordHash`, `PasswordHash`, `refreshToken` almacenado, `TokenHash`, `deviceIdentifier`, `deviceIdentifierHash`, connection strings ni secretos.
 - Validar que `/api/v1/emergency-contacts/invitations/{code}` requiere JWT.
-- Validar que `POST /api/v1/auth/login-with-code` devuelve `501 feature_not_implemented`.
+- Validar que `POST /api/v1/auth/login-with-code` devuelve tokens con un codigo `AccessLogin` valido.
 - Validar que `forgot-password` y `request-access-code` no revelan existencia de usuarios y responden `204` para emails validos.
 
 ## Errores Esperados
@@ -539,7 +539,7 @@ Response esperada: `204 No Content`.
 - `404 not_found`: recurso inexistente, inactivo o ajeno.
 - `409 user_already_exists`: email ya registrado.
 - `409 plan_limit_exceeded`: exceder limites actuales de Basic, como segundo vehiculo activo, segundo contacto activo o segundo MobileApp activo.
-- `501 feature_not_implemented`: `POST /api/v1/auth/login-with-code`.
+- `400 invalid_or_expired_code`: codigo invalido, expirado, usado o de proposito incorrecto.
 
 ## Checklist Final
 
@@ -562,7 +562,7 @@ Response esperada: `204 No Content`.
 ## Faltantes Conocidos
 
 - OTP real no esta implementado todavia.
-- `POST /api/v1/auth/login-with-code` existe como stub y devuelve `501 feature_not_implemented`.
+- `POST /api/v1/auth/login-with-code` esta implementado con codigos temporales de un solo uso.
 - Pagos reales no estan implementados.
 - Google Play Billing no esta implementado.
 - Stripe no esta implementado.
