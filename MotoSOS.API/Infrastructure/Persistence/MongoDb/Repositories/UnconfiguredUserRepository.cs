@@ -9,6 +9,8 @@ public sealed class UnconfiguredUserRepository : IUserRepository
 
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => throw CreateException();
 
+    public Task<long> CountByRoleAsync(UserRole role, CancellationToken cancellationToken) => throw CreateException();
+
     public Task AddAsync(User user, CancellationToken cancellationToken) => throw CreateException();
 
     public Task UpdateAsync(User user, CancellationToken cancellationToken) => throw CreateException();

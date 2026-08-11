@@ -3,6 +3,7 @@ using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.AuditLogRetention.Application;
 using MotoSOS.API.Modules.AuditLogs.Application;
+using MotoSOS.API.Modules.Auth.AdminBootstrap;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
@@ -40,6 +41,9 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddValidatorsFromAssemblyContaining<AuthService>();
+        services.Configure<AdminBootstrapOptions>(configuration.GetSection(AdminBootstrapOptions.SectionName));
+        services.AddScoped<IAdminBootstrapInitializer, AdminBootstrapInitializer>();
+        services.AddHostedService<AdminBootstrapHostedService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IProfileService, ProfileService>();
