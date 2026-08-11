@@ -9,4 +9,6 @@ public interface IRefreshTokenRepository
     Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken);
 
     Task UpdateAsync(RefreshToken refreshToken, CancellationToken cancellationToken);
+
+    Task RevokeActiveByUserIdAsync(string userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken) => Task.CompletedTask;
 }

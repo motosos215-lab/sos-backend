@@ -239,12 +239,12 @@ Esperado: `204 No Content`.
 - Recurso inexistente, ajeno o inactivo: `404 not_found`.
 - Email duplicado: `409 user_already_exists`.
 - Exceder limites Basic: `409 plan_limit_exceeded`.
-- `POST /api/v1/auth/login-with-code`: `501 feature_not_implemented`.
+- `POST /api/v1/auth/login-with-code`: funcional con codigo `AccessLogin` valido.
 
 ## Faltantes Conocidos
 
 - OTP real no esta implementado todavia.
-- `POST /api/v1/auth/login-with-code` existe como stub y devuelve `501 feature_not_implemented`.
+- `POST /api/v1/auth/login-with-code` devuelve el mismo contrato de login normal con un codigo `AccessLogin` valido.
 - Pagos reales no estan implementados.
 - Google Play Billing no esta implementado.
 - Stripe no esta implementado.

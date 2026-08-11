@@ -67,6 +67,12 @@ public sealed class MongoIndexInitializer
             unique: false,
             cancellationToken);
 
+        IMongoCollection<AuthCode> authCodes = _database.GetCollection<AuthCode>(MongoCollectionNames.AuthCodes);
+        await EnsureIndexAsync(authCodes, "ix_authCodes_emailNormalized_purpose_status", new BsonDocument { [nameof(AuthCode.EmailNormalized)] = 1, [nameof(AuthCode.Purpose)] = 1, [nameof(AuthCode.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(authCodes, "ix_authCodes_userId_purpose_status", new BsonDocument { [nameof(AuthCode.UserId)] = 1, [nameof(AuthCode.Purpose)] = 1, [nameof(AuthCode.Status)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(authCodes, "ix_authCodes_expiresAtUtc", new BsonDocument(nameof(AuthCode.ExpiresAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(authCodes, "ix_authCodes_createdAtUtc", new BsonDocument(nameof(AuthCode.CreatedAtUtc), 1), unique: false, cancellationToken);
+
         IMongoCollection<DriverProfile> driverProfiles = _database.GetCollection<DriverProfile>(MongoCollectionNames.DriverProfiles);
         await EnsureIndexAsync(driverProfiles, "ux_driverProfiles_userId", new BsonDocument(nameof(DriverProfile.UserId), 1), unique: true, cancellationToken);
         await EnsureIndexAsync(driverProfiles, "ix_driverProfiles_completionStatus", new BsonDocument(nameof(DriverProfile.CompletionStatus), 1), unique: false, cancellationToken);

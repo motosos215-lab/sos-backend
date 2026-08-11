@@ -44,6 +44,14 @@ public static class ApplicationServiceExtensions
         services.Configure<AdminBootstrapOptions>(configuration.GetSection(AdminBootstrapOptions.SectionName));
         services.AddScoped<IAdminBootstrapInitializer, AdminBootstrapInitializer>();
         services.AddHostedService<AdminBootstrapHostedService>();
+        services.Configure<AuthCodeOptions>(configuration.GetSection(AuthCodeOptions.SectionName));
+        services.AddSingleton<IAuthCodeGenerator, AuthCodeGenerator>();
+        services.AddScoped<IAuthCodeHasher, AuthCodeHasher>();
+        services.AddSingleton<AuthCodeEmailOptionsValidator>();
+        services.AddScoped<IAuthCodeEmailSender, SmtpAuthCodeEmailSender>();
+        services.AddScoped<SimulatedAuthCodeDeliveryProvider>();
+        services.AddScoped<EmailAuthCodeDeliveryProvider>();
+        services.AddScoped<IAuthCodeDeliveryProvider, AuthCodeDeliveryProviderResolver>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IProfileService, ProfileService>();
