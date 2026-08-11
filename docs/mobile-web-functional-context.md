@@ -65,7 +65,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 12. Para emergencia movil, usar `POST /api/v1/mobile/sos-alerts` para crear incidente, alert dispatch y attempts en una sola llamada.
 13. Alternativamente, mantener flujo manual con `POST /api/v1/incidents`, `POST /api/v1/alert-dispatches` y `POST /api/v1/notifications/delivery-attempts/prepare`.
 14. El outbox sigue separado; el endpoint SOS no envia notificaciones directamente. El worker procesa despues attempts `Prepared` si esta habilitado.
-15. Para modo offline, guardar eventos localmente y enviar `POST /api/v1/mobile/offline-ingestion/batch` al recuperar conexion; backend responde ACK durable y el worker procesa automaticamente.
+15. Para modo offline, guardar eventos localmente y enviar `POST /api/v1/mobile/offline-ingestion/batch` al recuperar conexion; backend responde ACK durable y el worker procesa automaticamente. Para SOS offline usar item `type = offline-sos-alert`.
 16. Compartir ubicacion con `POST /api/v1/mobile/location-sharing/snapshot`.
 17. Consultar estado con `GET /api/v1/rider/emergencies/{incidentId}/status`.
 18. Cerrar incidente o cancelar falso positivo.
@@ -139,7 +139,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | POST | `/api/v1/trips/{id}/finish` | Rider | Finalizar viaje | Funcional |
 | GET | `/api/v1/trips/{id}` | Rider | Obtener viaje | Funcional |
 | GET | `/api/v1/trips` | Rider | Listar viajes | Funcional |
-| POST | `/api/v1/mobile/offline-ingestion/batch` | Rider | Ingerir lote offline movil | Funcional |
+| POST | `/api/v1/mobile/offline-ingestion/batch` | Rider | Ingerir lote offline movil, incluido `offline-sos-alert` | Funcional |
 | POST | `/api/v1/offline-processing/run` | Rider | Procesar eventos offline pendientes | Funcional manual |
 | GET | `/api/v1/offline-processing/status` | Rider | Estado de procesamiento offline | Funcional |
 | GET | `/api/v1/admin/offline-processing/worker/status` | Admin | Estado global seguro del Offline Processing Worker | Funcional |

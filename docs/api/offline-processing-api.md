@@ -27,6 +27,7 @@ No devuelve payload completo en responses.
 - `alert-dispatch-request`: crea o recupera AlertDispatch usando idempotencia `userId + incidentId + clientAlertRequestId`.
 - `location-update`: actualiza el ultimo snapshot de Location Sharing por `UserId + IncidentId`.
 - `minor-event`: crea o recupera MinorEvent usando idempotencia del modulo de Minor Events.
+- `offline-sos-alert`: reutiliza `CreateSosAlertService` para crear Incident, AlertDispatch y NotificationAttempts `Prepared`.
 
 ## Idempotencia
 
@@ -166,6 +167,50 @@ Defaults por codigo:
 | `RecoveryMinutes` | `10` |
 
 El worker procesa globalmente registros de distintos Riders, pero no expone payloads ni datos personales en status.
+
+## SOS Offline
+
+`offline-sos-alert` es el contrato recomendado para Android cuando una emergencia SOS nace totalmente offline. Evita que la app tenga que enviar un `local-incident` y luego un `alert-dispatch-request` dependiente de un `incidentId` remoto que todavia no existe.
+
+Procesamiento:
+
+1. Deserializa payload como `CreateSosAlertRequest`.
+2. Si `tripId` falta en payload, usa `OfflineIngestionRecord.TripId`.
+3. Si `detectedAtUtc` falta en payload, usa `OfflineIngestionRecord.OccurredAtUtc`.
+4. Llama `CreateSosAlertService.CreateAsync`.
+5. Marca el record offline `Processed` con `remoteRecordId = incident.id`.
+6. Deja NotificationAttempts en `Prepared`; no envia Push directo.
+
+Contrato:
+
+```json
+{
+  "clientEventId": "99999999-9999-9999-9999-999999999999",
+  "type": "offline-sos-alert",
+  "occurredAtUtc": "2026-08-11T12:00:01Z",
+  "payloadVersion": 1,
+  "payload": {
+    "tripId": "trip-id-remoto",
+    "clientIncidentId": "22222222-2222-2222-2222-222222222222",
+    "clientAlertRequestId": "44444444-4444-4444-4444-444444444444",
+    "incidentType": "ManualSos",
+    "severity": "High",
+    "detectedAtUtc": "2026-08-11T12:00:01Z",
+    "latitude": 19.4326,
+    "longitude": -99.1332,
+    "priority": "High",
+    "reason": "ManualSos",
+    "notes": "SOS creado offline desde Android"
+  }
+}
+```
+
+Idempotencia:
+
+- Offline ingestion: `userId + mobileDeviceId + tripId + type + clientEventId + payloadVersion`.
+- Incident: `userId + tripId + clientIncidentId`.
+- AlertDispatch: `userId + incidentId + clientAlertRequestId`.
+- NotificationAttempts: `userId + alertDispatchId + emergencyContactId + channel + attemptNumber`.
 
 ## Recovery
 

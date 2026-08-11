@@ -21,7 +21,9 @@ using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
+using MotoSOS.API.Modules.OfflineIngestion.Contracts;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
+using MotoSOS.API.Modules.OfflineProcessing.Contracts;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Application;
@@ -140,6 +142,36 @@ public sealed class SosAlertEndpointsTests
     }
 
     [Fact]
+    public async Task OfflineSosAlertBatchCreatesIncidentDispatchAndPreparedPushAttemptsIdempotently()
+    {
+        var stores = new Stores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient rider = factory.CreateClient();
+        User riderUser = await AuthenticateAsync(rider, "offline-sos-rider@example.com", "Rider", stores);
+        User monitor = await AuthenticateAsync(factory.CreateClient(), "offline-sos-monitor@example.com", "Monitor", stores);
+        Trip trip = SeedReady(stores, riderUser.Id);
+        stores.Contacts.Items.Clear();
+        stores.Contacts.Items.Add(new EmergencyContact { Id = "offline-linked-contact", UserId = riderUser.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked, LinkedUserId = monitor.Id, FullName = "Linked Contact", PhoneNumber = "+52 555 555 5555", Email = monitor.Email, Priority = 1 });
+        stores.Tokens.Items.Add(new PushNotificationToken { Id = "offline-token", UserId = monitor.Id, Platform = PushTokenPlatform.Android, Channel = PushTokenChannel.Fcm, Status = PushNotificationTokenStatus.Active, TokenValue = FcmToken, TokenHash = "hash", TokenPreview = "intern****wxyz", LastSeenAtUtc = DateTimeOffset.UtcNow });
+        object batch = OfflineSosBatch(trip.Id, "99999999-9999-9999-9999-999999999999", "22222222-2222-2222-2222-222222222222", "44444444-4444-4444-4444-444444444444");
+
+        OfflineBatchEnvelope accepted = (await (await rider.PostAsJsonAsync("/api/v1/mobile/offline-ingestion/batch", batch)).Content.ReadFromJsonAsync<OfflineBatchEnvelope>())!;
+        RunEnvelope processed = (await (await rider.PostAsJsonAsync("/api/v1/offline-processing/run", new RunOfflineProcessingRequest(20))).Content.ReadFromJsonAsync<RunEnvelope>())!;
+        OfflineBatchEnvelope duplicate = (await (await rider.PostAsJsonAsync("/api/v1/mobile/offline-ingestion/batch", batch)).Content.ReadFromJsonAsync<OfflineBatchEnvelope>())!;
+        RunEnvelope retry = (await (await rider.PostAsJsonAsync("/api/v1/offline-processing/run", new RunOfflineProcessingRequest(20))).Content.ReadFromJsonAsync<RunEnvelope>())!;
+
+        accepted.Data.Results.Should().ContainSingle(result => result.Type == "offline-sos-alert" && result.Status == "Accepted" && !result.IsDuplicate);
+        processed.Data.Processed.Should().Be(1);
+        processed.Data.Items.Should().ContainSingle(item => item.Type == "offline-sos-alert" && item.Status == "Processed");
+        duplicate.Data.Results.Should().ContainSingle(result => result.Type == "offline-sos-alert" && result.Status == "Duplicate" && result.IsDuplicate);
+        retry.Data.Processed.Should().Be(0);
+        stores.Incidents.Items.Should().ContainSingle();
+        stores.Alerts.Items.Should().ContainSingle();
+        stores.Attempts.Items.Select(attempt => attempt.Channel).Should().Equal(NotificationChannel.Push, NotificationChannel.Sms);
+        stores.Attempts.Items.Should().OnlyContain(attempt => attempt.Status == NotificationDeliveryStatus.Prepared && attempt.Provider == NotificationProvider.None);
+    }
+
+    [Fact]
     public async Task ReadinessTripContactsAndValidationFailuresAreControlled()
     {
         var stores = new Stores();
@@ -178,6 +210,40 @@ public sealed class SosAlertEndpointsTests
         notes = "Caida detectada por sensores"
     };
 
+    private static object OfflineSosBatch(string tripId, string clientEventId, string clientIncidentId, string clientAlertRequestId) => new
+    {
+        batchId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        mobileDeviceId = "mobile",
+        tripId,
+        schemaVersion = 1,
+        sentAtUtc = DateTimeOffset.UtcNow,
+        appVersion = "1.0.0",
+        items = new[]
+        {
+            new
+            {
+                clientEventId,
+                type = "offline-sos-alert",
+                occurredAtUtc = DateTimeOffset.UtcNow,
+                payloadVersion = 1,
+                payload = new
+                {
+                    tripId,
+                    clientIncidentId,
+                    clientAlertRequestId,
+                    incidentType = "ManualSos",
+                    severity = "High",
+                    detectedAtUtc = DateTimeOffset.UtcNow,
+                    latitude = 19.4326,
+                    longitude = -99.1332,
+                    priority = "High",
+                    reason = "ManualSos",
+                    notes = "SOS creado offline desde Android"
+                }
+            }
+        }
+    };
+
     private static Trip SeedReady(Stores stores, string userId, string? tripId = null)
     {
         stores.Profiles.Items.Add(new DriverProfile { UserId = userId, CompletionStatus = ProfileCompletionStatus.Completed });
@@ -212,6 +278,8 @@ public sealed class SosAlertEndpointsTests
 
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
     private sealed record SosEnvelope(bool Success, CreateSosAlertResponse Data);
+    private sealed record OfflineBatchEnvelope(bool Success, OfflineIngestionBatchResponse Data);
+    private sealed record RunEnvelope(bool Success, RunOfflineProcessingResponse Data);
     private sealed class Stores { public Users Users { get; } = new(); public RefreshTokens RefreshTokens { get; } = new(); public Profiles Profiles { get; } = new(); public Vehicles Vehicles { get; } = new(); public Contacts Contacts { get; } = new(); public Codes Codes { get; } = new(); public Devices Devices { get; } = new(); public Subscriptions Subscriptions { get; } = new(); public Confirmations Confirmations { get; } = new(); public Trips Trips { get; } = new(); public Offline Offline { get; } = new(); public Incidents Incidents { get; } = new(); public Alerts Alerts { get; } = new(); public Attempts Attempts { get; } = new(); public Tokens Tokens { get; } = new(); }
     private sealed class Users : IUserRepository { public List<User> Items { get; } = []; public Task<User?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(u => u.Id == id)); public Task<User?> GetByEmailAsync(string email, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(u => string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase))); public Task AddAsync(User user, CancellationToken ct) { Items.Add(user); return Task.CompletedTask; } public Task UpdateAsync(User user, CancellationToken ct) => Task.CompletedTask; }
     private sealed class RefreshTokens : IRefreshTokenRepository { public List<RefreshToken> Items { get; } = []; public Task<RefreshToken?> GetByHashAsync(string h, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(t => t.TokenHash == h)); public Task AddAsync(RefreshToken t, CancellationToken ct) { Items.Add(t); return Task.CompletedTask; } public Task UpdateAsync(RefreshToken t, CancellationToken ct) => Task.CompletedTask; }
@@ -223,7 +291,7 @@ public sealed class SosAlertEndpointsTests
     private sealed class Subscriptions : IUserSubscriptionRepository { public List<UserSubscription> Items { get; } = []; public Task<UserSubscription?> GetByUserIdAsync(string u, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(s => s.UserId == u)); public Task<bool> HasActiveSubscriptionAsync(string u, CancellationToken ct) => Task.FromResult(Items.Any(s => s.UserId == u && s.Status == SubscriptionStatus.Active)); public Task AddAsync(UserSubscription s, CancellationToken ct) => Task.CompletedTask; public Task UpdateAsync(UserSubscription s, CancellationToken ct) => Task.CompletedTask; }
     private sealed class Confirmations : IOnboardingConfirmationRepository { public List<OnboardingConfirmation> Items { get; } = []; public Task<OnboardingConfirmation?> GetByUserIdAsync(string u, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(c => c.UserId == u)); public Task AddAsync(OnboardingConfirmation c, CancellationToken ct) => Task.CompletedTask; public Task UpdateAsync(OnboardingConfirmation c, CancellationToken ct) => Task.CompletedTask; }
     private sealed class Trips : ITripRepository { public List<Trip> Items { get; } = []; public Task<Trip?> GetActiveByUserIdAsync(string u, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(t => t.UserId == u && t.Status == TripStatus.Active)); public Task<Trip?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(t => t.Id == id)); public Task<IReadOnlyList<Trip>> ListByUserIdAsync(string u, TripStatus? s, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<Trip>>(Items.Where(t => t.UserId == u && (!s.HasValue || t.Status == s.Value)).ToArray()); public Task<long> CountByUserIdAsync(string u, TripStatus? s, CancellationToken ct) => Task.FromResult((long)Items.Count(t => t.UserId == u && (!s.HasValue || t.Status == s.Value))); public Task AddAsync(Trip t, CancellationToken ct) { Items.Add(t); return Task.CompletedTask; } public Task UpdateAsync(Trip t, CancellationToken ct) => Task.CompletedTask; }
-    private sealed class Offline : IOfflineIngestionRepository { public Task<OfflineIngestionRecord?> GetByIdempotencyKeyAsync(string k, CancellationToken ct) => Task.FromResult<OfflineIngestionRecord?>(null); public Task<(OfflineIngestionRecord Record, bool IsDuplicate)> AddOrGetDuplicateAsync(OfflineIngestionRecord r, CancellationToken ct) => Task.FromResult((r, false)); }
+    private sealed class Offline : IOfflineIngestionRepository { public List<OfflineIngestionRecord> Items { get; } = []; public Task<OfflineIngestionRecord?> GetByIdempotencyKeyAsync(string k, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(record => record.IdempotencyKey == k)); public Task<(OfflineIngestionRecord Record, bool IsDuplicate)> AddOrGetDuplicateAsync(OfflineIngestionRecord r, CancellationToken ct) { OfflineIngestionRecord? existing = Items.FirstOrDefault(record => record.IdempotencyKey == r.IdempotencyKey); if (existing is not null) return Task.FromResult((existing, true)); Items.Add(r); return Task.FromResult((r, false)); } public Task<IReadOnlyList<OfflineIngestionRecord>> ListPendingByUserIdAsync(string userId, int maxItems, CancellationToken ct) => Task.FromResult<IReadOnlyList<OfflineIngestionRecord>>(Items.Where(record => record.UserId == userId && record.ProcessingStatus == OfflineIngestionProcessingStatus.PendingProcessing).Take(maxItems).ToArray()); public Task<OfflineIngestionRecord?> TryMarkProcessingAsync(string id, string userId, DateTimeOffset now, CancellationToken ct) { OfflineIngestionRecord? record = Items.FirstOrDefault(item => item.Id == id && item.UserId == userId && item.ProcessingStatus == OfflineIngestionProcessingStatus.PendingProcessing); if (record is null) return Task.FromResult<OfflineIngestionRecord?>(null); record.ProcessingStatus = OfflineIngestionProcessingStatus.Processing; record.ProcessingStartedAtUtc = now; record.UpdatedAtUtc = now; return Task.FromResult<OfflineIngestionRecord?>(record); } public Task MarkProcessedAsync(string id, string userId, string remoteRecordId, DateTimeOffset now, CancellationToken ct) { OfflineIngestionRecord record = Items.Single(item => item.Id == id && item.UserId == userId); record.ProcessingStatus = OfflineIngestionProcessingStatus.Processed; record.RemoteRecordId = remoteRecordId; record.ProcessedAtUtc = now; record.UpdatedAtUtc = now; return Task.CompletedTask; } public Task MarkIgnoredAsync(string id, string userId, string reason, DateTimeOffset now, CancellationToken ct) { OfflineIngestionRecord record = Items.Single(item => item.Id == id && item.UserId == userId); record.ProcessingStatus = OfflineIngestionProcessingStatus.Ignored; record.ProcessingReason = reason; record.UpdatedAtUtc = now; return Task.CompletedTask; } public Task MarkFailedPermanentAsync(string id, string userId, string code, string message, DateTimeOffset now, CancellationToken ct) { OfflineIngestionRecord record = Items.Single(item => item.Id == id && item.UserId == userId); record.ProcessingStatus = OfflineIngestionProcessingStatus.FailedPermanent; record.ProcessingErrorCode = code; record.ProcessingErrorMessage = message; record.UpdatedAtUtc = now; return Task.CompletedTask; } public Task<long> CountByUserIdAndStatusAsync(string userId, OfflineIngestionProcessingStatus status, CancellationToken ct) => Task.FromResult((long)Items.Count(record => record.UserId == userId && record.ProcessingStatus == status)); }
     private sealed class Incidents : IIncidentRepository { public List<Incident> Items { get; } = []; public Task<Incident?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(i => i.Id == id)); public Task<Incident?> GetByIdempotencyKeyAsync(string key, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(i => i.IdempotencyKey == key)); public Task<(Incident Incident, bool IsDuplicate)> AddOrGetDuplicateAsync(Incident incident, CancellationToken ct) { Incident? existing = Items.FirstOrDefault(i => i.IdempotencyKey == incident.IdempotencyKey); if (existing is not null) return Task.FromResult((existing, true)); Items.Add(incident); return Task.FromResult((incident, false)); } public Task<IReadOnlyList<Incident>> ListByUserIdAsync(string u, IncidentStatus? s, string? t, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<Incident>>(Items.Where(i => i.UserId == u).ToArray()); public Task<long> CountByUserIdAsync(string u, IncidentStatus? s, string? t, CancellationToken ct) => Task.FromResult((long)Items.Count(i => i.UserId == u)); public Task UpdateAsync(Incident i, CancellationToken ct) => Task.CompletedTask; }
     private sealed class Alerts : IAlertDispatchRepository { public List<AlertDispatchRequest> Items { get; } = []; public Task<AlertDispatchRequest?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(a => a.Id == id)); public Task<AlertDispatchRequest?> GetByIdempotencyKeyAsync(string key, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(a => a.IdempotencyKey == key)); public Task<(AlertDispatchRequest AlertDispatch, bool IsDuplicate)> AddOrGetDuplicateAsync(AlertDispatchRequest alert, CancellationToken ct) { AlertDispatchRequest? existing = Items.FirstOrDefault(a => a.IdempotencyKey == alert.IdempotencyKey); if (existing is not null) return Task.FromResult((existing, true)); Items.Add(alert); return Task.FromResult((alert, false)); } public Task<IReadOnlyList<AlertDispatchRequest>> ListByUserIdAsync(string u, AlertDispatchStatus? s, string? i, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<AlertDispatchRequest>>(Items.Where(a => a.UserId == u).ToArray()); public Task<long> CountByUserIdAsync(string u, AlertDispatchStatus? s, string? i, CancellationToken ct) => Task.FromResult((long)Items.Count(a => a.UserId == u)); public Task UpdateAsync(AlertDispatchRequest alert, CancellationToken ct) => Task.CompletedTask; }
     private sealed class Attempts : INotificationDeliveryAttemptRepository { public List<NotificationDeliveryAttempt> Items { get; } = []; public Task<NotificationDeliveryAttempt?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(a => a.Id == id)); public Task<NotificationDeliveryAttempt?> GetByIdempotencyKeyAsync(string key, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(a => a.IdempotencyKey == key)); public Task<(NotificationDeliveryAttempt Attempt, bool IsDuplicate)> AddOrGetDuplicateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) { NotificationDeliveryAttempt? existing = Items.FirstOrDefault(a => a.IdempotencyKey == attempt.IdempotencyKey); if (existing is not null) return Task.FromResult((existing, true)); Items.Add(attempt); return Task.FromResult((attempt, false)); } public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByUserIdAsync(string u, string? a, string? i, NotificationDeliveryStatus? s, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>(Items.Where(x => x.UserId == u).ToArray()); public Task<long> CountByUserIdAsync(string u, string? a, string? i, NotificationDeliveryStatus? s, CancellationToken ct) => Task.FromResult((long)Items.Count(x => x.UserId == u)); public Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) => Task.CompletedTask; }

@@ -73,6 +73,7 @@ Tipos aceptados:
 - `local-incident`
 - `alert-dispatch-request`
 - `location-update`
+- `offline-sos-alert`
 
 ## Response Accepted
 
@@ -148,6 +149,44 @@ Tipos aceptados:
 - El worker automatico puede procesarlo despues sin que Android llame `POST /api/v1/offline-processing/run`.
 - No se devuelve payload completo en responses.
 
+## SOS Offline
+
+Para una emergencia creada totalmente offline, Android debe enviar un solo item `offline-sos-alert`. El backend responde ACK durable al persistir el record y el Offline Processing Worker orquesta despues incidente, alert dispatch y notification attempts `Prepared`.
+
+```json
+{
+  "batchId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "mobileDeviceId": "mobile-device-id-remoto",
+  "tripId": "trip-id-remoto",
+  "schemaVersion": 1,
+  "sentAtUtc": "2026-08-11T12:00:00Z",
+  "appVersion": "1.0.0",
+  "items": [
+    {
+      "clientEventId": "99999999-9999-9999-9999-999999999999",
+      "type": "offline-sos-alert",
+      "occurredAtUtc": "2026-08-11T12:00:01Z",
+      "payloadVersion": 1,
+      "payload": {
+        "tripId": "trip-id-remoto",
+        "clientIncidentId": "22222222-2222-2222-2222-222222222222",
+        "clientAlertRequestId": "44444444-4444-4444-4444-444444444444",
+        "incidentType": "ManualSos",
+        "severity": "High",
+        "detectedAtUtc": "2026-08-11T12:00:01Z",
+        "latitude": 19.4326,
+        "longitude": -99.1332,
+        "priority": "High",
+        "reason": "ManualSos",
+        "notes": "SOS creado offline desde Android"
+      }
+    }
+  ]
+}
+```
+
+Si `payload.tripId` falta, processing usa el `tripId` del batch. Si `payload.detectedAtUtc` falta, usa `occurredAtUtc` del item. El outbox sigue separado: `NotificationOutboxWorker` procesa despues attempts `Prepared`.
+
 ## Errores Esperados
 
 - `401 unauthorized`: sin token o token invalido.
@@ -199,10 +238,10 @@ curl -X POST "$BASE_URL/api/v1/mobile/offline-ingestion/batch" \
     "items": [
       {
         "clientEventId": "ef4a5c5e-2a79-49d6-a9a1-88ff12345678",
-        "type": "minor-event",
+        "type": "offline-sos-alert",
         "occurredAtUtc": "2026-08-06T06:59:20Z",
         "payloadVersion": 1,
-        "payload": { "type": "bump", "score": 35 }
+        "payload": { "clientIncidentId": "22222222-2222-2222-2222-222222222222" }
       }
     ]
   }'

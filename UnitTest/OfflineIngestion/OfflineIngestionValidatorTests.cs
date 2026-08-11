@@ -29,6 +29,14 @@ public sealed class OfflineIngestionValidatorTests
     }
 
     [Fact]
+    public void OfflineSosAlertTypeIsAccepted()
+    {
+        var validator = new OfflineIngestionBatchRequestValidator();
+
+        validator.Validate(ValidBatch([ValidItem(type: "offline-sos-alert", payload: "{\"clientIncidentId\":\"22222222-2222-2222-2222-222222222222\"}")])).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void PayloadMustNotBeEmptyOrTooLarge()
     {
         var validator = new OfflineIngestionBatchRequestValidator();
@@ -48,9 +56,9 @@ public sealed class OfflineIngestionValidatorTests
         "1.0.0",
         items ?? [ValidItem()]);
 
-    private static OfflineIngestionItemRequest ValidItem(string payload = "{\"score\":35}") => new(
+    private static OfflineIngestionItemRequest ValidItem(string payload = "{\"score\":35}", string type = "minor-event") => new(
         Guid.NewGuid().ToString(),
-        "minor-event",
+        type,
         DateTimeOffset.UtcNow,
         1,
         JsonDocument.Parse(payload).RootElement.Clone());
