@@ -5,5 +5,6 @@ public enum OfflineIngestionItemType
     MinorEvent = 1,
     LocalIncident = 2,
     AlertDispatchRequest = 3,
-    LocationUpdate = 4
+    LocationUpdate = 4,
+    OfflineSosAlert = 5
 }
