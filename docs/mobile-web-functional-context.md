@@ -62,9 +62,9 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 9. Revisar onboarding con `GET /api/v1/onboarding/summary`.
 10. Confirmar onboarding con `POST /api/v1/onboarding/confirm`.
 11. Iniciar viaje con `POST /api/v1/trips/start`.
-12. Crear incidente con `POST /api/v1/incidents` cuando se detecte emergencia.
-13. Crear alert dispatch con `POST /api/v1/alert-dispatches`.
-14. Preparar notification attempts con `POST /api/v1/notifications/delivery-attempts/prepare`.
+12. Para emergencia movil, usar `POST /api/v1/mobile/sos-alerts` para crear incidente, alert dispatch y attempts en una sola llamada.
+13. Alternativamente, mantener flujo manual con `POST /api/v1/incidents`, `POST /api/v1/alert-dispatches` y `POST /api/v1/notifications/delivery-attempts/prepare`.
+14. El outbox sigue separado; el endpoint SOS no envia notificaciones directamente.
 15. Compartir ubicacion con `POST /api/v1/mobile/location-sharing/snapshot`.
 16. Consultar estado con `GET /api/v1/rider/emergencies/{incidentId}/status`.
 17. Cerrar incidente o cancelar falso positivo.
@@ -139,6 +139,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | POST | `/api/v1/offline-processing/run` | Rider | Procesar eventos offline pendientes | Funcional manual |
 | GET | `/api/v1/offline-processing/status` | Rider | Estado de procesamiento offline | Funcional |
 | POST | `/api/v1/incidents` | Rider | Crear incidente | Funcional |
+| POST | `/api/v1/mobile/sos-alerts` | Rider | Orquestar incidente, alert dispatch y attempts para emergencia movil | Funcional, no envia real |
 | GET | `/api/v1/incidents` | Rider | Listar incidentes | Funcional |
 | GET | `/api/v1/incidents/{id}` | Rider | Obtener incidente | Funcional |
 | POST | `/api/v1/incidents/{id}/cancel-false-positive` | Rider | Cancelar falso positivo | Funcional |
@@ -361,6 +362,39 @@ POST /api/v1/trips/start
 }
 ```
 
+### Orquestar SOS Movil
+
+```http
+POST /api/v1/mobile/sos-alerts
+```
+
+Este endpoint simplifica el flujo movil y orquesta internamente crear incidente, crear alert dispatch y preparar attempts. No reemplaza los endpoints individuales y no ejecuta outbox.
+
+Valores validos actuales:
+
+- `incidentType`: `CountdownTimeout`, `UserRequestedHelp`, `CriticalEvent`, `ManualSos`, `Unknown`.
+- `severity`: `Unknown`, `Low`, `Medium`, `High`.
+- `priority`: `Low`, `Medium`, `High`, `Critical`.
+- `reason`: `IncidentCreated`, `ManualSos`, `CountdownTimeout`, `CriticalEvent`, `UserRequestedHelp`, `Unknown`.
+
+```json
+{
+  "tripId": "trip-id",
+  "clientIncidentId": "11111111-1111-1111-1111-111111111111",
+  "clientAlertRequestId": "22222222-2222-2222-2222-222222222222",
+  "incidentType": "CountdownTimeout",
+  "severity": "High",
+  "detectedAtUtc": "2026-08-10T12:05:00Z",
+  "latitude": 19.4326,
+  "longitude": -99.1332,
+  "priority": "High",
+  "reason": "IncidentCreated",
+  "notes": "Caida detectada por sensores"
+}
+```
+
+El resultado incluye `incident`, `alertDispatch`, `notificationAttempts` y `summary`. Los attempts quedan en `Prepared` con `provider = None` para procesamiento posterior por outbox worker o admin outbox run.
+
 ### Crear Incidente
 
 ```http
@@ -370,7 +404,7 @@ POST /api/v1/incidents
 ```json
 {
   "tripId": "trip-id",
-  "clientIncidentId": "client-incident-001",
+  "clientIncidentId": "11111111-1111-1111-1111-111111111111",
   "source": "MobileDetection",
   "cause": "CountdownTimeout",
   "riskLevel": "High",
@@ -403,7 +437,7 @@ POST /api/v1/alert-dispatches
 ```json
 {
   "incidentId": "incident-id",
-  "clientAlertRequestId": "client-alert-001",
+  "clientAlertRequestId": "22222222-2222-2222-2222-222222222222",
   "priority": "High",
   "reason": "IncidentCreated",
   "requestedAtUtc": "2026-08-08T14:20:10Z",

@@ -1,5 +1,14 @@
 # Memorias Tecnicas
 
+## SOS Alert Orchestration API
+
+- SOS Alert Orchestration API agrega `POST /api/v1/mobile/sos-alerts` para que la app movil cree incidente, alert dispatch y notification attempts en una sola llamada autenticada de Rider.
+- El endpoint reutiliza `IIncidentService`, `IAlertDispatchService` e `INotificationService`; no reemplaza endpoints individuales ni cambia sus contratos.
+- `clientIncidentId` y `clientAlertRequestId` deben ser UUID/GUID validos, manteniendo las reglas actuales de Incidents y AlertDispatch.
+- La idempotencia se hereda de los modulos existentes: incidente por `userId + tripId + clientIncidentId`, dispatch por `userId + incidentId + clientAlertRequestId` y attempts por `userId + alertDispatchId + emergencyContactId + channel + attemptNumber`.
+- El endpoint no ejecuta outbox ni envia notificaciones directamente; deja attempts `Prepared` con `provider = None` para que los procese el outbox worker o el endpoint admin de outbox.
+- No agrega SMS real, email real, WhatsApp real, pagos, PDF, evidencia binaria, realtime, ML, distributed lock, CORS ni cambios de deploy.
+
 ## FCM Notification Provider
 
 - FCM Notification Provider permite entrega push real para attempts `Push` solo cuando `Notifications:Providers:Fcm:Enabled = true`; por defecto permanece deshabilitado y `Push` usa el provider simulado.
