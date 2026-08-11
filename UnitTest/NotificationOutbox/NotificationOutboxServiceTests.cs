@@ -186,16 +186,21 @@ public sealed class NotificationOutboxServiceTests
         var state = new InMemoryNotificationOutboxWorkerStateStore();
         state.MarkStarted(Now.AddMinutes(-1));
         state.MarkSucceeded(Now, 3, 2, 1, 0);
-        var options = Options.Create(new NotificationOutboxWorkerOptions { Enabled = true });
+        var options = Options.Create(new NotificationOutboxWorkerOptions { Enabled = true, IntervalSeconds = 30, MaxItemsPerRun = 20, SimulateFailures = false, RunOnStartup = true });
         User admin = User(UserRole.Admin);
         NotificationOutboxService service = new(new Users(admin), new Attempts(), new NotificationProviderResolver(new SimulatedNotificationProvider(new Clock())), new Clock(), workerState: state, workerOptions: options);
 
         NotificationOutboxWorkerStatusResponse response = await service.GetWorkerStatusAsync(admin.Id, CancellationToken.None);
 
-        response.IsEnabled.Should().BeTrue();
-        response.LastRunProcessed.Should().Be(3);
-        response.LastRunSimulatedSent.Should().Be(2);
-        response.LastRunFailed.Should().Be(1);
+        response.Enabled.Should().BeTrue();
+        response.Running.Should().BeFalse();
+        response.IntervalSeconds.Should().Be(30);
+        response.MaxItemsPerRun.Should().Be(20);
+        response.SimulateFailures.Should().BeFalse();
+        response.RunOnStartup.Should().BeTrue();
+        response.LastProcessedCount.Should().Be(3);
+        response.LastFailedCount.Should().Be(1);
+        response.LastError.Should().BeNull();
     }
 
     private static readonly DateTimeOffset Now = new(2026, 8, 8, 12, 0, 0, TimeSpan.Zero);

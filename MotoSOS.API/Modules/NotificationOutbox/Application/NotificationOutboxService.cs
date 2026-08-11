@@ -59,8 +59,19 @@ public sealed class NotificationOutboxService : INotificationOutboxService
     {
         await EnsureAdminAsync(adminUserId, cancellationToken);
         NotificationOutboxWorkerState state = _workerState?.GetSnapshot() ?? new NotificationOutboxWorkerState(false, null, null, null, 0, 0, 0, 0, null, null);
-        bool enabled = _workerOptions?.Value.Enabled ?? false;
-        return new NotificationOutboxWorkerStatusResponse(enabled, state.IsRunning, state.LastRunStartedAtUtc, state.LastRunCompletedAtUtc, state.LastRunSucceeded, state.LastRunProcessed, state.LastRunSimulatedSent, state.LastRunFailed, state.LastRunSkipped, state.LastErrorCode, state.LastErrorMessage);
+        NotificationOutboxWorkerOptions options = _workerOptions?.Value ?? new NotificationOutboxWorkerOptions();
+        return new NotificationOutboxWorkerStatusResponse(
+            options.Enabled,
+            state.IsRunning,
+            options.IntervalSeconds,
+            options.MaxItemsPerRun,
+            options.SimulateFailures,
+            options.RunOnStartup,
+            state.LastRunStartedAtUtc,
+            state.LastRunCompletedAtUtc,
+            state.LastRunProcessed,
+            state.LastRunFailed,
+            BuildLastError(state));
     }
 
     public async Task<RetryFailedNotificationOutboxResponse> RetryFailedAsync(string adminUserId, RetryFailedNotificationOutboxRequest request, CancellationToken cancellationToken)
@@ -165,6 +176,13 @@ public sealed class NotificationOutboxService : INotificationOutboxService
     }
 
     private static string NormalizeFailureReason(string? errorCode) => string.IsNullOrWhiteSpace(errorCode) ? SimulatedFailureReason : errorCode.Trim();
+    private static string? BuildLastError(NotificationOutboxWorkerState state)
+    {
+        if (string.IsNullOrWhiteSpace(state.LastErrorCode)) return string.IsNullOrWhiteSpace(state.LastErrorMessage) ? null : state.LastErrorMessage;
+        if (string.IsNullOrWhiteSpace(state.LastErrorMessage)) return state.LastErrorCode;
+        return $"{state.LastErrorCode}: {state.LastErrorMessage}";
+    }
+
     private static NotificationProvider MapProvider(NotificationProviderType providerType) => providerType == NotificationProviderType.Fcm ? NotificationProvider.Fcm : NotificationProvider.Simulated;
     private static bool TryMapChannel(NotificationChannel channel, out NotificationProviderChannel providerChannel)
     {
