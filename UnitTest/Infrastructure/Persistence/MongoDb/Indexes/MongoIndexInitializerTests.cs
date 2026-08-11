@@ -87,6 +87,7 @@ public sealed class MongoIndexInitializerTests
             OfflineIngestionIdempotencyKeyIndex("legacy_offline_idempotency"),
             OfflineIngestionAckIdIndex("legacy_offline_ack"),
             OfflineIngestionProcessingStatusIndex("legacy_offline_status"),
+            OfflineIngestionProcessingStatusProcessingStartedAtIndex("legacy_offline_status_processing_started"),
             OfflineIngestionReceivedAtIndex("legacy_offline_received"),
             OfflineIngestionOccurredAtIndex("legacy_offline_occurred"),
             IncidentUserIdIndex("legacy_incident_user"),
@@ -851,6 +852,7 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument OfflineIngestionIdempotencyKeyIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.IdempotencyKey), 1), unique: true);
     private static BsonDocument OfflineIngestionAckIdIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.AckId), 1), unique: false);
     private static BsonDocument OfflineIngestionProcessingStatusIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.ProcessingStatus), 1), unique: false);
+    private static BsonDocument OfflineIngestionProcessingStatusProcessingStartedAtIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument { [nameof(OfflineIngestionRecord.ProcessingStatus)] = 1, [nameof(OfflineIngestionRecord.ProcessingStartedAtUtc)] = 1 }, unique: false);
     private static BsonDocument OfflineIngestionReceivedAtIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.ReceivedAtUtc), 1), unique: false);
     private static BsonDocument OfflineIngestionOccurredAtIndex(string name) => Index(MongoCollectionNames.OfflineIngestionRecords, name, new BsonDocument(nameof(OfflineIngestionRecord.OccurredAtUtc), 1), unique: false);
 

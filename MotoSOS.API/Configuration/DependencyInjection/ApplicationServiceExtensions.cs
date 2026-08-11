@@ -20,6 +20,7 @@ using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Providers;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.OfflineProcessing.Application;
+using MotoSOS.API.Modules.OfflineProcessing.Worker;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
 using MotoSOS.API.Modules.Plans.Application;
@@ -56,6 +57,9 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IResolutionReportExportService, ResolutionReportExportService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
+        services.Configure<OfflineProcessingWorkerOptions>(configuration.GetSection(OfflineProcessingWorkerOptions.SectionName));
+        services.AddSingleton<IOfflineProcessingWorkerStateStore, InMemoryOfflineProcessingWorkerStateStore>();
+        services.AddHostedService<OfflineProcessingWorker>();
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<IAlertDispatchService, AlertDispatchService>();
         services.AddScoped<IAuditLogService, AuditLogService>();

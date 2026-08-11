@@ -25,6 +25,13 @@ public static class OfflineProcessingEndpoints
             if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
             return Results.Ok(ApiResponse<GetOfflineProcessingStatusResponse>.Ok(await service.GetStatusAsync(userId, ct)));
         });
+        RouteGroupBuilder adminGroup = endpoints.MapGroup("/api/v1/admin/offline-processing").RequireAuthorization().WithTags("OfflineProcessingAdmin");
+        adminGroup.MapGet("/worker/status", async (ClaimsPrincipal principal, IOfflineProcessingService service, CancellationToken ct) =>
+        {
+            string? userId = GetUserId(principal);
+            if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+            return Results.Ok(ApiResponse<OfflineProcessingWorkerStatusResponse>.Ok(await service.GetWorkerStatusAsync(userId, ct)));
+        });
         return endpoints;
     }
 
