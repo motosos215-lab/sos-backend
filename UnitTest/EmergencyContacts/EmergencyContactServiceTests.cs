@@ -119,6 +119,82 @@ public sealed class EmergencyContactServiceTests
         await act.Should().ThrowAsync<ValidationAppException>();
     }
 
+    [Fact]
+    public async Task MonitorCanAcceptInvitationByEmailCaseInsensitive()
+    {
+        User monitor = CreateUser(UserRole.Monitor); monitor.Email = "MARIA@EXAMPLE.COM";
+        EmergencyContact contact = InvitedContact("rider", email: "maria@example.com", phoneNumber: "+52 555 555 5555");
+        var service = CreateService(monitor, new InMemoryEmergencyContactRepository(contact));
+
+        AcceptEmergencyContactInvitationResponse response = await service.AcceptInvitationAsync(monitor.Id, contact.LinkingCode!, CancellationToken.None);
+
+        response.Contact.InvitationStatus.Should().Be("Linked");
+        response.Contact.LinkedUserId.Should().Be(monitor.Id);
+        contact.LinkedAtUtc.Should().Be(new DateTimeOffset(2026, 8, 4, 12, 0, 0, TimeSpan.Zero));
+    }
+
+    [Theory]
+    [InlineData("+52 555 555 5555")]
+    [InlineData("+52-555-555-5555")]
+    [InlineData("(+52) 555 555 5555")]
+    [InlineData("+525555555555")]
+    public async Task MonitorCanAcceptInvitationByNormalizedPhoneNumber(string contactPhoneNumber)
+    {
+        User monitor = CreateUser(UserRole.Monitor); monitor.Email = "other@example.com"; monitor.PhoneNumber = "+52.555.555.5555";
+        EmergencyContact contact = InvitedContact("rider", email: "maria@example.com", phoneNumber: contactPhoneNumber);
+        var service = CreateService(monitor, new InMemoryEmergencyContactRepository(contact));
+
+        AcceptEmergencyContactInvitationResponse response = await service.AcceptInvitationAsync(monitor.Id, contact.LinkingCode!, CancellationToken.None);
+
+        response.Contact.InvitationStatus.Should().Be("Linked");
+        response.Contact.LinkedUserId.Should().Be(monitor.Id);
+    }
+
+    [Theory]
+    [InlineData(UserRole.Rider)]
+    [InlineData(UserRole.Admin)]
+    public async Task NonMonitorCannotAcceptInvitation(UserRole role)
+    {
+        User user = CreateUser(role);
+        var service = CreateService(user, new InMemoryEmergencyContactRepository(InvitedContact("rider")));
+
+        Func<Task> act = () => service.AcceptInvitationAsync(user.Id, "8X7Q-3M2K-9L6R", CancellationToken.None);
+
+        await act.Should().ThrowAsync<ForbiddenAppException>();
+    }
+
+    [Fact]
+    public async Task MissingExpiredNotInvitedAndMismatchedInvitationFailControlled()
+    {
+        User monitor = CreateUser(UserRole.Monitor); monitor.Email = "monitor@example.com"; monitor.PhoneNumber = "+525555555555";
+        EmergencyContact expired = InvitedContact("rider", code: "EXPIRED", expiresAtUtc: new DateTimeOffset(2026, 8, 4, 11, 59, 0, TimeSpan.Zero));
+        EmergencyContact pending = InvitedContact("rider", code: "PENDING"); pending.InvitationStatus = EmergencyContactInvitationStatus.Pending;
+        EmergencyContact mismatch = InvitedContact("rider", code: "MISMATCH", email: "other@example.com", phoneNumber: "+52 111 111 1111");
+        var service = CreateService(monitor, new InMemoryEmergencyContactRepository(expired, pending, mismatch));
+
+        await service.Invoking(s => s.AcceptInvitationAsync(monitor.Id, "missing", CancellationToken.None)).Should().ThrowAsync<InvitationNotFoundAppException>();
+        await service.Invoking(s => s.AcceptInvitationAsync(monitor.Id, expired.LinkingCode!, CancellationToken.None)).Should().ThrowAsync<InvitationExpiredAppException>();
+        await service.Invoking(s => s.AcceptInvitationAsync(monitor.Id, pending.LinkingCode!, CancellationToken.None)).Should().ThrowAsync<InvitationNotInvitedAppException>();
+        await service.Invoking(s => s.AcceptInvitationAsync(monitor.Id, mismatch.LinkingCode!, CancellationToken.None)).Should().ThrowAsync<InvitationLinkNotAllowedAppException>();
+    }
+
+    [Fact]
+    public async Task AlreadyLinkedInvitationIsIdempotentForSameMonitorAndRejectedForAnotherMonitor()
+    {
+        User monitor = CreateUser(UserRole.Monitor);
+        User otherMonitor = CreateUser(UserRole.Monitor);
+        EmergencyContact contact = InvitedContact("rider"); contact.InvitationStatus = EmergencyContactInvitationStatus.Linked; contact.LinkedUserId = monitor.Id; contact.LinkedAtUtc = new DateTimeOffset(2026, 8, 4, 11, 0, 0, TimeSpan.Zero);
+        var service = CreateService(monitor, new InMemoryEmergencyContactRepository(contact));
+        var otherService = CreateService(otherMonitor, new InMemoryEmergencyContactRepository(contact));
+
+        AcceptEmergencyContactInvitationResponse response = await service.AcceptInvitationAsync(monitor.Id, contact.LinkingCode!, CancellationToken.None);
+        Func<Task> otherAct = () => otherService.AcceptInvitationAsync(otherMonitor.Id, contact.LinkingCode!, CancellationToken.None);
+
+        response.Contact.InvitationStatus.Should().Be("Linked");
+        response.Contact.LinkedUserId.Should().Be(monitor.Id);
+        await otherAct.Should().ThrowAsync<InvitationAlreadyLinkedAppException>();
+    }
+
     private static EmergencyContactService CreateService(User user, InMemoryEmergencyContactRepository contacts, ILinkingCodeGenerator? codeGenerator = null) =>
         new(new InMemoryUserRepository(user), contacts, codeGenerator ?? new SequenceCodeGenerator("8X7Q-3M2K-9L6R"), new TestClock());
 
@@ -127,6 +203,7 @@ public sealed class EmergencyContactServiceTests
     private static CreateEmergencyContactRequest ValidContinueRequest() => new("Maria Lopez", "Esposa", "+52 5512345678", "maria@example.com", 1, new EmergencyContactPermissionsRequest(true, true, false, false), "Continue");
     private static UpdateEmergencyContactRequest ValidUpdateRequest() => new("Maria Lopez", "Esposa", "+52 5512345678", "maria@example.com", 1, new EmergencyContactPermissionsRequest(true, true, false, false), "Continue");
     private static EmergencyContact CompleteContact(string userId) => new() { UserId = userId, IsActive = true, FullName = "Maria", Relationship = "Esposa", PhoneNumber = "+52 5512345678", Email = "maria@example.com", Priority = 1 };
+    private static EmergencyContact InvitedContact(string userId, string code = "8X7Q-3M2K-9L6R", string email = "Monitor@example.com", string phoneNumber = "+52 555 555 5555", DateTimeOffset? expiresAtUtc = null) => new() { UserId = userId, IsActive = true, FullName = "Maria", Relationship = "Esposa", PhoneNumber = phoneNumber, Email = email, Priority = 1, InvitationStatus = EmergencyContactInvitationStatus.Invited, LinkingCode = code, LinkingCodeExpiresAtUtc = expiresAtUtc ?? new DateTimeOffset(2026, 8, 5, 12, 0, 0, TimeSpan.Zero), InvitedAtUtc = new DateTimeOffset(2026, 8, 4, 12, 0, 0, TimeSpan.Zero) };
 
     private sealed class TestClock : IClock { public DateTimeOffset UtcNow { get; } = new(2026, 8, 4, 12, 0, 0, TimeSpan.Zero); }
     private sealed class SequenceCodeGenerator : ILinkingCodeGenerator
@@ -137,9 +214,9 @@ public sealed class EmergencyContactServiceTests
     }
     private sealed class InMemoryUserRepository : IUserRepository
     {
-        private readonly User _user;
-        public InMemoryUserRepository(User user) { _user = user; }
-        public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult<User?>(_user.Id == id ? _user : null);
+        private readonly IReadOnlyList<User> _users;
+        public InMemoryUserRepository(params User[] users) { _users = users; }
+        public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(_users.FirstOrDefault(user => user.Id == id));
         public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
         public Task AddAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task UpdateAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;

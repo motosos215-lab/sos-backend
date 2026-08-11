@@ -2,10 +2,13 @@ using MotoSOS.API.Common.Abstractions;
 using MotoSOS.API.Common.Exceptions;
 using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.AlertDispatch.Domain;
+using MotoSOS.API.Modules.EmergencyContacts.Application;
+using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Notifications.Contracts;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Contracts;
+using MotoSOS.API.Modules.PushNotificationTokens.Application;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
 
@@ -23,15 +26,19 @@ public sealed class NotificationService : INotificationService
     private readonly IAlertDispatchRepository _alertDispatches;
     private readonly INotificationDeliveryAttemptRepository _attempts;
     private readonly INotificationIdempotencyKeyFactory _idempotencyKeys;
+    private readonly IEmergencyContactRepository _contacts;
+    private readonly IPushNotificationTokenRepository _pushTokens;
     private readonly IClock _clock;
 
-    public NotificationService(IUserRepository users, IOnboardingService onboarding, IAlertDispatchRepository alertDispatches, INotificationDeliveryAttemptRepository attempts, INotificationIdempotencyKeyFactory idempotencyKeys, IClock clock)
+    public NotificationService(IUserRepository users, IOnboardingService onboarding, IAlertDispatchRepository alertDispatches, INotificationDeliveryAttemptRepository attempts, INotificationIdempotencyKeyFactory idempotencyKeys, IEmergencyContactRepository contacts, IPushNotificationTokenRepository pushTokens, IClock clock)
     {
         _users = users;
         _onboarding = onboarding;
         _alertDispatches = alertDispatches;
         _attempts = attempts;
         _idempotencyKeys = idempotencyKeys;
+        _contacts = contacts;
+        _pushTokens = pushTokens;
         _clock = clock;
     }
 
@@ -47,33 +54,34 @@ public sealed class NotificationService : INotificationService
         List<NotificationDeliveryAttempt> persisted = [];
         foreach (AlertContactSnapshot contact in alertDispatch.ContactsSnapshot)
         {
-            NotificationChannel? channel = SelectChannel(contact);
-            if (!channel.HasValue) continue;
-            var attempt = new NotificationDeliveryAttempt
+            foreach (NotificationChannel channel in await SelectChannelsAsync(user.Id, contact, cancellationToken))
             {
-                UserId = user.Id,
-                AlertDispatchId = alertDispatch.Id,
-                IncidentId = alertDispatch.IncidentId,
-                TripId = alertDispatch.TripId,
-                EmergencyContactId = contact.EmergencyContactId,
-                ContactFullName = contact.FullName,
-                ContactPhoneNumber = contact.PhoneNumber,
-                ContactEmail = contact.Email,
-                ContactRelationship = contact.Relationship,
-                ContactPriority = contact.Priority,
-                Channel = channel.Value,
-                Status = NotificationDeliveryStatus.Prepared,
-                Provider = NotificationProvider.None,
-                AttemptNumber = AttemptNumber,
-                IdempotencyKey = _idempotencyKeys.Create(user.Id, alertDispatch.Id, contact.EmergencyContactId, channel.Value, AttemptNumber),
-                PreparedAtUtc = now,
-                LastStatusChangedAtUtc = now,
-                Notes = NormalizeOptional(request.Notes),
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now
-            };
-            (NotificationDeliveryAttempt saved, _) = await _attempts.AddOrGetDuplicateAsync(attempt, cancellationToken);
-            persisted.Add(saved);
+                var attempt = new NotificationDeliveryAttempt
+                {
+                    UserId = user.Id,
+                    AlertDispatchId = alertDispatch.Id,
+                    IncidentId = alertDispatch.IncidentId,
+                    TripId = alertDispatch.TripId,
+                    EmergencyContactId = contact.EmergencyContactId,
+                    ContactFullName = contact.FullName,
+                    ContactPhoneNumber = contact.PhoneNumber,
+                    ContactEmail = contact.Email,
+                    ContactRelationship = contact.Relationship,
+                    ContactPriority = contact.Priority,
+                    Channel = channel,
+                    Status = NotificationDeliveryStatus.Prepared,
+                    Provider = NotificationProvider.None,
+                    AttemptNumber = AttemptNumber,
+                    IdempotencyKey = _idempotencyKeys.Create(user.Id, alertDispatch.Id, contact.EmergencyContactId, channel, AttemptNumber),
+                    PreparedAtUtc = now,
+                    LastStatusChangedAtUtc = now,
+                    Notes = NormalizeOptional(request.Notes),
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                };
+                (NotificationDeliveryAttempt saved, _) = await _attempts.AddOrGetDuplicateAsync(attempt, cancellationToken);
+                persisted.Add(saved);
+            }
         }
 
         if (persisted.Count == 0) throw new NotificationNotAllowedAppException("Alert dispatch contacts do not have notification channels available.");
@@ -182,11 +190,23 @@ public sealed class NotificationService : INotificationService
         if (alertDispatch.Status != AlertDispatchStatus.PendingDispatch) throw new AlertDispatchNotReadyAppException("Alert dispatch is not ready for notification attempts.");
     }
 
-    private static NotificationChannel? SelectChannel(AlertContactSnapshot contact)
+    private async Task<IReadOnlyList<NotificationChannel>> SelectChannelsAsync(string userId, AlertContactSnapshot snapshot, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(contact.PhoneNumber)) return NotificationChannel.Sms;
-        if (!string.IsNullOrWhiteSpace(contact.Email)) return NotificationChannel.Email;
-        return null;
+        List<NotificationChannel> channels = [];
+        if (await CanCreatePushAttemptAsync(userId, snapshot, cancellationToken)) channels.Add(NotificationChannel.Push);
+        if (!string.IsNullOrWhiteSpace(snapshot.PhoneNumber)) channels.Add(NotificationChannel.Sms);
+        else if (!string.IsNullOrWhiteSpace(snapshot.Email)) channels.Add(NotificationChannel.Email);
+        return channels;
+    }
+
+    private async Task<bool> CanCreatePushAttemptAsync(string userId, AlertContactSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        if (snapshot.InvitationStatus != EmergencyContactInvitationStatus.Linked) return false;
+
+        EmergencyContact? contact = await _contacts.GetByIdAsync(snapshot.EmergencyContactId, cancellationToken);
+        if (contact is null || contact.UserId != userId || !contact.IsActive || contact.InvitationStatus != EmergencyContactInvitationStatus.Linked || string.IsNullOrWhiteSpace(contact.LinkedUserId)) return false;
+
+        return await _pushTokens.GetLatestActiveFcmByUserIdAsync(contact.LinkedUserId, cancellationToken) is not null;
     }
 
     private static NotificationDeliveryAttemptResponse ToResponse(NotificationDeliveryAttempt attempt) => new(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, attempt.TripId, attempt.EmergencyContactId, attempt.ContactFullName, attempt.ContactRelationship, attempt.ContactPriority, attempt.Channel.ToString(), attempt.Status.ToString(), attempt.Provider.ToString(), attempt.AttemptNumber, attempt.PreparedAtUtc, attempt.SimulatedSentAtUtc, attempt.FailedAtUtc, attempt.CancelledAtUtc, attempt.LastStatusChangedAtUtc, attempt.FailureReason, attempt.Notes, attempt.CreatedAtUtc, attempt.UpdatedAtUtc);

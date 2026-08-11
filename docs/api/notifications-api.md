@@ -2,7 +2,7 @@
 
 ## Descripcion
 
-Notifications API prepara y registra intentos de notificacion asociados a un `AlertDispatchRequest`. En esta etapa solo persiste trazabilidad de intentos y estados internos; no envia mensajes reales.
+Notifications API prepara y registra intentos de notificacion asociados a un `AlertDispatchRequest`. SMS y Email permanecen simulados; Push puede ser procesado por FCM cuando el provider real esta habilitado.
 
 ## Relacion Con Alert Dispatch
 
@@ -73,9 +73,11 @@ Response:
 
 Se crea un solo intento por contacto del snapshot.
 
+- `Push` si el contacto esta `Linked`, tiene `LinkedUserId` vigente y el Monitor vinculado tiene un token FCM activo Android o Web.
 - `Sms` si el contacto tiene `phoneNumber`.
 - `Email` si no tiene `phoneNumber` pero tiene `email`.
 - Contactos sin `phoneNumber` ni `email` se omiten.
+- Contactos `Linked` sin token FCM activo no generan `Push`, pero aun pueden generar `Sms` o `Email` si tienen datos de contacto.
 - Si no queda ningun intento para crear, se devuelve `notification_not_allowed`.
 - Canales de app de contacto y mensajeria instantanea quedan pendientes.
 
@@ -98,9 +100,9 @@ En esta etapa `attemptNumber = 1`. Existe indice unico en `IdempotencyKey`. Si s
 
 ## Provider Abstraction
 
-Notification Outbox procesa attempts mediante `NotificationProviderResolver`. En esta etapa el resolver siempre usa `SimulatedNotificationProvider` para `Sms`, `Email` y `Push`.
+Notification Outbox procesa attempts mediante `NotificationProviderResolver`. `Sms` y `Email` usan `SimulatedNotificationProvider`. `Push` usa FCM si `Notifications:Providers:Fcm:Enabled = true`; si no, usa el provider simulado.
 
-La abstraccion no cambia endpoints publicos, responses ni transiciones existentes. Proveedores reales quedan pendientes para fases futuras.
+La abstraccion no cambia endpoints publicos, responses ni transiciones existentes. SMS y Email reales quedan pendientes para fases futuras.
 
 ## Transiciones
 
@@ -138,11 +140,12 @@ La abstraccion no cambia endpoints publicos, responses ni transiciones existente
 ## Seguridad
 
 - No acepta `userId` desde el body.
-- No devuelve password hashes ni tokens.
+- No devuelve hashes de credenciales ni tokens.
 - No devuelve identificadores de dispositivo hasheados.
 - No devuelve tokens de proveedores.
-- No integra proveedores reales.
-- No envia push, SMS, correo ni mensajeria real.
+- No devuelve tokens de proveedores.
+- Push puede enviarse con FCM cuando esta habilitado y configurado.
+- No envia SMS, correo ni mensajeria real.
 - No devuelve datos de pagos ni proveedores externos.
 
 ## MongoDB
@@ -178,8 +181,6 @@ curl -X POST "$BASE_URL/api/v1/notifications/delivery-attempts/prepare" \
 
 ## Pendientes Futuros
 
-- Provider real.
-- Push.
 - SMS real.
 - Mensajeria instantanea.
 - Email real.

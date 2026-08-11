@@ -67,6 +67,13 @@ public static class EmergencyContactEndpoints
             return Results.Ok(ApiResponse<GetEmergencyContactInvitationResponse>.Ok(await service.GetInvitationAsync(code, cancellationToken)));
         });
 
+        group.MapPost("/invitations/{code}/accept", async (string code, ClaimsPrincipal principal, IEmergencyContactService service, CancellationToken cancellationToken) =>
+        {
+            string? userId = GetUserId(principal);
+            if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+            return Results.Ok(ApiResponse<AcceptEmergencyContactInvitationResponse>.Ok(await service.AcceptInvitationAsync(userId, code, cancellationToken)));
+        });
+
         return endpoints;
     }
 

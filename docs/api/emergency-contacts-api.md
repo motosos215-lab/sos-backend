@@ -15,7 +15,7 @@ El alta ocurre desde el portal web. La app movil no administra contactos en esta
 - Plan Basico default permite solo 1 contacto activo por usuario.
 - DELETE es baja logica/revocacion.
 - El codigo de vinculacion expira en 24 horas.
-- No se implementa aceptacion real desde app monitor todavia.
+- La app monitor puede aceptar una invitacion valida y vincularse con `POST /api/v1/emergency-contacts/invitations/{code}/accept`.
 
 ## Onboarding
 
@@ -159,6 +159,67 @@ Response `200 OK`:
 
 Si el codigo no existe, esta expirado, inactivo o revocado, devuelve `404 not_found`.
 
+## POST /api/v1/emergency-contacts/invitations/{code}/accept
+
+Endpoint protegido con JWT Bearer. Solo `Monitor` puede aceptar invitaciones.
+
+Reglas:
+
+- Busca el contacto por `linkingCode`.
+- Requiere contacto activo, no revocado, no expirado y en `InvitationStatus = Invited`.
+- Permite aceptar si el email normalizado o telefono normalizado del contacto coincide con el Monitor autenticado.
+- El telefono se normaliza quitando espacios, guiones, parentesis, puntos y simbolos no numericos; se comparan todos los digitos, no solo los ultimos digitos.
+- Al aceptar mantiene `UserId` como Rider propietario y setea `LinkedUserId` con el usuario Monitor.
+- Si ya esta `Linked` con el mismo Monitor, responde success idempotente.
+- Si ya esta `Linked` con otro Monitor, devuelve `invitation_already_linked`.
+
+Response `200 OK`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "contact": {
+      "id": "64f000000000000000000001",
+      "userId": "64f000000000000000000000",
+      "fullName": "Maria Lopez",
+      "relationship": "Esposa",
+      "phoneNumber": "+52 5512345678",
+      "email": "maria.lopez@gmail.com",
+      "priority": 1,
+      "invitationStatus": "Linked",
+      "linkingCode": "8X7Q-3M2K-9L6R",
+      "linkingCodeExpiresAtUtc": "2026-08-05T12:00:00+00:00",
+      "linkedUserId": "64f000000000000000000099",
+      "permissions": {
+        "canViewRealTimeLocation": true,
+        "canReceiveCriticalAlerts": true,
+        "canViewIncidentHistory": false,
+        "canViewVitalSigns": false
+      },
+      "isPrimary": true,
+      "isActive": true,
+      "createdAtUtc": "2026-08-04T12:00:00+00:00",
+      "updatedAtUtc": "2026-08-04T12:10:00+00:00",
+      "invitedAtUtc": "2026-08-04T12:00:00+00:00",
+      "linkedAtUtc": "2026-08-04T12:10:00+00:00",
+      "revokedAtUtc": null
+    }
+  },
+  "error": null
+}
+```
+
+Errores esperados:
+
+- `401 unauthorized`.
+- `403 forbidden`.
+- `404 invitation_not_found`.
+- `400 invitation_expired`.
+- `400 invitation_not_invited`.
+- `409 invitation_already_linked`.
+- `400 invitation_link_not_allowed`.
+
 ## Validaciones
 
 Para `Continue` se requiere:
@@ -174,6 +235,4 @@ Para `Continue` se requiere:
 
 - Envio real de SMS/correo.
 - Notificaciones reales.
-- `POST /api/v1/emergency-contacts/invitations/{code}/accept` para app monitor.
-- Asociacion real de `linkedUserId`.
 - Escalamiento real.
