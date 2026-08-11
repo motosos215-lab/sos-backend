@@ -2,18 +2,18 @@
 
 Notification Outbox Worker procesa automaticamente `NotificationDeliveryAttempts` en estado `Prepared` usando la misma logica segura del Notification Outbox manual.
 
-Push Notification Tokens API no cambia el worker: los tokens quedan registrados para providers futuros, pero el worker sigue sin enviar notificaciones reales.
+Push Notification Tokens API permite que attempts `Push` se resuelvan hacia el Monitor vinculado. Si FCM esta habilitado y configurado, el worker puede procesar Push con FCM; SMS y Email siguen simulados.
 
 ## Estado Actual
 
 - Implementado como `BackgroundService` nativo de .NET.
 - Registrado como hosted service, pero deshabilitado por defecto.
 - Usa `IServiceScopeFactory` para resolver servicios scoped durante cada ejecucion.
-- Usa `NotificationOutboxService` y `SimulatedNotificationProvider`.
-- No envia mensajes reales.
-- No usa proveedores reales ni SDKs externos.
-- No realiza I/O externo de mensajeria.
-- No requiere configuracion sensible.
+- Usa `NotificationOutboxService` y `NotificationProviderResolver`.
+- `Sms` y `Email` usan provider simulado.
+- `Push` usa FCM si `Notifications:Providers:Fcm:Enabled = true`; si no, usa provider simulado.
+- No envia SMS, correo ni mensajeria instantanea real.
+- FCM requiere configuracion segura por variables de entorno y no expone credenciales.
 
 ## Defaults
 
@@ -125,4 +125,4 @@ Metadata permitida:
 
 ## Fuera De Alcance
 
-No implementa proveedores reales, llamadas externas, mensajeria real, scheduler externo, tiempo real, mapa en vivo, modelos predictivos, cobros ni pairing API de smartwatch.
+No implementa SMS real, email real, mensajeria instantanea real, scheduler externo, tiempo real, mapa en vivo, modelos predictivos, cobros ni pairing API de smartwatch.

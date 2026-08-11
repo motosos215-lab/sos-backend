@@ -150,6 +150,42 @@ public sealed class EmergencyContactService : IEmergencyContactService
             contact.InvitationStatus.ToString()));
     }
 
+    public async Task<AcceptEmergencyContactInvitationResponse> AcceptInvitationAsync(string monitorUserId, string code, CancellationToken cancellationToken)
+    {
+        User monitor = await GetMonitorUserAsync(monitorUserId, cancellationToken);
+        EmergencyContact contact = await GetInvitationContactAsync(code, cancellationToken);
+        DateTimeOffset now = _clock.UtcNow;
+
+        if (contact.InvitationStatus == EmergencyContactInvitationStatus.Linked)
+        {
+            if (contact.LinkedUserId == monitor.Id) return new AcceptEmergencyContactInvitationResponse(ToResponse(contact));
+            throw new InvitationAlreadyLinkedAppException("Emergency contact invitation is already linked to another monitor.");
+        }
+
+        if (contact.LinkingCodeExpiresAtUtc is null || contact.LinkingCodeExpiresAtUtc <= now)
+        {
+            throw new InvitationExpiredAppException("Emergency contact invitation has expired.");
+        }
+
+        if (contact.InvitationStatus != EmergencyContactInvitationStatus.Invited)
+        {
+            throw new InvitationNotInvitedAppException("Emergency contact invitation is not available for acceptance.");
+        }
+
+        if (!MatchesMonitorIdentity(contact, monitor))
+        {
+            throw new InvitationLinkNotAllowedAppException("Emergency contact invitation cannot be accepted by this monitor.");
+        }
+
+        contact.LinkedUserId = monitor.Id;
+        contact.InvitationStatus = EmergencyContactInvitationStatus.Linked;
+        contact.LinkedAtUtc = now;
+        contact.UpdatedAtUtc = now;
+        await _contacts.UpdateAsync(contact, cancellationToken);
+
+        return new AcceptEmergencyContactInvitationResponse(ToResponse(contact));
+    }
+
     private async Task<User> GetRiderUserAsync(string userId, CancellationToken cancellationToken)
     {
         User? user = await _users.GetByIdAsync(userId, cancellationToken);
@@ -165,6 +201,35 @@ public sealed class EmergencyContactService : IEmergencyContactService
         }
 
         return user;
+    }
+
+    private async Task<User> GetMonitorUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        User? user = await _users.GetByIdAsync(userId, cancellationToken);
+
+        if (user is null || !user.IsActive)
+        {
+            throw new UnauthorizedAppException("Invalid authentication credentials.");
+        }
+
+        if (user.Role != UserRole.Monitor)
+        {
+            throw new ForbiddenAppException("Emergency contact invitations can be accepted only by monitors.");
+        }
+
+        return user;
+    }
+
+    private async Task<EmergencyContact> GetInvitationContactAsync(string code, CancellationToken cancellationToken)
+    {
+        EmergencyContact? contact = await _contacts.GetByLinkingCodeAsync(code.Trim(), cancellationToken);
+
+        if (contact is null || !contact.IsActive || contact.InvitationStatus == EmergencyContactInvitationStatus.Revoked)
+        {
+            throw new InvitationNotFoundAppException("Emergency contact invitation was not found.");
+        }
+
+        return contact;
     }
 
     private async Task<EmergencyContact> GetOwnedActiveContactAsync(string userId, string contactId, CancellationToken cancellationToken)
@@ -252,6 +317,29 @@ public sealed class EmergencyContactService : IEmergencyContactService
         permissions.CanReceiveCriticalAlerts,
         permissions.CanViewIncidentHistory,
         permissions.CanViewVitalSigns);
+
+    private static bool MatchesMonitorIdentity(EmergencyContact contact, User monitor) =>
+        MatchesEmail(contact.Email, monitor.Email) || MatchesPhoneNumber(contact.PhoneNumber, monitor.PhoneNumber);
+
+    private static bool MatchesEmail(string? contactEmail, string? monitorEmail) =>
+        !string.IsNullOrWhiteSpace(contactEmail) &&
+        !string.IsNullOrWhiteSpace(monitorEmail) &&
+        string.Equals(contactEmail.Trim(), monitorEmail.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static bool MatchesPhoneNumber(string? contactPhoneNumber, string? monitorPhoneNumber)
+    {
+        string normalizedContactPhone = NormalizePhoneNumber(contactPhoneNumber);
+        string normalizedMonitorPhone = NormalizePhoneNumber(monitorPhoneNumber);
+
+        return normalizedContactPhone.Length > 0 && normalizedContactPhone == normalizedMonitorPhone;
+    }
+
+    private static string NormalizePhoneNumber(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        return new string(value.Trim().Where(char.IsDigit).ToArray());
+    }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
