@@ -179,6 +179,31 @@ public sealed class NotificationOutboxServiceTests
     }
 
     [Fact]
+    public async Task SmsProviderResultMarksAttemptAsLegacySentWithSmsProvider()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared); prepared.Channel = NotificationChannel.Sms; prepared.ContactPhoneNumber = "+525512345678"; var attempts = new Attempts(prepared);
+
+        RunNotificationOutboxResponse response = await Service(User(UserRole.Admin), attempts, providers: new StaticResolver(new StaticProvider(new NotificationProviderResult(NotificationProviderType.Sms, NotificationProviderChannel.Sms, NotificationProviderDeliveryStatus.Sent, "sms-message", "sms-sent", null, null, Now, null)))).RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+
+        response.SimulatedSent.Should().Be(1);
+        prepared.Status.Should().Be(NotificationDeliveryStatus.SimulatedSent);
+        prepared.Provider.Should().Be(NotificationProvider.Sms);
+        prepared.ProviderMessageId.Should().Be("sms-message");
+    }
+
+    [Fact]
+    public async Task SmsProviderFailureMarksAttemptFailedWithSmsProvider()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared); prepared.Channel = NotificationChannel.Sms; var attempts = new Attempts(prepared);
+
+        await Service(User(UserRole.Admin), attempts, providers: new StaticResolver(new StaticProvider(new NotificationProviderResult(NotificationProviderType.Sms, NotificationProviderChannel.Sms, NotificationProviderDeliveryStatus.Failed, null, "sms-failed", "sms_provider_failed", "safe", null, Now)))).RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+
+        prepared.Status.Should().Be(NotificationDeliveryStatus.Failed);
+        prepared.Provider.Should().Be(NotificationProvider.Sms);
+        prepared.FailureReason.Should().Be("sms_provider_failed");
+    }
+
+    [Fact]
     public async Task AuditFailureDoesNotBreakRunOrRetry()
     {
         var failed = Attempt(NotificationDeliveryStatus.Failed);

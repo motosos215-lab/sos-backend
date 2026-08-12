@@ -53,6 +53,7 @@ Endpoints autenticados para que `Rider`, `Monitor` o `Admin` administren sus pro
 - Si el contacto no esta enlazado, se mantiene el comportamiento por snapshot actual y no se consultan preferencias.
 - `PushEnabled`, `EmailEnabled` y `SmsEnabled` gobiernan si se preparan attempts de esos canales para el monitor enlazado.
 - `EmailEnabled=true` permite preparar attempts `Email`; el envio real depende de `Notifications:Providers:Email` y del outbox.
+- `SmsEnabled=true` permite preparar attempts `Sms`; el envio real depende de `Notifications:Providers:Sms` y del outbox.
 - `CriticalAlertsEnabled` y Quiet Hours se guardan y exponen, pero no suprimen alertas criticas ni emergency attempts en esta version.
 - Auth Codes (`forgot-password`, `request-access-code`, `reset-password`, `login-with-code`) no usan estas preferencias.
 - Las respuestas no exponen `userId`, tokens FCM, hashes, telefonos, emails, SMTP config, credenciales ni connection strings.

@@ -4,5 +4,6 @@ public enum NotificationProviderType
 {
     Simulated = 1,
     Fcm = 2,
-    Email = 3
+    Email = 3,
+    Sms = 4
 }
