@@ -11,4 +11,8 @@ public sealed record NotificationProviderStatusResponse(
     bool EmailProviderConfigured,
     string EmailConfiguredSource,
     bool RealEmailEnabled,
+    bool SmsProviderEnabled,
+    bool SmsProviderConfigured,
+    string SmsProviderName,
+    bool RealSmsEnabled,
     IReadOnlyList<string> Warnings);

@@ -8,7 +8,7 @@ MotoSOS API es la API central del producto. Actualmente expone flujos funcionale
 
 La API usa JSON con propiedades en `camelCase` y responde normalmente mediante el wrapper estandar `ApiResponse<T>`.
 
-La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, `Email` usa SMTP/Brevo si el provider Email esta habilitado/configurado, mientras SMS y WhatsApp reales siguen fuera de alcance.
+La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, `Email` usa SMTP/Brevo si el provider Email esta habilitado/configurado y `Sms` usa Brevo SMS si el provider SMS esta habilitado/configurado. WhatsApp real sigue fuera de alcance.
 
 Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
 
@@ -180,7 +180,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | GET | `/api/v1/rider/emergencies/{incidentId}/resolution-report` | Rider | Obtener reporte propio | Funcional |
 | GET | `/api/v1/rider/emergencies/resolution-reports` | Rider | Listar reportes propios | Funcional |
 | GET | `/api/v1/monitor/alerts/{notificationDeliveryAttemptId}/resolution-report` | Monitor | Ver reporte de alerta asignada | Funcional |
-| POST | `/api/v1/admin/notifications/outbox/run` | Admin | Procesar outbox manual | Funcional, Push usa FCM y Email usa SMTP si estan habilitados |
+| POST | `/api/v1/admin/notifications/outbox/run` | Admin | Procesar outbox manual | Funcional, Push usa FCM, Email usa SMTP y SMS usa Brevo si estan habilitados |
 | GET | `/api/v1/admin/notifications/outbox/status` | Admin | Consultar conteos de outbox | Funcional |
 | GET | `/api/v1/admin/notifications/outbox/worker/status` | Admin | Consultar configuracion efectiva y ultima corrida del worker | Funcional |
 | GET | `/api/v1/admin/notifications/providers/status` | Admin | Consultar estado seguro de providers de notificacion | Funcional |
@@ -808,7 +808,6 @@ El outbox no crea acknowledgements, no crea resolution reports, no cierra incide
 
 Los siguientes puntos estan fuera de alcance del backend actual y no deben asumirse como disponibles:
 
-- SMS real.
 - WhatsApp real.
 - Twilio.
 - SendGrid.

@@ -4,7 +4,7 @@
 
 SOS Alert Orchestration API simplifica el flujo movil de emergencia en un solo endpoint. No reemplaza los endpoints individuales de Incidents, Alert Dispatch ni Notifications; solo los orquesta para que la app movil no tenga que llamar manualmente tres endpoints separados.
 
-El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente. Cuando el worker procesa attempts, `Push` usa FCM si `Notifications:Providers:Fcm` esta habilitado/configurado, `Email` usa SMTP/Brevo si `Notifications:Providers:Email` esta habilitado/configurado y SMS sigue simulado.
+El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente. Cuando el worker procesa attempts, `Push` usa FCM si `Notifications:Providers:Fcm` esta habilitado/configurado, `Email` usa SMTP/Brevo si `Notifications:Providers:Email` esta habilitado/configurado y `Sms` usa Brevo SMS si `Notifications:Providers:Sms` esta habilitado/configurado.
 
 Para SOS offline, Android debe usar `POST /api/v1/mobile/offline-ingestion/batch` con item `type = offline-sos-alert`. Ese flujo reutiliza internamente esta misma orquestacion durante Offline Processing.
 
@@ -156,4 +156,4 @@ La seleccion de canales es la misma de Notifications API:
 
 ## Fuera De Alcance
 
-No implementa SMS real, WhatsApp real, pagos, PDF, evidencia binaria, realtime, ML, distributed lock, CORS ni cambios de deploy.
+No implementa WhatsApp real, pagos, PDF, evidencia binaria, realtime, ML, distributed lock, CORS ni cambios de deploy.

@@ -1,5 +1,16 @@
 # Memorias Tecnicas
 
+## Emergency SMS Notification Provider
+
+- Emergency SMS Notification Provider agrega envio Brevo SMS para `NotificationDeliveryAttempt` con `Channel = Sms` desde Notification Outbox.
+- La configuracion es separada bajo `Notifications:Providers:Sms` y usa variables DigitalOcean `Notifications__Providers__Sms__Enabled`, `Provider`, `ApiKey`, `Sender`, `DefaultCountryCode` y `TimeoutSeconds`.
+- `Provider` soportado en esta version: `Brevo`; `ApiKey` debe ser secret variable.
+- Si SMS real se envia correctamente, el attempt conserva estado legacy `SimulatedSent` por compatibilidad y queda con `Provider = Sms`.
+- Si SMS falla o falta configuracion, el attempt queda `Failed`, `Provider = Sms` y `FailureReason` controlado sin exponer API key, telefono completo, body, payload ni configuracion.
+- Si `Notifications:Providers:Sms:Enabled=false`, el canal `Sms` sigue usando `SimulatedNotificationProvider`.
+- El SMS contiene solo alerta minima y `notificationDeliveryAttemptId`; no incluye ubicacion exacta, tokens, links con tokens ni datos sensibles.
+- Notification Preferences siguen controlando si se crean attempts `Sms` para monitores enlazados; Auth Codes no usan este provider y no se implementa OTP por SMS.
+
 ## Emergency Email Notification Provider
 
 - Emergency Email Notification Provider agrega envio SMTP/Brevo para `NotificationDeliveryAttempt` con `Channel = Email` desde Notification Outbox.
