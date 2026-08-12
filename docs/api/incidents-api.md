@@ -235,4 +235,4 @@ curl -X POST "$BASE_URL/api/v1/incidents" \
 
 ## Relacion Con Evidence Attachments
 
-Evidence Attachments API puede asociar metadata segura a un `Incident` propio. No sube archivos reales, no guarda bytes ni base64 y no modifica el incidente.
+Evidence Attachments API puede asociar metadata segura a un `Incident` propio y subir/descargar archivos binarios por endpoints dedicados. No guarda bytes ni base64 en MongoDB y no modifica el incidente.

@@ -27,7 +27,16 @@ public sealed class EvidenceAttachment
     public string ClientEvidenceId { get; set; } = string.Empty;
     public string? ClientStorageReference { get; set; }
     public EvidenceStorageProvider StorageProvider { get; set; } = EvidenceStorageProvider.None;
+    public string? Bucket { get; set; }
     public string? StorageObjectKey { get; set; }
+    public string? OriginalFileName { get; set; }
+    public string? StoredFileName { get; set; }
+    public DateTimeOffset? UploadedAtUtc { get; set; }
+    public string? UploadedByUserId { get; set; }
+    public UserRole? UploadedByRole { get; set; }
+    public bool IsDeleted { get; set; }
+    public long DownloadCount { get; set; }
+    public DateTimeOffset? LastDownloadedAtUtc { get; set; }
     public string? Description { get; set; }
     public DateTimeOffset CapturedAtUtc { get; set; }
     public DateTimeOffset RegisteredAtUtc { get; set; }

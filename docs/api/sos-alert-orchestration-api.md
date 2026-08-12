@@ -156,4 +156,4 @@ La seleccion de canales es la misma de Notifications API:
 
 ## Fuera De Alcance
 
-No implementa WhatsApp real, pagos, PDF, evidencia binaria, realtime, ML, distributed lock, CORS ni cambios de deploy.
+No implementa WhatsApp real, pagos, PDF, realtime, ML, distributed lock, CORS ni cambios de deploy. La evidencia binaria se gestiona por Evidence Attachments API despues de crear el incidente.

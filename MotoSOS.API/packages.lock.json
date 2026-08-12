@@ -2,6 +2,15 @@
   "version": 1,
   "dependencies": {
     "net9.0": {
+      "AWSSDK.S3": {
+        "type": "Direct",
+        "requested": "[3.7.414.4, )",
+        "resolved": "3.7.414.4",
+        "contentHash": "k6txrfWznx//6pLaY6FlPjataK4EABKIosgEcRZAVeDa0/1dCyqUGQEYjoH04MBDzrPWlcEbyM+t1acMPL4tpw==",
+        "dependencies": {
+          "AWSSDK.Core": "[3.7.402, 4.0.0)"
+        }
+      },
       "BCrypt.Net-Next": {
         "type": "Direct",
         "requested": "[4.2.0, )",
@@ -83,6 +92,11 @@
           "System.Buffers": "4.6.1",
           "ZstdSharp.Port": "0.7.3"
         }
+      },
+      "AWSSDK.Core": {
+        "type": "Transitive",
+        "resolved": "3.7.402",
+        "contentHash": "ALsX3gul5Q1HgDmKUhF1McPbLaVwIZb34garD28vOMaaVof/SeYzj+ViOMe7mDW/gJdOSnRDUmaAuD1EcKHxgA=="
       },
       "DnsClient": {
         "type": "Transitive",

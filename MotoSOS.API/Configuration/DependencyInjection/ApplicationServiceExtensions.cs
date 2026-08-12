@@ -67,6 +67,10 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<ITelemetrySummaryService, TelemetrySummaryService>();
         services.AddScoped<IEvidenceAttachmentService, EvidenceAttachmentService>();
+        services.Configure<EvidenceStorageOptions>(configuration.GetSection(EvidenceStorageOptions.SectionName));
+        services.AddScoped<IEvidenceFileStorageProvider, DigitalOceanSpacesEvidenceStorageProvider>();
+        services.AddSingleton<EvidenceFileValidator>();
+        services.AddSingleton<EvidenceStorageOptionsValidator>();
         services.AddScoped<IResolutionReportExportService, ResolutionReportExportService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();

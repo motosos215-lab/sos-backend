@@ -1,38 +1,39 @@
 # Evidence Attachments API
 
-Evidence Attachments API registra metadata segura de evidencias asociadas a casos de emergencia. En esta etapa no recibe ni entrega archivos reales.
+Evidence Attachments API registra metadata segura de evidencias y ahora soporta carga/descarga binaria real para evidencias asociadas a incidentes.
 
 ## Alcance
 
 - Coleccion MongoDB: `evidenceAttachments`.
-- Metadata only.
-- Un registro apunta a exactamente un target principal.
-- Targets permitidos: `Incident`, `AlertDispatch`, `EmergencyResolutionReport`.
-- Idempotencia por owner Rider, `clientEvidenceId`, `targetType` y `targetId`.
-- Soft delete solo para Rider.
+- Endpoints metadata-only existentes siguen disponibles y compatibles.
+- Upload binario usa `multipart/form-data`; no acepta Base64 ni URLs externas.
+- Los bytes se guardan en storage externo compatible S3; no se guardan en MongoDB ni en disco local permanente.
+- Descarga segura pasa por la API y devuelve stream binario; no se devuelven URLs firmadas.
 
-## Fuera De Alcance
+## Storage
 
-No implementa carga multipart real, descarga real, almacenamiento binario, GridFS, storage externo, URLs firmadas reales, OCR, procesamiento de imagen/video/audio, ML real, tracking en vivo, mapa en tiempo real, proveedores reales, SDKs externos, pagos ni pairing API de smartwatch.
+Proveedor implementado: `DigitalOceanSpaces` mediante API S3 compatible.
 
-## Autor Y Propiedad
+Variables:
 
-- `userId` representa al Rider duenio del caso.
-- `registeredByUserId` representa al usuario autenticado que registro la evidencia.
-- `registeredByRole` puede ser `Rider` o `Monitor`.
-- Estos campos no se aceptan desde el body.
+```text
+EvidenceStorage__Enabled=true
+EvidenceStorage__Provider=DigitalOceanSpaces
+EvidenceStorage__Bucket=
+EvidenceStorage__Region=
+EvidenceStorage__ServiceUrl=https://REGION.digitaloceanspaces.com
+EvidenceStorage__AccessKey=
+EvidenceStorage__SecretKey=
+EvidenceStorage__BasePath=evidence
+EvidenceStorage__UsePathStyle=false
+EvidenceStorage__MaxFileSizeBytes=10485760
+```
 
-## Target Unico
-
-Debe venir uno y solo uno:
-
-- `incidentId`
-- `alertDispatchId`
-- `emergencyResolutionReportId`
-
-Si vienen cero o mas de uno, devuelve `validation_error`.
+`AccessKey` y `SecretKey` deben ser secret variables. La API no expone bucket, object key, rutas internas, credenciales ni URLs firmadas en respuestas publicas.
 
 ## Endpoints
+
+Metadata-only:
 
 - `POST /api/v1/rider/evidence-attachments`
 - `POST /api/v1/monitor/evidence-attachments`
@@ -42,50 +43,114 @@ Si vienen cero o mas de uno, devuelve `validation_error`.
 - `GET /api/v1/admin/evidence-attachments`
 - `GET /api/v1/admin/evidence-attachments/{id}`
 
-## Permisos
+Binarios:
 
-- Rider registra, lista, consulta y aplica soft delete solo sobre evidencia propia.
-- Monitor registra solo si esta asignado al caso mediante contacto vinculado y delivery attempt relacionado.
-- Admin solo consulta.
-- Admin no registra ni modifica evidencia en esta etapa.
+- `POST /api/v1/rider/evidence-attachments/upload`
+- `GET /api/v1/rider/evidence-attachments/{id}/download`
+- `POST /api/v1/monitor/evidence-attachments/upload`
+- `GET /api/v1/monitor/evidence-attachments/{id}/download`
+- `GET /api/v1/admin/evidence-attachments/{id}/download`
 
-## Request
+## Upload Multipart
+
+Content type: `multipart/form-data`.
+
+Campos:
+
+- `file`: requerido.
+- `incidentId`: requerido.
+- `description`: opcional.
+- `evidenceType`, `type` o `category`: opcional; default `Photo`.
+- `clientEvidenceId`: opcional para idempotencia movil.
+
+Ejemplo:
+
+```text
+POST /api/v1/rider/evidence-attachments/upload
+Content-Type: multipart/form-data
+
+file=@photo.jpg
+incidentId=incident-id
+description=Foto del incidente
+evidenceType=Photo
+clientEvidenceId=98a9dd9a-0db6-45af-9f37-1abdadce1111
+```
+
+Respuesta exitosa usa wrapper JSON:
 
 ```json
 {
-  "incidentId": "incident-id",
-  "clientEvidenceId": "mobile-evidence-001",
-  "evidenceType": "Photo",
-  "source": "RiderMobileApp",
-  "fileName": "incident-photo-001.jpg",
-  "contentType": "image/jpeg",
-  "sizeBytes": 245120,
-  "sha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "clientStorageReference": "local://evidence/incident-photo-001.jpg",
-  "storageProvider": "None",
-  "description": "Registered from mobile app. File bytes are not uploaded in this API stage.",
-  "capturedAtUtc": "2026-08-09T18:30:00Z",
-  "metadata": {
-    "camera": "rear",
-    "quality": "medium"
+  "success": true,
+  "data": {
+    "evidenceAttachment": {
+      "id": "...",
+      "incidentId": "incident-id",
+      "fileName": "photo.jpg",
+      "contentType": "image/jpeg",
+      "sizeBytes": 12345,
+      "sha256Hash": "...",
+      "storageProvider": "DigitalOceanSpaces"
+    },
+    "isDuplicate": false
   }
 }
 ```
 
-## Validaciones
+## Idempotencia Multipart
 
-- `fileName` es requerido, maximo 255, solo nombre de archivo sin ruta.
-- `contentType` es requerido, maximo 150, solo metadata.
-- `sizeBytes` es requerido, minimo `1`, maximo `50 MB`, solo tamanio declarado por cliente.
-- `sha256Hash` es opcional; si viene debe ser hex SHA-256 de 64 caracteres.
-- `capturedAtUtc` es requerido y no puede venir mas de 2 minutos en el futuro.
-- `description` maximo 1000.
-- `clientStorageReference` maximo 500 y no se usa para descargar nada.
-- Campos como `base64`, `fileContent`, `imageBytes`, `videoBytes` y `audioBytes` se rechazan.
+- `clientEvidenceId` es opcional.
+- Si viene, se valida como string seguro y se guarda en metadata.
+- La llave logica es `userId + incidentId + clientEvidenceId`.
+- Si llega el mismo `clientEvidenceId` con el mismo archivo, responde success con la evidencia existente e `isDuplicate=true`.
+- Si llega el mismo `clientEvidenceId` con archivo diferente, responde `409` con `code = evidence_upload_conflict`.
+- Si no viene `clientEvidenceId`, cada upload crea una evidencia nueva.
+
+## Validaciones De Archivo
+
+- Archivo requerido.
+- Tamaño mayor a `0`.
+- Tamaño menor o igual a `EvidenceStorage__MaxFileSizeBytes`.
+- Content types permitidos: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`, `text/plain`.
+- Extensiones permitidas: `.jpg`, `.jpeg`, `.png`, `.webp`, `.pdf`, `.txt`.
+- Se rechazan ejecutables, scripts, HTML, SVG, comprimidos, `application/octet-stream`, archivos sin extension segura y nombres con path traversal.
+- Se calcula SHA256 server-side.
+
+## Descarga
+
+La descarga valida permisos antes de abrir storage y devuelve archivo binario normal.
+
+Headers relevantes:
+
+- `Content-Type`: content type validado original.
+- `Content-Disposition`: attachment con filename sanitizado.
+- `Cache-Control: no-store, no-cache`.
+
+Errores usan wrapper JSON. Archivo faltante en storage responde error controlado `evidence_file_not_available`.
+
+## Permisos
+
+- Rider sube y descarga solo evidencias de sus propios incidentes.
+- Monitor sube y descarga solo si tiene relacion con el incidente mediante contacto vinculado y notification delivery attempt relacionado.
+- Admin consulta y descarga evidencias.
+- No se exponen evidencias de otros incidentes.
 
 ## Metadata
 
-`metadata` es diccionario string/string. Se sanitizan claves case-insensitive y se descartan claves sensibles o con contenido binario. Valores mayores a 200 caracteres se truncan.
+Mongo guarda metadata, no bytes:
+
+- `StorageProvider`
+- `OriginalFileName`
+- `StoredFileName`
+- `ContentType`
+- `SizeBytes`
+- `Sha256Hash`
+- `UploadedAtUtc`
+- `UploadedByUserId`
+- `UploadedByRole`
+- `DownloadCount`
+- `LastDownloadedAtUtc`
+
+`Bucket` y `StorageObjectKey` pueden existir internamente para operar storage, pero no se exponen en respuestas publicas.
 
 ## Auditoria
 
@@ -93,30 +158,19 @@ Acciones best-effort:
 
 - `EvidenceAttachmentRegistered`
 - `EvidenceAttachmentDeleted`
+- `EvidenceAttachmentUploaded`
+- `EvidenceAttachmentUploadFailed`
+- `EvidenceAttachmentDownloaded`
+- `EvidenceAttachmentDownloadDenied`
 
-Metadata permitida:
-
-- `evidenceAttachmentId`
-- `incidentId`
-- `alertDispatchId`
-- `emergencyResolutionReportId`
-- `evidenceType`
-- `source`
-- `status`
-- `sizeBytes`
-- `targetType`
-- `registeredByRole`
+No se auditan bytes, body, AccessKey, SecretKey, object key completo, bucket, rutas internas ni URLs firmadas.
 
 ## Pendientes Futuros
 
-- Upload real multipart.
-- Storage externo.
-- URLs firmadas.
+- URLs firmadas para cliente.
+- CDN.
 - Antivirus scanning.
+- OCR.
 - Procesamiento de imagen/video/audio.
-- Politicas de retencion.
-- Exportacion junto con resolution report.
-
-## Relacion Con Resolution Report Export
-
-Resolution Report Export API puede incluir EvidenceSummary con metadata segura de evidencias. No incluye referencias locales, storage keys, metadata completa ni contenido binario.
+- Miniaturas.
+- Politicas de retencion fisica por storage.
