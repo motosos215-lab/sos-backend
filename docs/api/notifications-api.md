@@ -100,9 +100,9 @@ En esta etapa `attemptNumber = 1`. Existe indice unico en `IdempotencyKey`. Si s
 
 ## Provider Abstraction
 
-Notification Outbox procesa attempts mediante `NotificationProviderResolver`. `Sms` y `Email` usan `SimulatedNotificationProvider`. `Push` usa FCM si `Notifications:Providers:Fcm:Enabled = true`; si no, usa el provider simulado.
+Notification Outbox procesa attempts mediante `NotificationProviderResolver`. `Sms` usa `SimulatedNotificationProvider`. `Push` usa FCM si `Notifications:Providers:Fcm:Enabled = true`; si no, usa el provider simulado. `Email` usa SMTP/Brevo si `Notifications:Providers:Email:Enabled = true`; si no, usa el provider simulado.
 
-La abstraccion no cambia endpoints publicos, responses ni transiciones existentes. SMS y Email reales quedan pendientes para fases futuras.
+La abstraccion no cambia endpoints publicos, responses ni transiciones existentes. SMS real queda pendiente para fases futuras.
 
 ## Transiciones
 
@@ -145,7 +145,8 @@ La abstraccion no cambia endpoints publicos, responses ni transiciones existente
 - No devuelve tokens de proveedores.
 - No devuelve tokens de proveedores.
 - Push puede enviarse con FCM cuando esta habilitado y configurado.
-- No envia SMS, correo ni mensajeria real.
+- Email puede enviarse por SMTP/Brevo cuando esta habilitado y configurado.
+- No envia SMS ni mensajeria instantanea real.
 - No devuelve datos de pagos ni proveedores externos.
 
 ## MongoDB
@@ -183,7 +184,6 @@ curl -X POST "$BASE_URL/api/v1/notifications/delivery-attempts/prepare" \
 
 - SMS real.
 - Mensajeria instantanea.
-- Email real.
 - Escalamiento.
 - Acknowledgement de contacto/monitor.
 - Live Monitoring.

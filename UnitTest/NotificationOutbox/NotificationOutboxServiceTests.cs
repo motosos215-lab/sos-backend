@@ -154,6 +154,31 @@ public sealed class NotificationOutboxServiceTests
     }
 
     [Fact]
+    public async Task EmailProviderResultMarksAttemptAsLegacySentWithEmailProvider()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared); prepared.Channel = NotificationChannel.Email; prepared.ContactEmail = "monitor@example.com"; var attempts = new Attempts(prepared);
+
+        RunNotificationOutboxResponse response = await Service(User(UserRole.Admin), attempts, providers: new StaticResolver(new StaticProvider(new NotificationProviderResult(NotificationProviderType.Email, NotificationProviderChannel.Email, NotificationProviderDeliveryStatus.Sent, "email-message", "email-sent", null, null, Now, null)))).RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+
+        response.SimulatedSent.Should().Be(1);
+        prepared.Status.Should().Be(NotificationDeliveryStatus.SimulatedSent);
+        prepared.Provider.Should().Be(NotificationProvider.Email);
+        prepared.ProviderMessageId.Should().Be("email-message");
+    }
+
+    [Fact]
+    public async Task EmailProviderFailureMarksAttemptFailedWithEmailProvider()
+    {
+        var prepared = Attempt(NotificationDeliveryStatus.Prepared); prepared.Channel = NotificationChannel.Email; var attempts = new Attempts(prepared);
+
+        await Service(User(UserRole.Admin), attempts, providers: new StaticResolver(new StaticProvider(new NotificationProviderResult(NotificationProviderType.Email, NotificationProviderChannel.Email, NotificationProviderDeliveryStatus.Failed, null, "email-failed", "email_provider_failed", "safe", null, Now)))).RunAsync("admin", new RunNotificationOutboxRequest(20, false), CancellationToken.None);
+
+        prepared.Status.Should().Be(NotificationDeliveryStatus.Failed);
+        prepared.Provider.Should().Be(NotificationProvider.Email);
+        prepared.FailureReason.Should().Be("email_provider_failed");
+    }
+
+    [Fact]
     public async Task AuditFailureDoesNotBreakRunOrRetry()
     {
         var failed = Attempt(NotificationDeliveryStatus.Failed);
