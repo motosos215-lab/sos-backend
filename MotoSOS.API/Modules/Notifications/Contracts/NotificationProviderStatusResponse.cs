@@ -7,4 +7,8 @@ public sealed record NotificationProviderStatusResponse(
     bool FcmProjectIdConfigured,
     string FcmCredentialSource,
     bool RealPushEnabled,
+    bool EmailProviderEnabled,
+    bool EmailProviderConfigured,
+    string EmailConfiguredSource,
+    bool RealEmailEnabled,
     IReadOnlyList<string> Warnings);

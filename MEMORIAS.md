@@ -1,5 +1,16 @@
 # Memorias Tecnicas
 
+## Emergency Email Notification Provider
+
+- Emergency Email Notification Provider agrega envio SMTP/Brevo para `NotificationDeliveryAttempt` con `Channel = Email` desde Notification Outbox.
+- La configuracion es separada de Auth Codes bajo `Notifications:Providers:Email` y usa variables DigitalOcean `Notifications__Providers__Email__Enabled`, `FromEmail`, `FromName`, `SmtpHost`, `SmtpPort`, `SmtpUsername`, `SmtpPassword` y `UseSsl`.
+- Aunque Brevo pueda compartir credenciales operativas con Auth Codes, la API no reutiliza directamente el provider de Auth Codes ni mezcla OTP con emergency notifications.
+- Si Email real se envia correctamente, el attempt conserva estado legacy `SimulatedSent` por compatibilidad y queda con `Provider = Email`.
+- Si Email falla o falta configuracion, el attempt queda `Failed`, `Provider = Email` y `FailureReason` controlado sin exponer SMTP host, username, password, body, destinatario completo ni configuracion.
+- Si `Notifications:Providers:Email:Enabled=false`, el canal `Email` sigue usando `SimulatedNotificationProvider`.
+- `GET /api/v1/admin/notifications/providers/status` reporta estado seguro de Email (`emailProviderEnabled`, `emailProviderConfigured`, `emailConfiguredSource`, `realEmailEnabled`) sin credenciales.
+- Notification Preferences siguen controlando si se crean attempts `Email` para monitores enlazados; Auth Codes no dependen de estas preferencias.
+
 ## Notification Preferences API
 
 - Notification Preferences API agrega `GET /api/v1/notification-preferences/me` y `PUT /api/v1/notification-preferences/me` para que `Rider`, `Monitor` y `Admin` administren solo sus propias preferencias.

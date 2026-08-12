@@ -10,14 +10,18 @@ namespace MotoSOS.API.Modules.Notifications.Application;
 public sealed class NotificationProviderStatusService : INotificationProviderStatusService
 {
     private readonly IUserRepository _users;
-    private readonly FcmNotificationProviderOptions _options;
-    private readonly FcmNotificationProviderOptionsValidator _validator;
+    private readonly FcmNotificationProviderOptions _fcmOptions;
+    private readonly EmailNotificationProviderOptions _emailOptions;
+    private readonly FcmNotificationProviderOptionsValidator _fcmValidator;
+    private readonly EmailNotificationProviderOptionsValidator _emailValidator;
 
-    public NotificationProviderStatusService(IUserRepository users, IOptions<FcmNotificationProviderOptions> options, FcmNotificationProviderOptionsValidator validator)
+    public NotificationProviderStatusService(IUserRepository users, IOptions<FcmNotificationProviderOptions> fcmOptions, IOptions<EmailNotificationProviderOptions> emailOptions, FcmNotificationProviderOptionsValidator fcmValidator, EmailNotificationProviderOptionsValidator emailValidator)
     {
         _users = users;
-        _options = options.Value;
-        _validator = validator;
+        _fcmOptions = fcmOptions.Value;
+        _emailOptions = emailOptions.Value;
+        _fcmValidator = fcmValidator;
+        _emailValidator = emailValidator;
     }
 
     public async Task<NotificationProviderStatusResponse> GetAsync(string adminUserId, CancellationToken cancellationToken)
@@ -25,7 +29,8 @@ public sealed class NotificationProviderStatusService : INotificationProviderSta
         User? user = await _users.GetByIdAsync(adminUserId, cancellationToken);
         if (user is null || !user.IsActive) throw new UnauthorizedAppException("Invalid authentication credentials.");
         if (user.Role != UserRole.Admin) throw new ForbiddenAppException("Notification provider status is available only for admins.");
-        FcmProviderConfigurationStatus status = _validator.Validate(_options);
-        return new NotificationProviderStatusResponse(true, status.Enabled, status.Configured, status.ProjectIdConfigured, status.CredentialSource, status.Enabled && status.Configured, status.Warnings);
+        FcmProviderConfigurationStatus fcm = _fcmValidator.Validate(_fcmOptions);
+        EmailProviderConfigurationStatus email = _emailValidator.Validate(_emailOptions);
+        return new NotificationProviderStatusResponse(true, fcm.Enabled, fcm.Configured, fcm.ProjectIdConfigured, fcm.CredentialSource, fcm.Enabled && fcm.Configured, email.Enabled, email.Configured, email.ConfiguredSource, email.Enabled && email.Configured, fcm.Warnings.Concat(email.Warnings).ToArray());
     }
 }

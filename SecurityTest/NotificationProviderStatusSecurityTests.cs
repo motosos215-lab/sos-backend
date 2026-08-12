@@ -17,6 +17,9 @@ namespace SecurityTest;
 
 public sealed class NotificationProviderStatusSecurityTests
 {
+    private const string SmtpSecret = "smtp-secret-value";
+    private const string SmtpUser = "smtp-user-secret";
+
     [Fact]
     public async Task ProviderStatusDoesNotExposeFcmCredentialValues()
     {
@@ -30,11 +33,18 @@ public sealed class NotificationProviderStatusSecurityTests
         ProviderStatusEnvelope status = (await response.Content.ReadFromJsonAsync<ProviderStatusEnvelope>())!;
 
         status.Data.FcmCredentialSource.Should().Be("environment_json_base64");
+        status.Data.EmailConfiguredSource.Should().Be("environment_smtp");
         body.Should().Contain("environment_json_base64");
+        body.Should().Contain("environment_smtp");
         body.Should().NotContain(encodedJson);
         body.Should().NotContain(decodedJson);
+        body.Should().NotContain(SmtpSecret);
+        body.Should().NotContain(SmtpUser);
+        body.Should().NotContain("smtp.example.test");
         body.Should().NotContain("ServiceAccountJson");
         body.Should().NotContain("ServiceAccountJsonBase64");
+        body.Should().NotContain("SmtpPassword");
+        body.Should().NotContain("SmtpUsername");
         body.Should().NotContain(keyName);
     }
 
@@ -49,7 +59,7 @@ public sealed class NotificationProviderStatusSecurityTests
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Data.AccessToken);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(Stores stores, string encodedJson) => new WebApplicationFactory<Program>().WithWebHostBuilder(builder => { builder.UseEnvironment("Testing"); builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Issuer"] = "MotoSOS", ["Jwt:Audience"] = "MotoSOS.Clients", ["Jwt:Key"] = new string('S', 48), ["Jwt:AccessTokenMinutes"] = "15", ["Jwt:RefreshTokenDays"] = "7", ["Jwt:RefreshTokenRememberMeDays"] = "30", ["MongoDb:" + "Connection" + "String"] = string.Empty, ["MongoDb:DatabaseName"] = "MotoSOS_Test", ["Notifications:Providers:Fcm:Enabled"] = "true", ["Notifications:Providers:Fcm:ProjectId"] = "test-project", ["Notifications:Providers:Fcm:ServiceAccountJsonBase64"] = encodedJson })); builder.ConfigureTestServices(services => { services.AddSingleton<IUserRepository>(stores.Users); services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens); }); });
+    private static WebApplicationFactory<Program> CreateFactory(Stores stores, string encodedJson) => new WebApplicationFactory<Program>().WithWebHostBuilder(builder => { builder.UseEnvironment("Testing"); builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Issuer"] = "MotoSOS", ["Jwt:Audience"] = "MotoSOS.Clients", ["Jwt:Key"] = new string('S', 48), ["Jwt:AccessTokenMinutes"] = "15", ["Jwt:RefreshTokenDays"] = "7", ["Jwt:RefreshTokenRememberMeDays"] = "30", ["MongoDb:" + "Connection" + "String"] = string.Empty, ["MongoDb:DatabaseName"] = "MotoSOS_Test", ["Notifications:Providers:Fcm:Enabled"] = "true", ["Notifications:Providers:Fcm:ProjectId"] = "test-project", ["Notifications:Providers:Fcm:ServiceAccountJsonBase64"] = encodedJson, ["Notifications:Providers:Email:Enabled"] = "true", ["Notifications:Providers:Email:FromEmail"] = "alerts@example.com", ["Notifications:Providers:Email:FromName"] = "MotoSOS", ["Notifications:Providers:Email:SmtpHost"] = "smtp.example.test", ["Notifications:Providers:Email:SmtpPort"] = "587", ["Notifications:Providers:Email:SmtpUsername"] = SmtpUser, ["Notifications:Providers:Email:SmtpPassword"] = SmtpSecret, ["Notifications:Providers:Email:UseSsl"] = "true" })); builder.ConfigureTestServices(services => { services.AddSingleton<IUserRepository>(stores.Users); services.AddSingleton<IRefreshTokenRepository>(stores.RefreshTokens); }); });
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
     private sealed record ProviderStatusEnvelope(bool Success, NotificationProviderStatusResponse Data);
     private sealed class Stores { public Users Users { get; } = new(); public RefreshTokens RefreshTokens { get; } = new(); }

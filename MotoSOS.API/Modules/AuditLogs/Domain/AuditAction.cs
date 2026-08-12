@@ -45,5 +45,7 @@ public enum AuditAction
     PushNotificationTokenRevoked = 40,
     NotificationProviderFcmSent = 41,
     NotificationProviderFcmFailed = 42,
-    NotificationProviderFcmSkipped = 43
+    NotificationProviderFcmSkipped = 43,
+    NotificationProviderEmailSent = 44,
+    NotificationProviderEmailFailed = 45
 }

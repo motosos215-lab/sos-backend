@@ -145,7 +145,7 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         try
         {
             INotificationProvider provider = _providers.Resolve(channel);
-            return await provider.SendAsync(new NotificationProviderRequest(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, channel, simulateFailures), cancellationToken);
+            return await provider.SendAsync(new NotificationProviderRequest(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, channel, simulateFailures, attempt.ContactEmail), cancellationToken);
         }
         catch (Exception)
         {
@@ -157,8 +157,10 @@ public sealed class NotificationOutboxService : INotificationOutboxService
     {
         AuditAction action = result.ProviderType == NotificationProviderType.Fcm
             ? result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderFcmSent : AuditAction.NotificationProviderFcmFailed
+            : result.ProviderType == NotificationProviderType.Email
+            ? result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderEmailSent : AuditAction.NotificationProviderEmailFailed
             : result.DeliveryStatus == NotificationProviderDeliveryStatus.Sent ? AuditAction.NotificationProviderSimulatedSent : AuditAction.NotificationProviderSimulatedFailed;
-        IReadOnlyDictionary<string, string> metadata = result.ProviderType == NotificationProviderType.Fcm
+        IReadOnlyDictionary<string, string> metadata = result.ProviderType == NotificationProviderType.Fcm || result.ProviderType == NotificationProviderType.Email
             ? new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["provider"] = result.ProviderType.ToString(), ["channel"] = attempt.Channel.ToString(), ["status"] = result.DeliveryStatus.ToString(), ["failureCode"] = result.ErrorCode ?? string.Empty }
             : new Dictionary<string, string> { ["notificationDeliveryAttemptId"] = attempt.Id, ["alertDispatchId"] = attempt.AlertDispatchId, ["incidentId"] = attempt.IncidentId, ["channel"] = attempt.Channel.ToString(), ["providerType"] = result.ProviderType.ToString(), ["deliveryStatus"] = result.DeliveryStatus.ToString(), ["providerMessageId"] = result.ProviderMessageId ?? string.Empty, ["errorCode"] = result.ErrorCode ?? string.Empty };
         await RecordAsync(userId, role, action, "NotificationDeliveryAttempt", attempt.Id, result.ErrorCode, metadata, cancellationToken);
@@ -183,7 +185,12 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         return $"{state.LastErrorCode}: {state.LastErrorMessage}";
     }
 
-    private static NotificationProvider MapProvider(NotificationProviderType providerType) => providerType == NotificationProviderType.Fcm ? NotificationProvider.Fcm : NotificationProvider.Simulated;
+    private static NotificationProvider MapProvider(NotificationProviderType providerType) => providerType switch
+    {
+        NotificationProviderType.Fcm => NotificationProvider.Fcm,
+        NotificationProviderType.Email => NotificationProvider.Email,
+        _ => NotificationProvider.Simulated
+    };
     private static bool TryMapChannel(NotificationChannel channel, out NotificationProviderChannel providerChannel)
     {
         providerChannel = channel switch

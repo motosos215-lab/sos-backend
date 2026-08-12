@@ -8,7 +8,7 @@ MotoSOS API es la API central del producto. Actualmente expone flujos funcionale
 
 La API usa JSON con propiedades en `camelCase` y responde normalmente mediante el wrapper estandar `ApiResponse<T>`.
 
-La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, mientras SMS, email y WhatsApp reales siguen fuera de alcance.
+La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, `Email` usa SMTP/Brevo si el provider Email esta habilitado/configurado, mientras SMS y WhatsApp reales siguen fuera de alcance.
 
 Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
 
@@ -18,7 +18,7 @@ Las preferencias de notificacion propias se administran con `/api/v1/notificatio
 
 `Monitor`: contacto/monitor de emergencia. Puede consultar alertas asignadas, ver estado/ubicacion/reporte de una emergencia asignada y responder con view, acknowledge o decline.
 
-`Admin`: operador administrativo. Puede consultar dashboard operacional y ejecutar herramientas admin del notification outbox simulado. El Admin inicial se crea solo por `AdminBootstrap` privado de arranque; el registro publico no permite crear Admin.
+`Admin`: operador administrativo. Puede consultar dashboard operacional y ejecutar herramientas admin del notification outbox. El Admin inicial se crea solo por `AdminBootstrap` privado de arranque; el registro publico no permite crear Admin.
 
 Los endpoints declaran `RequireAuthorization()` cuando requieren token. El rol efectivo se valida en la capa de servicio para los flujos Rider, Monitor y Admin.
 
@@ -180,7 +180,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | GET | `/api/v1/rider/emergencies/{incidentId}/resolution-report` | Rider | Obtener reporte propio | Funcional |
 | GET | `/api/v1/rider/emergencies/resolution-reports` | Rider | Listar reportes propios | Funcional |
 | GET | `/api/v1/monitor/alerts/{notificationDeliveryAttemptId}/resolution-report` | Monitor | Ver reporte de alerta asignada | Funcional |
-| POST | `/api/v1/admin/notifications/outbox/run` | Admin | Procesar outbox manual | Funcional, Push usa FCM si esta habilitado |
+| POST | `/api/v1/admin/notifications/outbox/run` | Admin | Procesar outbox manual | Funcional, Push usa FCM y Email usa SMTP si estan habilitados |
 | GET | `/api/v1/admin/notifications/outbox/status` | Admin | Consultar conteos de outbox | Funcional |
 | GET | `/api/v1/admin/notifications/outbox/worker/status` | Admin | Consultar configuracion efectiva y ultima corrida del worker | Funcional |
 | GET | `/api/v1/admin/notifications/providers/status` | Admin | Consultar estado seguro de providers de notificacion | Funcional |
@@ -753,7 +753,7 @@ El backend actual no envia mensajes reales. El flujo disponible es operacional y
 
 `POST /api/v1/notifications/delivery-attempts/prepare` crea registros `NotificationDeliveryAttempts` en estado `Prepared` para los contactos aplicables.
 
-`POST /api/v1/admin/notifications/outbox/run` procesa attempts `Prepared` y los marca como `SimulatedSent` cuando `simulateFailures` es `false`.
+`POST /api/v1/admin/notifications/outbox/run` procesa attempts `Prepared` y los marca como `SimulatedSent` cuando `simulateFailures` es `false`. El envio real se distingue por `provider = Fcm` o `provider = Email`.
 
 Cuando `simulateFailures` es `true`, los attempts seleccionados pasan a `Failed` con razon `simulated_failure_requested`.
 
@@ -809,13 +809,9 @@ El outbox no crea acknowledgements, no crea resolution reports, no cierra incide
 Los siguientes puntos estan fuera de alcance del backend actual y no deben asumirse como disponibles:
 
 - SMS real.
-- Email real.
-- Push real.
 - WhatsApp real.
 - Twilio.
 - SendGrid.
-- FCM.
-- Worker real.
 - WebSockets.
 - SignalR.
 - Tracking en vivo.

@@ -4,7 +4,7 @@
 
 SOS Alert Orchestration API simplifica el flujo movil de emergencia en un solo endpoint. No reemplaza los endpoints individuales de Incidents, Alert Dispatch ni Notifications; solo los orquesta para que la app movil no tenga que llamar manualmente tres endpoints separados.
 
-El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente. Cuando el worker procesa attempts `Push`, usa FCM si `Notifications:Providers:Fcm` esta habilitado/configurado; SMS y Email siguen simulados.
+El endpoint no envia notificaciones directamente. Solo deja `NotificationDeliveryAttempts` en estado `Prepared`. El envio posterior sigue separado y lo procesa el outbox worker si esta habilitado o `POST /api/v1/admin/notifications/outbox/run` si se ejecuta manualmente. Cuando el worker procesa attempts, `Push` usa FCM si `Notifications:Providers:Fcm` esta habilitado/configurado, `Email` usa SMTP/Brevo si `Notifications:Providers:Email` esta habilitado/configurado y SMS sigue simulado.
 
 Para SOS offline, Android debe usar `POST /api/v1/mobile/offline-ingestion/batch` con item `type = offline-sos-alert`. Ese flujo reutiliza internamente esta misma orquestacion durante Offline Processing.
 
@@ -146,14 +146,14 @@ La seleccion de canales es la misma de Notifications API:
 - No devuelve tokens FCM reales.
 - No devuelve `tokenValue` ni `tokenHash`.
 - No devuelve credenciales de providers.
-- No ejecuta proveedores externos directamente.
+- No ejecuta proveedores externos directamente; el outbox lo hace despues si esta habilitado.
 
 ## Operacion Admin
 
 - `GET /api/v1/admin/notifications/outbox/status`: conteos globales por estado.
 - `GET /api/v1/admin/notifications/outbox/worker/status`: configuracion efectiva segura y ultima corrida del worker.
-- `GET /api/v1/admin/notifications/providers/status`: estado seguro de providers, incluido FCM sin credenciales.
+- `GET /api/v1/admin/notifications/providers/status`: estado seguro de providers, incluidos FCM y Email sin credenciales.
 
 ## Fuera De Alcance
 
-No implementa SMS real, email real, WhatsApp real, pagos, PDF, evidencia binaria, realtime, ML, distributed lock, CORS ni cambios de deploy.
+No implementa SMS real, WhatsApp real, pagos, PDF, evidencia binaria, realtime, ML, distributed lock, CORS ni cambios de deploy.
