@@ -17,6 +17,7 @@ using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.MinorEvents.Application;
 using MotoSOS.API.Modules.NotificationOutbox.Application;
 using MotoSOS.API.Modules.NotificationOutbox.Worker;
+using MotoSOS.API.Modules.NotificationPreferences.Application;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Providers;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
@@ -77,6 +78,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAuditLogRetentionService, AuditLogRetentionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
         services.AddScoped<ICreateSosAlertService, CreateSosAlertService>();
         services.AddScoped<INotificationProviderStatusService, NotificationProviderStatusService>();
         services.AddScoped<IPushNotificationTokenService, PushNotificationTokenService>();
