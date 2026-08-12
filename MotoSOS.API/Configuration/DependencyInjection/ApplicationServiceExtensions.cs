@@ -86,7 +86,10 @@ public static class ApplicationServiceExtensions
         services.Configure<NotificationOutboxWorkerOptions>(configuration.GetSection(NotificationOutboxWorkerOptions.SectionName));
         services.AddSingleton<INotificationOutboxWorkerStateStore, InMemoryNotificationOutboxWorkerStateStore>();
         services.AddHostedService<NotificationOutboxWorker>();
+        services.Configure<EmailNotificationProviderOptions>(configuration.GetSection(EmailNotificationProviderOptions.SectionName));
         services.AddScoped<SimulatedNotificationProvider>();
+        services.AddScoped<EmailNotificationProvider>();
+        services.AddScoped<IEmailNotificationSender, SmtpEmailNotificationSender>();
         services.AddScoped<FcmNotificationProvider>();
         services.AddScoped<IFcmPushClient, FirebaseFcmPushClient>();
         services.AddScoped<IPushNotificationRecipientResolver, PushNotificationRecipientResolver>();
@@ -114,6 +117,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<RegisterPushNotificationTokenRequestValidator>();
         services.AddSingleton<PushNotificationTokenQueryValidator>();
         services.AddSingleton<FcmNotificationProviderOptionsValidator>();
+        services.AddSingleton<EmailNotificationProviderOptionsValidator>();
         services.AddSingleton<OperationalDashboardQueryValidator>();
         services.AddSingleton<ILinkingCodeGenerator, LinkingCodeGenerator>();
         services.AddSingleton<IActivationCodeGenerator, ActivationCodeGenerator>();

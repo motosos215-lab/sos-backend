@@ -32,6 +32,16 @@ public sealed class NotificationProviderResolverTests
     }
 
     [Fact]
+    public void EmailResolvesToEmailProviderWhenEnabled()
+    {
+        var resolver = new NotificationProviderResolver(new SimulatedNotificationProvider(new Clock()), FcmProvider(false), EmailProvider(true), Options.Create(new FcmNotificationProviderOptions { Enabled = false }), Options.Create(new EmailNotificationProviderOptions { Enabled = true }));
+
+        INotificationProvider provider = resolver.Resolve(NotificationProviderChannel.Email);
+
+        provider.ProviderType.Should().Be(NotificationProviderType.Email);
+    }
+
+    [Fact]
     public void UnsupportedChannelThrowsControlledError()
     {
         var resolver = new NotificationProviderResolver(new SimulatedNotificationProvider(new Clock()));
@@ -40,6 +50,8 @@ public sealed class NotificationProviderResolverTests
 
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => new(2026, 8, 8, 12, 0, 0, TimeSpan.Zero); }
     private static FcmNotificationProvider FcmProvider(bool enabled) => new(new Client(), new Recipients(), new FcmNotificationMessageFactory(Options.Create(new FcmNotificationProviderOptions { Enabled = enabled, ProjectId = "project", ServiceAccountJson = "{}" })), new FcmNotificationProviderOptionsValidator(), Options.Create(new FcmNotificationProviderOptions { Enabled = enabled, ProjectId = "project", ServiceAccountJson = "{}" }), new Clock());
+    private static EmailNotificationProvider EmailProvider(bool enabled) => new(new EmailSender(), new EmailNotificationProviderOptionsValidator(), Options.Create(new EmailNotificationProviderOptions { Enabled = enabled, FromEmail = "alerts@example.com", SmtpHost = "smtp.example.test", SmtpUsername = "smtp-user", SmtpPassword = "smtp-secret" }), new Clock());
     private sealed class Client : IFcmPushClient { public Task<FcmPushResult> SendAsync(FcmPushRequest request, CancellationToken cancellationToken) => Task.FromResult(new FcmPushResult(true, "message", null, null)); }
     private sealed class Recipients : IPushNotificationRecipientResolver { public Task<PushNotificationRecipientResolution> ResolveAsync(string notificationDeliveryAttemptId, CancellationToken cancellationToken) => Task.FromResult(PushNotificationRecipientResolution.Success(new PushNotificationRecipient("monitor", new PushNotificationToken { TokenValue = "token" }))); }
+    private sealed class EmailSender : IEmailNotificationSender { public Task<string?> SendAsync(EmailNotificationMessage message, EmailNotificationProviderOptions options, CancellationToken cancellationToken) => Task.FromResult<string?>("email-message"); }
 }

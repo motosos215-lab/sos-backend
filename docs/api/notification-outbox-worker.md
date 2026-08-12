@@ -2,7 +2,7 @@
 
 Notification Outbox Worker procesa automaticamente `NotificationDeliveryAttempts` en estado `Prepared` usando la misma logica segura del Notification Outbox manual.
 
-Push Notification Tokens API permite que attempts `Push` se resuelvan hacia el Monitor vinculado. Si FCM esta habilitado y configurado, el worker puede procesar Push con FCM; SMS y Email siguen simulados.
+Push Notification Tokens API permite que attempts `Push` se resuelvan hacia el Monitor vinculado. Si FCM esta habilitado y configurado, el worker puede procesar Push con FCM. Si Email provider esta habilitado y configurado, el worker puede procesar Email con SMTP/Brevo. SMS sigue simulado.
 
 Flujo final de produccion: `POST /api/v1/mobile/sos-alerts` crea incidente, alert dispatch y attempts `Prepared`; el worker procesa despues esos attempts. El endpoint SOS no ejecuta outbox ni envia notificaciones directamente.
 
@@ -12,9 +12,10 @@ Flujo final de produccion: `POST /api/v1/mobile/sos-alerts` crea incidente, aler
 - Registrado como hosted service, pero deshabilitado por defecto.
 - Usa `IServiceScopeFactory` para resolver servicios scoped durante cada ejecucion.
 - Usa `NotificationOutboxService` y `NotificationProviderResolver`.
-- `Sms` y `Email` usan provider simulado.
+- `Sms` usa provider simulado.
 - `Push` usa FCM si `Notifications:Providers:Fcm:Enabled = true`; si no, usa provider simulado.
-- No envia SMS, correo ni mensajeria instantanea real.
+- `Email` usa SMTP/Brevo si `Notifications:Providers:Email:Enabled = true`; si no, usa provider simulado.
+- No envia SMS ni mensajeria instantanea real.
 - FCM requiere configuracion segura por variables de entorno y no expone credenciales.
 
 ## Defaults
@@ -43,7 +44,7 @@ Notifications__OutboxWorker__SimulateFailures=false
 Notifications__OutboxWorker__RunOnStartup=true
 ```
 
-Para Push real tambien se requiere FCM habilitado y configurado en `Notifications:Providers:Fcm`. Si FCM no esta habilitado, `Push` usa provider simulado. `Sms` y `Email` siguen simulados.
+Para Push real tambien se requiere FCM habilitado y configurado en `Notifications:Providers:Fcm`. Para Email real se requiere SMTP habilitado y configurado en `Notifications:Providers:Email`. Si un provider no esta habilitado, usa provider simulado. `Sms` sigue simulado.
 
 ## Procesamiento
 
@@ -141,4 +142,4 @@ Metadata permitida:
 
 ## Fuera De Alcance
 
-No implementa SMS real, email real, mensajeria instantanea real, scheduler externo, tiempo real, mapa en vivo, modelos predictivos, cobros ni pairing API de smartwatch.
+No implementa SMS real, mensajeria instantanea real, scheduler externo, tiempo real, mapa en vivo, modelos predictivos, cobros ni pairing API de smartwatch.
