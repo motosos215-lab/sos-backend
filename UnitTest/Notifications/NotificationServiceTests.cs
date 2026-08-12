@@ -133,6 +133,39 @@ public sealed class NotificationServiceTests
     }
 
     [Fact]
+    public async Task PrepareCreatesSmsAttemptForLinkedMonitorWhenSmsPreferenceEnabled()
+    {
+        User user = User(UserRole.Rider);
+        AlertDispatchRequest alert = Alert(user.Id, AlertDispatchStatus.PendingDispatch, [Contact("contact", phone: "555", status: EmergencyContactInvitationStatus.Linked)]);
+        var contact = new EmergencyContact { Id = "contact", UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked, LinkedUserId = "monitor", PhoneNumber = "555" };
+        NotificationPreference preference = NotificationPreferenceService.CreateDefault("monitor", Now);
+        preference.PushEnabled = false;
+        preference.SmsEnabled = true;
+        var attempts = new Attempts();
+
+        PrepareNotificationAttemptsResponse response = await Service(user, alerts: new Alerts(alert), attempts: attempts, contacts: new Contacts(contact), preferences: new Preferences(preference)).PrepareAsync(user.Id, new PrepareNotificationAttemptsRequest(alert.Id, null), CancellationToken.None);
+
+        response.Attempts.Should().ContainSingle(a => a.Channel == "Sms");
+        attempts.Items.Should().ContainSingle(a => a.Channel == NotificationChannel.Sms);
+    }
+
+    [Fact]
+    public async Task PrepareSuppressesSmsAttemptForLinkedMonitorWhenSmsPreferenceDisabled()
+    {
+        User user = User(UserRole.Rider);
+        AlertDispatchRequest alert = Alert(user.Id, AlertDispatchStatus.PendingDispatch, [Contact("contact", phone: "555", status: EmergencyContactInvitationStatus.Linked)]);
+        var contact = new EmergencyContact { Id = "contact", UserId = user.Id, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked, LinkedUserId = "monitor", PhoneNumber = "555" };
+        NotificationPreference preference = NotificationPreferenceService.CreateDefault("monitor", Now);
+        preference.PushEnabled = false;
+        preference.SmsEnabled = false;
+        var attempts = new Attempts();
+
+        await Assert.ThrowsAsync<NotificationNotAllowedAppException>(() => Service(user, alerts: new Alerts(alert), attempts: attempts, contacts: new Contacts(contact), preferences: new Preferences(preference)).PrepareAsync(user.Id, new PrepareNotificationAttemptsRequest(alert.Id, null), CancellationToken.None));
+
+        attempts.Items.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ListGetAndStateTransitionsRespectOwnershipAndIdempotency()
     {
         User user = User(UserRole.Rider); User other = User(UserRole.Rider); NotificationDeliveryAttempt own = Attempt(user.Id, NotificationDeliveryStatus.Prepared); NotificationDeliveryAttempt otherAttempt = Attempt(other.Id, NotificationDeliveryStatus.Prepared); NotificationService service = Service(user, attempts: new Attempts(own, otherAttempt));

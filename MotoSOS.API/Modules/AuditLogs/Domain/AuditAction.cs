@@ -47,5 +47,7 @@ public enum AuditAction
     NotificationProviderFcmFailed = 42,
     NotificationProviderFcmSkipped = 43,
     NotificationProviderEmailSent = 44,
-    NotificationProviderEmailFailed = 45
+    NotificationProviderEmailFailed = 45,
+    NotificationProviderSmsSent = 46,
+    NotificationProviderSmsFailed = 47
 }
