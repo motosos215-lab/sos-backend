@@ -21,6 +21,7 @@ using MotoSOS.API.Modules.LocationSharing.Application;
 using MotoSOS.API.Modules.MinorEvents.Application;
 using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Providers;
+using MotoSOS.API.Modules.NotificationPreferences.Application;
 using MotoSOS.API.Modules.OfflineIngestion.Application;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.OperationalDashboard.Application;
@@ -94,6 +95,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IAuditLogRetentionRunRepository, MongoAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, MongoNotificationDeliveryAttemptRepository>();
             services.AddScoped<IPushNotificationTokenRepository, MongoPushNotificationTokenRepository>();
+            services.AddScoped<INotificationPreferenceRepository, MongoNotificationPreferenceRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, MongoEmergencyContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, MongoNotificationDeliveryAttemptRepository>();
             services.AddScoped<IAlertAcknowledgementRepository, MongoAlertAcknowledgementRepository>();
@@ -126,6 +128,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IAuditLogRetentionRunRepository, UnconfiguredAuditLogRetentionRunRepository>();
             services.AddScoped<INotificationDeliveryAttemptRepository, UnconfiguredNotificationDeliveryAttemptRepository>();
             services.AddScoped<IPushNotificationTokenRepository, UnconfiguredPushNotificationTokenRepository>();
+            services.AddScoped<INotificationPreferenceRepository, UnconfiguredNotificationPreferenceRepository>();
             services.AddScoped<IMonitorLinkedContactRepository, UnconfiguredMonitorLinkedContactRepository>();
             services.AddScoped<INotificationAttemptMonitorRepository, UnconfiguredNotificationAttemptMonitorRepository>();
             services.AddScoped<IAlertAcknowledgementRepository, UnconfiguredAlertAcknowledgementRepository>();

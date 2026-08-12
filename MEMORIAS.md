@@ -1,5 +1,16 @@
 # Memorias Tecnicas
 
+## Notification Preferences API
+
+- Notification Preferences API agrega `GET /api/v1/notification-preferences/me` y `PUT /api/v1/notification-preferences/me` para que `Rider`, `Monitor` y `Admin` administren solo sus propias preferencias.
+- Las preferencias se guardan en MongoDB en la coleccion `notificationPreferences` con indice unico por `UserId` y default `TimeZone = America/Mexico_City`.
+- Defaults: `PushEnabled=true`, `EmailEnabled=false`, `SmsEnabled=false`, `CriticalAlertsEnabled=true`, `TripUpdatesEnabled=true`, `SecurityAlertsEnabled=true`, `MarketingEnabled=false` y Quiet Hours deshabilitado.
+- `userId` sale siempre del JWT; propiedades extra como `userId` en body se rechazan con `validation_error`.
+- Notifications prepare aplica preferencias solo a contactos enlazados por `LinkedUserId`; contactos no enlazados mantienen el comportamiento por snapshot actual.
+- `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan attempts de canales para el Monitor enlazado; `CriticalAlertsEnabled` y Quiet Hours se guardan pero no suprimen emergency attempts en esta version.
+- Auth Codes no usan estas preferencias: password reset y access code siguen independientes aunque `EmailEnabled=false`.
+- Las respuestas no exponen FCM token, token hash/value, SMTP config, connection strings, emails, telefonos ni otros datos sensibles.
+
 ## Auth Code Email Provider
 
 - Auth Codes agrega provider SMTP real con `AuthCodes__Provider=Email` y configuracion `AuthCodes__Email__Enabled`, `FromEmail`, `FromName`, `SmtpHost`, `SmtpPort`, `SmtpUsername`, `SmtpPassword` y `UseSsl`.

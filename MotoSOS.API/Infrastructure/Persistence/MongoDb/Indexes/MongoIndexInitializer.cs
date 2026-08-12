@@ -15,6 +15,7 @@ using MotoSOS.API.Modules.Incidents.Domain;
 using MotoSOS.API.Modules.LocationSharing.Domain;
 using MotoSOS.API.Modules.MinorEvents.Domain;
 using MotoSOS.API.Modules.Notifications.Domain;
+using MotoSOS.API.Modules.NotificationPreferences.Domain;
 using MotoSOS.API.Modules.OfflineIngestion.Domain;
 using MotoSOS.API.Modules.Onboarding.Domain;
 using MotoSOS.API.Modules.Plans.Domain;
@@ -250,6 +251,10 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_tokenHash", new BsonDocument(nameof(PushNotificationToken.TokenHash), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_deviceId_status", new BsonDocument { [nameof(PushNotificationToken.DeviceId)] = 1, [nameof(PushNotificationToken.Status)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_platform_channel_status", new BsonDocument { [nameof(PushNotificationToken.Platform)] = 1, [nameof(PushNotificationToken.Channel)] = 1, [nameof(PushNotificationToken.Status)] = 1 }, unique: false, cancellationToken);
+
+        IMongoCollection<NotificationPreference> notificationPreferences = _database.GetCollection<NotificationPreference>(MongoCollectionNames.NotificationPreferences);
+        await EnsureIndexAsync(notificationPreferences, "ux_notificationPreferences_userId", new BsonDocument(nameof(NotificationPreference.UserId), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(notificationPreferences, "ix_notificationPreferences_updatedAtUtc", new BsonDocument(nameof(NotificationPreference.UpdatedAtUtc), 1), unique: false, cancellationToken);
 
         IMongoCollection<AlertAcknowledgement> alertAcknowledgements = _database.GetCollection<AlertAcknowledgement>(MongoCollectionNames.AlertAcknowledgements);
         await EnsureIndexAsync(alertAcknowledgements, "ix_alertAcknowledgements_userId", new BsonDocument(nameof(AlertAcknowledgement.UserId), 1), unique: false, cancellationToken);

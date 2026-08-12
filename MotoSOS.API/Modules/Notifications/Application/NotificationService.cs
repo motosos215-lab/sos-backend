@@ -6,6 +6,8 @@ using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.Notifications.Contracts;
 using MotoSOS.API.Modules.Notifications.Domain;
+using MotoSOS.API.Modules.NotificationPreferences.Application;
+using MotoSOS.API.Modules.NotificationPreferences.Domain;
 using MotoSOS.API.Modules.Onboarding.Application;
 using MotoSOS.API.Modules.Onboarding.Contracts;
 using MotoSOS.API.Modules.PushNotificationTokens.Application;
@@ -28,9 +30,10 @@ public sealed class NotificationService : INotificationService
     private readonly INotificationIdempotencyKeyFactory _idempotencyKeys;
     private readonly IEmergencyContactRepository _contacts;
     private readonly IPushNotificationTokenRepository _pushTokens;
+    private readonly INotificationPreferenceRepository _preferences;
     private readonly IClock _clock;
 
-    public NotificationService(IUserRepository users, IOnboardingService onboarding, IAlertDispatchRepository alertDispatches, INotificationDeliveryAttemptRepository attempts, INotificationIdempotencyKeyFactory idempotencyKeys, IEmergencyContactRepository contacts, IPushNotificationTokenRepository pushTokens, IClock clock)
+    public NotificationService(IUserRepository users, IOnboardingService onboarding, IAlertDispatchRepository alertDispatches, INotificationDeliveryAttemptRepository attempts, INotificationIdempotencyKeyFactory idempotencyKeys, IEmergencyContactRepository contacts, IPushNotificationTokenRepository pushTokens, INotificationPreferenceRepository preferences, IClock clock)
     {
         _users = users;
         _onboarding = onboarding;
@@ -39,6 +42,7 @@ public sealed class NotificationService : INotificationService
         _idempotencyKeys = idempotencyKeys;
         _contacts = contacts;
         _pushTokens = pushTokens;
+        _preferences = preferences;
         _clock = clock;
     }
 
@@ -193,20 +197,31 @@ public sealed class NotificationService : INotificationService
     private async Task<IReadOnlyList<NotificationChannel>> SelectChannelsAsync(string userId, AlertContactSnapshot snapshot, CancellationToken cancellationToken)
     {
         List<NotificationChannel> channels = [];
-        if (await CanCreatePushAttemptAsync(userId, snapshot, cancellationToken)) channels.Add(NotificationChannel.Push);
-        if (!string.IsNullOrWhiteSpace(snapshot.PhoneNumber)) channels.Add(NotificationChannel.Sms);
-        else if (!string.IsNullOrWhiteSpace(snapshot.Email)) channels.Add(NotificationChannel.Email);
+        EmergencyContact? linkedContact = await GetLinkedContactAsync(userId, snapshot, cancellationToken);
+        NotificationPreference? preference = linkedContact?.LinkedUserId is null ? null : await _preferences.GetByUserIdAsync(linkedContact.LinkedUserId, cancellationToken);
+        preference ??= linkedContact?.LinkedUserId is null ? null : NotificationPreferenceService.CreateDefault(linkedContact.LinkedUserId, _clock.UtcNow);
+
+        if (await CanCreatePushAttemptAsync(userId, snapshot, linkedContact, preference, cancellationToken)) channels.Add(NotificationChannel.Push);
+        if (!string.IsNullOrWhiteSpace(snapshot.PhoneNumber) && (preference is null || preference.SmsEnabled)) channels.Add(NotificationChannel.Sms);
+        else if (!string.IsNullOrWhiteSpace(snapshot.Email) && (preference is null || preference.EmailEnabled)) channels.Add(NotificationChannel.Email);
         return channels;
     }
 
-    private async Task<bool> CanCreatePushAttemptAsync(string userId, AlertContactSnapshot snapshot, CancellationToken cancellationToken)
+    private async Task<bool> CanCreatePushAttemptAsync(string userId, AlertContactSnapshot snapshot, EmergencyContact? contact, NotificationPreference? preference, CancellationToken cancellationToken)
     {
         if (snapshot.InvitationStatus != EmergencyContactInvitationStatus.Linked) return false;
+        if (preference is not null && !preference.PushEnabled) return false;
 
-        EmergencyContact? contact = await _contacts.GetByIdAsync(snapshot.EmergencyContactId, cancellationToken);
         if (contact is null || contact.UserId != userId || !contact.IsActive || contact.InvitationStatus != EmergencyContactInvitationStatus.Linked || string.IsNullOrWhiteSpace(contact.LinkedUserId)) return false;
 
         return await _pushTokens.GetLatestActiveFcmByUserIdAsync(contact.LinkedUserId, cancellationToken) is not null;
+    }
+
+    private async Task<EmergencyContact?> GetLinkedContactAsync(string userId, AlertContactSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        if (snapshot.InvitationStatus != EmergencyContactInvitationStatus.Linked) return null;
+        EmergencyContact? contact = await _contacts.GetByIdAsync(snapshot.EmergencyContactId, cancellationToken);
+        return contact is not null && contact.UserId == userId && contact.IsActive && contact.InvitationStatus == EmergencyContactInvitationStatus.Linked && !string.IsNullOrWhiteSpace(contact.LinkedUserId) ? contact : null;
     }
 
     private static NotificationDeliveryAttemptResponse ToResponse(NotificationDeliveryAttempt attempt) => new(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, attempt.TripId, attempt.EmergencyContactId, attempt.ContactFullName, attempt.ContactRelationship, attempt.ContactPriority, attempt.Channel.ToString(), attempt.Status.ToString(), attempt.Provider.ToString(), attempt.AttemptNumber, attempt.PreparedAtUtc, attempt.SimulatedSentAtUtc, attempt.FailedAtUtc, attempt.CancelledAtUtc, attempt.LastStatusChangedAtUtc, attempt.FailureReason, attempt.Notes, attempt.CreatedAtUtc, attempt.UpdatedAtUtc);
