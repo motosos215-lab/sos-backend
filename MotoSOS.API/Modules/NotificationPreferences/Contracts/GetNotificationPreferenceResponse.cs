@@ -1,0 +1,3 @@
+namespace MotoSOS.API.Modules.NotificationPreferences.Contracts;
+
+public sealed record GetNotificationPreferenceResponse(NotificationPreferenceResponse Preferences);

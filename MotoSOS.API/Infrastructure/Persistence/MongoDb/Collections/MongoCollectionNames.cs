@@ -34,6 +34,8 @@ public static class MongoCollectionNames
 
     public const string PushNotificationTokens = "pushNotificationTokens";
 
+    public const string NotificationPreferences = "notificationPreferences";
+
     public const string AlertAcknowledgements = "alertAcknowledgements";
 
     public const string EmergencyLocationSnapshots = "emergencyLocationSnapshots";
