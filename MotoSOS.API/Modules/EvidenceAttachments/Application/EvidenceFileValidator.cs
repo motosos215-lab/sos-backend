@@ -56,8 +56,14 @@ public sealed partial class EvidenceFileValidator
 
     private static string SanitizeFileName(string fileName)
     {
-        string name = Path.GetFileName(fileName.Trim());
-        if (name.Length == 0 || name != fileName.Trim() || name.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(fileName)) throw new ValidationAppException("File name must be safe.");
+        string trimmed = fileName.Trim();
+        if (trimmed.Contains('/', StringComparison.Ordinal)
+            || trimmed.Contains('\\', StringComparison.Ordinal)
+            || trimmed.Contains("..", StringComparison.Ordinal)
+            || Path.IsPathRooted(trimmed)) throw new ValidationAppException("File name must be safe.");
+
+        string name = Path.GetFileName(trimmed);
+        if (name.Length == 0 || name != trimmed) throw new ValidationAppException("File name must be safe.");
         StringBuilder safe = new(name.Length);
         foreach (char c in name)
         {
