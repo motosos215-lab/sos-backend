@@ -37,15 +37,17 @@ public sealed class EvidenceAttachmentSecurityTests
     }
 
     [Fact]
-    public void EvidenceAttachmentsDoNotDefineRealFileTransferOrExternalStorageContracts()
+    public void EvidenceAttachmentsDoNotExposeStorageSecretsOrUnsupportedFeatures()
     {
-        Type[] types = [typeof(CreateEvidenceAttachmentRequest), typeof(EvidenceAttachmentResponse), typeof(EvidenceStorageProvider)];
+        Type[] types = [typeof(CreateEvidenceAttachmentRequest), typeof(EvidenceAttachmentResponse), typeof(UploadEvidenceAttachmentResponse), typeof(EvidenceStorageProvider)];
         string joinedNames = string.Join(' ', types.Select(t => t.FullName).Concat(types.SelectMany(t => t.GetProperties().Select(p => p.Name))).Concat(Enum.GetNames<EvidenceStorageProvider>())).ToLowerInvariant();
 
-        joinedNames.Should().NotContain("multipart");
-        joinedNames.Should().NotContain("download");
         joinedNames.Should().NotContain("gridfs");
         joinedNames.Should().NotContain("signedurl");
+        joinedNames.Should().NotContain("accesskey");
+        joinedNames.Should().NotContain("secretkey");
+        joinedNames.Should().NotContain("bucket");
+        joinedNames.Should().NotContain("objectkey");
         joinedNames.Should().NotContain(("web" + "socket").ToLowerInvariant());
         joinedNames.Should().NotContain(("signal" + "r").ToLowerInvariant());
         joinedNames.Should().NotContain("ocr");

@@ -380,6 +380,7 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_createdAtUtc", new BsonDocument(nameof(EvidenceAttachment.CreatedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_updatedAtUtc", new BsonDocument(nameof(EvidenceAttachment.UpdatedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ux_evidenceAttachments_idempotencyKey", new BsonDocument(nameof(EvidenceAttachment.IdempotencyKey), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(evidenceAttachments, "ux_evidenceAttachments_userId_incidentId_clientEvidenceId", new BsonDocument { [nameof(EvidenceAttachment.UserId)] = 1, [nameof(EvidenceAttachment.IncidentId)] = 1, [nameof(EvidenceAttachment.ClientEvidenceId)] = 1 }, unique: true, partialFilter: new BsonDocument(nameof(EvidenceAttachment.ClientEvidenceId), new BsonDocument { ["$exists"] = true, ["$ne"] = string.Empty }), cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_userId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.UserId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_incidentId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.IncidentId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(evidenceAttachments, "ix_evidenceAttachments_alertDispatchId_createdAtUtc", new BsonDocument { [nameof(EvidenceAttachment.AlertDispatchId)] = 1, [nameof(EvidenceAttachment.CreatedAtUtc)] = 1 }, unique: false, cancellationToken);
@@ -407,16 +408,17 @@ public sealed class MongoIndexInitializer
         string name,
         BsonDocument key,
         bool unique,
+        BsonDocument? partialFilter,
         CancellationToken cancellationToken)
     {
-        if (await HasEquivalentIndexAsync(collection, key, unique, cancellationToken))
+        if (await HasEquivalentIndexAsync(collection, key, unique, partialFilter, cancellationToken))
         {
             return;
         }
 
         var index = new CreateIndexModel<TDocument>(
             new BsonDocumentIndexKeysDefinition<TDocument>(key),
-            new CreateIndexOptions { Name = name, Unique = unique });
+            new CreateIndexOptions<TDocument> { Name = name, Unique = unique, PartialFilterExpression = partialFilter is null ? null : new BsonDocumentFilterDefinition<TDocument>(partialFilter) });
 
         try
         {
@@ -424,7 +426,7 @@ public sealed class MongoIndexInitializer
         }
         catch (MongoCommandException exception) when (IsIndexConflict(exception))
         {
-            if (await HasEquivalentIndexAsync(collection, key, unique, cancellationToken))
+            if (await HasEquivalentIndexAsync(collection, key, unique, partialFilter, cancellationToken))
             {
                 return;
             }
@@ -433,10 +435,13 @@ public sealed class MongoIndexInitializer
         }
     }
 
+    private static Task EnsureIndexAsync<TDocument>(IMongoCollection<TDocument> collection, string name, BsonDocument key, bool unique, CancellationToken cancellationToken) => EnsureIndexAsync(collection, name, key, unique, null, cancellationToken);
+
     private static async Task<bool> HasEquivalentIndexAsync<TDocument>(
         IMongoCollection<TDocument> collection,
         BsonDocument key,
         bool unique,
+        BsonDocument? partialFilter,
         CancellationToken cancellationToken)
     {
         using IAsyncCursor<BsonDocument> cursor = await collection.Indexes.ListAsync(cancellationToken: cancellationToken);
@@ -445,7 +450,7 @@ public sealed class MongoIndexInitializer
         {
             foreach (BsonDocument existingIndex in cursor.Current)
             {
-                if (IsEquivalentIndex(existingIndex, key, unique))
+                if (IsEquivalentIndex(existingIndex, key, unique, partialFilter))
                 {
                     return true;
                 }
@@ -455,7 +460,7 @@ public sealed class MongoIndexInitializer
         return false;
     }
 
-    private static bool IsEquivalentIndex(BsonDocument existingIndex, BsonDocument key, bool unique)
+    private static bool IsEquivalentIndex(BsonDocument existingIndex, BsonDocument key, bool unique, BsonDocument? partialFilter)
     {
         if (!existingIndex.TryGetValue("key", out BsonValue existingKey) || !existingKey.IsBsonDocument)
         {
@@ -464,7 +469,9 @@ public sealed class MongoIndexInitializer
 
         bool existingUnique = existingIndex.TryGetValue("unique", out BsonValue uniqueValue) && uniqueValue.ToBoolean();
 
-        return existingKey.AsBsonDocument.Equals(key) && existingUnique == unique;
+        BsonDocument? existingPartial = existingIndex.TryGetValue("partialFilterExpression", out BsonValue partialValue) && partialValue.IsBsonDocument ? partialValue.AsBsonDocument : null;
+        bool partialMatches = partialFilter is null ? existingPartial is null : existingPartial is not null && existingPartial.Equals(partialFilter);
+        return existingKey.AsBsonDocument.Equals(key) && existingUnique == unique && partialMatches;
     }
 
     private static bool IsIndexConflict(MongoCommandException exception)

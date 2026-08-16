@@ -8,6 +8,7 @@ public sealed class UnconfiguredEvidenceAttachmentRepository : IEvidenceAttachme
     private static InvalidOperationException CreateException() => new("MongoDB is not configured. Configure MongoDB settings to use Evidence Attachments API.");
     public Task<EvidenceAttachment?> GetByIdAsync(string id, CancellationToken cancellationToken) => throw CreateException();
     public Task<EvidenceAttachment?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => throw CreateException();
+    public Task<EvidenceAttachment?> GetByClientEvidenceIdAsync(string userId, string incidentId, string clientEvidenceId, CancellationToken cancellationToken) => throw CreateException();
     public Task<(EvidenceAttachment EvidenceAttachment, bool IsDuplicate)> AddOrGetDuplicateAsync(EvidenceAttachment evidenceAttachment, CancellationToken cancellationToken) => throw CreateException();
     public Task UpdateAsync(EvidenceAttachment evidenceAttachment, CancellationToken cancellationToken) => throw CreateException();
     public Task<IReadOnlyList<EvidenceAttachment>> ListByUserIdAsync(string userId, EvidenceAttachmentQuery query, CancellationToken cancellationToken) => throw CreateException();

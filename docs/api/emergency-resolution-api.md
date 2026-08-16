@@ -60,7 +60,7 @@ Esta API no implementa proveedores reales, push real, SMS real, mensajeria real,
 
 ## Relacion Con Evidence Attachments
 
-Evidence Attachments API puede asociar metadata segura a un `EmergencyResolutionReport`. No sube ni descarga archivos reales y no modifica el reporte de resolucion.
+Evidence Attachments API mantiene metadata asociable a un `EmergencyResolutionReport`; el upload binario real de esta version se limita a incidentes. No modifica el reporte de resolucion.
 
 ## Relacion Con Resolution Report Export
 

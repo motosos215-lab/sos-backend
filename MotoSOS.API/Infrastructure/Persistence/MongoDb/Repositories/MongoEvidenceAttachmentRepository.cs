@@ -11,6 +11,7 @@ public sealed class MongoEvidenceAttachmentRepository : IEvidenceAttachmentRepos
     public MongoEvidenceAttachmentRepository(IMongoDatabase database) => _evidence = database.GetCollection<EvidenceAttachment>(MongoCollectionNames.EvidenceAttachments);
     public async Task<EvidenceAttachment?> GetByIdAsync(string id, CancellationToken cancellationToken) => await _evidence.Find(e => e.Id == id).FirstOrDefaultAsync(cancellationToken);
     public async Task<EvidenceAttachment?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken) => await _evidence.Find(e => e.IdempotencyKey == idempotencyKey).FirstOrDefaultAsync(cancellationToken);
+    public async Task<EvidenceAttachment?> GetByClientEvidenceIdAsync(string userId, string incidentId, string clientEvidenceId, CancellationToken cancellationToken) => await _evidence.Find(e => e.UserId == userId && e.IncidentId == incidentId && e.ClientEvidenceId == clientEvidenceId).FirstOrDefaultAsync(cancellationToken);
     public async Task<(EvidenceAttachment EvidenceAttachment, bool IsDuplicate)> AddOrGetDuplicateAsync(EvidenceAttachment evidenceAttachment, CancellationToken cancellationToken)
     {
         EvidenceAttachment? existing = await GetByIdempotencyKeyAsync(evidenceAttachment.IdempotencyKey, cancellationToken);

@@ -6,6 +6,7 @@ public interface IEvidenceAttachmentRepository
 {
     Task<EvidenceAttachment?> GetByIdAsync(string id, CancellationToken cancellationToken);
     Task<EvidenceAttachment?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
+    Task<EvidenceAttachment?> GetByClientEvidenceIdAsync(string userId, string incidentId, string clientEvidenceId, CancellationToken cancellationToken);
     Task<(EvidenceAttachment EvidenceAttachment, bool IsDuplicate)> AddOrGetDuplicateAsync(EvidenceAttachment evidenceAttachment, CancellationToken cancellationToken);
     Task UpdateAsync(EvidenceAttachment evidenceAttachment, CancellationToken cancellationToken);
     Task<IReadOnlyList<EvidenceAttachment>> ListByUserIdAsync(string userId, EvidenceAttachmentQuery query, CancellationToken cancellationToken);

@@ -441,6 +441,27 @@ Valores validos actuales:
 
 El resultado incluye `incident`, `alertDispatch`, `notificationAttempts` y `summary`. Los attempts quedan en `Prepared` con `provider = None` para procesamiento posterior por outbox worker o admin outbox run.
 
+### Subir Evidencia Binaria
+
+```http
+POST /api/v1/rider/evidence-attachments/upload
+POST /api/v1/monitor/evidence-attachments/upload
+```
+
+Usar `multipart/form-data` con campo `file`, `incidentId`, opcional `description`, opcional `evidenceType` y opcional `clientEvidenceId`. Si `clientEvidenceId` viene, la API aplica idempotencia por `userId + incidentId + clientEvidenceId`; mismo archivo devuelve `isDuplicate=true`, archivo diferente devuelve `evidence_upload_conflict`.
+
+Tipos permitidos: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`, `text/plain`. Extensiones permitidas: `.jpg`, `.jpeg`, `.png`, `.webp`, `.pdf`, `.txt`.
+
+### Descargar Evidencia Binaria
+
+```http
+GET /api/v1/rider/evidence-attachments/{id}/download
+GET /api/v1/monitor/evidence-attachments/{id}/download
+GET /api/v1/admin/evidence-attachments/{id}/download
+```
+
+La descarga devuelve archivo binario normal desde la API. No se devuelven URLs firmadas, bucket ni object key.
+
 ### Crear Incidente
 
 ```http
