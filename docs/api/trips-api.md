@@ -212,6 +212,20 @@ Response:
 }
 ```
 
+### POST /api/v1/trips/{tripId}/route-points/batch
+
+Recibe lotes de puntos GPS reales capturados por Android. Requiere `Rider` autenticado. `Monitor` y `Admin` reciben `403`.
+
+La idempotencia es por `tripId + clientRoutePointId`. Duplicados con los mismos datos devuelven `Duplicate`; datos diferentes con el mismo `clientRoutePointId` devuelven `Conflict` para ese punto.
+
+Ver detalles completos en `docs/api/trip-route-points-api.md`.
+
+### GET /api/v1/trips/{tripId}/route
+
+Devuelve puntos GPS persistidos y ordenados por `sequence`. Soporta `mode=full` y `mode=preview`. Preview conserva primer y ultimo punto y usa downsampling uniforme simple.
+
+Funciona para viajes `Active` y `Finished` propios.
+
 ## Errores Esperados
 
 - `401 unauthorized`: sin token o token invalido.

@@ -39,6 +39,22 @@ public static class TripEndpoints
             return Results.Ok(ApiResponse<FinishTripResponse>.Ok(await service.FinishAsync(userId, id, request, cancellationToken)));
         });
 
+        group.MapPost("/{tripId}/route-points/batch", async (string tripId, CreateTripRoutePointsBatchRequest request, IValidator<CreateTripRoutePointsBatchRequest> validator, ClaimsPrincipal principal, ITripRoutePointService service, CancellationToken cancellationToken) =>
+        {
+            string? userId = GetUserId(principal);
+            if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+            var validation = await validator.ValidateAsync(request, cancellationToken);
+            if (!validation.IsValid) return Results.BadRequest(ApiResponse<object>.Fail(new ApiError("validation_error", validation.Errors[0].ErrorMessage)));
+            return Results.Ok(ApiResponse<CreateTripRoutePointsBatchResponse>.Ok(await service.CreateBatchAsync(userId, tripId, request, cancellationToken)));
+        });
+
+        group.MapGet("/{tripId}/route", async (string tripId, string? mode, int? pageNumber, int? pageSize, int? maxPoints, ClaimsPrincipal principal, ITripRoutePointService service, CancellationToken cancellationToken) =>
+        {
+            string? userId = GetUserId(principal);
+            if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+            return Results.Ok(ApiResponse<GetTripRouteResponse>.Ok(await service.GetRouteAsync(userId, tripId, mode, pageNumber, pageSize, maxPoints, cancellationToken)));
+        });
+
         group.MapGet("/{id}", async (string id, ClaimsPrincipal principal, ITripService service, CancellationToken cancellationToken) =>
         {
             string? userId = GetUserId(principal);

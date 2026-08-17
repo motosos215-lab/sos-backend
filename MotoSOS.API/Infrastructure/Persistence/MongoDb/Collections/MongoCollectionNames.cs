@@ -24,6 +24,8 @@ public static class MongoCollectionNames
 
     public const string Trips = "trips";
 
+    public const string TripRoutePoints = "tripRoutePoints";
+
     public const string OfflineIngestionRecords = "offlineIngestionRecords";
 
     public const string Incidents = "incidents";

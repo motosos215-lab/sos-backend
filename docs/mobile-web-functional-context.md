@@ -12,6 +12,8 @@ La API prepara registros de notificacion. El worker puede procesar attempts `Pre
 
 Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
 
+Trip Route Points permite que Android envie puntos GPS reales del recorrido mediante `POST /api/v1/trips/{tripId}/route-points/batch` y luego los lea con `GET /api/v1/trips/{tripId}/route` para dibujar una Polyline en Google Maps. Los puntos se guardan en `tripRoutePoints`, separados del documento `Trip`. Google Maps solo dibuja los puntos reales capturados por Android; el backend no calcula el recorrido.
+
 ## Roles
 
 `Rider`: usuario motociclista/conductor. Puede completar onboarding, administrar perfil, vehiculos, contactos, dispositivos, plan, viajes, incidentes, alert dispatch, notificaciones simuladas, ubicacion de emergencia, status propio y reportes de resolucion.
