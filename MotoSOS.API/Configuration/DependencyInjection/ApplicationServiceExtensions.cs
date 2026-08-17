@@ -65,8 +65,14 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IPlanCatalogService, PlanCatalogService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<ITripService, TripService>();
+        services.AddScoped<ITripRoutePointService, TripRoutePointService>();
+        services.Configure<TripRoutePointOptions>(configuration.GetSection(TripRoutePointOptions.SectionName));
         services.AddScoped<ITelemetrySummaryService, TelemetrySummaryService>();
         services.AddScoped<IEvidenceAttachmentService, EvidenceAttachmentService>();
+        services.Configure<EvidenceStorageOptions>(configuration.GetSection(EvidenceStorageOptions.SectionName));
+        services.AddScoped<IEvidenceFileStorageProvider, DigitalOceanSpacesEvidenceStorageProvider>();
+        services.AddSingleton<EvidenceFileValidator>();
+        services.AddSingleton<EvidenceStorageOptionsValidator>();
         services.AddScoped<IResolutionReportExportService, ResolutionReportExportService>();
         services.AddScoped<IOfflineIngestionService, OfflineIngestionService>();
         services.AddScoped<IOfflineProcessingService, OfflineProcessingService>();
@@ -116,6 +122,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<EscalationQueryValidator>();
         services.AddSingleton<MinorEventQueryValidator>();
         services.AddSingleton<TelemetrySummaryQueryValidator>();
+        services.AddSingleton<TripRouteQueryValidator>();
         services.AddSingleton<EvidenceAttachmentQueryValidator>();
         services.AddSingleton<ResolutionReportExportQueryValidator>();
         services.AddSingleton<RegisterPushNotificationTokenRequestValidator>();

@@ -49,5 +49,9 @@ public enum AuditAction
     NotificationProviderEmailSent = 44,
     NotificationProviderEmailFailed = 45,
     NotificationProviderSmsSent = 46,
-    NotificationProviderSmsFailed = 47
+    NotificationProviderSmsFailed = 47,
+    EvidenceAttachmentUploaded = 48,
+    EvidenceAttachmentUploadFailed = 49,
+    EvidenceAttachmentDownloaded = 50,
+    EvidenceAttachmentDownloadDenied = 51
 }

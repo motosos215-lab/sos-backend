@@ -1,5 +1,28 @@
 # Memorias Tecnicas
 
+## Trip Route Points API
+
+- Trip Route Points API agrega `POST /api/v1/trips/{tripId}/route-points/batch` y `GET /api/v1/trips/{tripId}/route` para Rider autenticado.
+- Los puntos GPS reales capturados por Android se guardan en la coleccion separada `tripRoutePoints`; no se embeben en `Trip`.
+- Indices: unico `tripId + clientRoutePointId`, `tripId + sequence`, `userId + tripId` y `tripId + recordedAtUtc`.
+- Idempotencia persistente por `tripId + clientRoutePointId`: `Accepted`, `Duplicate` o `Conflict` sin sobrescribir datos existentes.
+- El batch rechaza errores estructurales completos, incluidos `clientRoutePointId` duplicados dentro del mismo request.
+- Viajes `Active` aceptan puntos desde `StartedAtUtc`; viajes `Finished` aceptan sync offline dentro de `Trips__RoutePoints__OfflineSyncGraceHours`.
+- `GET route` devuelve `full` ordenado por `sequence` o `preview` con downsampling simple conservando primer y ultimo punto.
+- Android dibuja la Polyline con puntos reales; el backend no calcula rutas con Google, no guarda encoded polyline ni usa llaves de mapas.
+
+## Evidence Binary Storage
+
+- Evidence Attachments agrega upload/download binario real para incidentes mediante `multipart/form-data` y descarga stream por API.
+- Storage usa abstraccion `IEvidenceFileStorageProvider`; proveedor implementado: `DigitalOceanSpacesEvidenceStorageProvider` compatible S3 con `AWSSDK.S3`.
+- Configuracion separada `EvidenceStorage` con `Enabled`, `Provider`, `Bucket`, `Region`, `ServiceUrl`, `AccessKey`, `SecretKey`, `BasePath`, `UsePathStyle` y `MaxFileSizeBytes`.
+- `AccessKey` y `SecretKey` deben ser secret variables; no se exponen bucket, object key, rutas internas ni URLs firmadas en respuestas publicas.
+- Upload valida archivo requerido, tamaño, extension, content type, filename seguro y calcula SHA256 server-side.
+- `clientEvidenceId` es opcional para multipart: si viene se usa idempotencia por `userId + incidentId + clientEvidenceId`; mismo archivo responde `isDuplicate=true`, archivo diferente devuelve `evidence_upload_conflict`.
+- Si storage esta deshabilitado o incompleto, upload falla controladamente y no guarda metadata exitosa.
+- Rider accede solo a incidentes propios; Monitor solo si esta vinculado por contacto y notification attempt; Admin puede descargar.
+- Metadata-only existente se mantiene compatible; no se implementan URLs firmadas, CDN, antivirus, OCR, thumbnails ni procesamiento de imagen.
+
 ## Emergency SMS Notification Provider
 
 - Emergency SMS Notification Provider agrega envio Brevo SMS para `NotificationDeliveryAttempt` con `Channel = Sms` desde Notification Outbox.

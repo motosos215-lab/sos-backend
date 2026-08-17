@@ -52,6 +52,19 @@
         "resolved": "3.1.4",
         "contentHash": "5mj99LvCqrq3CNi06xYdyIAXOEh+5b33F2nErCzI5zWiDdLHXiPXEWFSUAF8zlIv0ZWqjZNCwHTQeAPYbF3pCg=="
       },
+      "AWSSDK.Core": {
+        "type": "Transitive",
+        "resolved": "3.7.402",
+        "contentHash": "ALsX3gul5Q1HgDmKUhF1McPbLaVwIZb34garD28vOMaaVof/SeYzj+ViOMe7mDW/gJdOSnRDUmaAuD1EcKHxgA=="
+      },
+      "AWSSDK.S3": {
+        "type": "Transitive",
+        "resolved": "3.7.414.4",
+        "contentHash": "k6txrfWznx//6pLaY6FlPjataK4EABKIosgEcRZAVeDa0/1dCyqUGQEYjoH04MBDzrPWlcEbyM+t1acMPL4tpw==",
+        "dependencies": {
+          "AWSSDK.Core": "[3.7.402, 4.0.0)"
+        }
+      },
       "BCrypt.Net-Next": {
         "type": "Transitive",
         "resolved": "4.2.0",
@@ -705,6 +718,7 @@
       "motosos.api": {
         "type": "Project",
         "dependencies": {
+          "AWSSDK.S3": "[3.7.414.4, )",
           "BCrypt.Net-Next": "[4.2.0, )",
           "FirebaseAdmin": "[3.6.0, )",
           "FluentValidation": "[12.1.1, )",

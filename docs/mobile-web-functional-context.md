@@ -12,6 +12,8 @@ La API prepara registros de notificacion. El worker puede procesar attempts `Pre
 
 Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
 
+Trip Route Points permite que Android envie puntos GPS reales del recorrido mediante `POST /api/v1/trips/{tripId}/route-points/batch` y luego los lea con `GET /api/v1/trips/{tripId}/route` para dibujar una Polyline en Google Maps. Los puntos se guardan en `tripRoutePoints`, separados del documento `Trip`. Google Maps solo dibuja los puntos reales capturados por Android; el backend no calcula el recorrido.
+
 ## Roles
 
 `Rider`: usuario motociclista/conductor. Puede completar onboarding, administrar perfil, vehiculos, contactos, dispositivos, plan, viajes, incidentes, alert dispatch, notificaciones simuladas, ubicacion de emergencia, status propio y reportes de resolucion.
@@ -440,6 +442,27 @@ Valores validos actuales:
 ```
 
 El resultado incluye `incident`, `alertDispatch`, `notificationAttempts` y `summary`. Los attempts quedan en `Prepared` con `provider = None` para procesamiento posterior por outbox worker o admin outbox run.
+
+### Subir Evidencia Binaria
+
+```http
+POST /api/v1/rider/evidence-attachments/upload
+POST /api/v1/monitor/evidence-attachments/upload
+```
+
+Usar `multipart/form-data` con campo `file`, `incidentId`, opcional `description`, opcional `evidenceType` y opcional `clientEvidenceId`. Si `clientEvidenceId` viene, la API aplica idempotencia por `userId + incidentId + clientEvidenceId`; mismo archivo devuelve `isDuplicate=true`, archivo diferente devuelve `evidence_upload_conflict`.
+
+Tipos permitidos: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`, `text/plain`. Extensiones permitidas: `.jpg`, `.jpeg`, `.png`, `.webp`, `.pdf`, `.txt`.
+
+### Descargar Evidencia Binaria
+
+```http
+GET /api/v1/rider/evidence-attachments/{id}/download
+GET /api/v1/monitor/evidence-attachments/{id}/download
+GET /api/v1/admin/evidence-attachments/{id}/download
+```
+
+La descarga devuelve archivo binario normal desde la API. No se devuelven URLs firmadas, bucket ni object key.
 
 ### Crear Incidente
 

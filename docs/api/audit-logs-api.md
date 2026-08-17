@@ -80,6 +80,10 @@ Actualmente se auditan estas acciones exitosas:
 - `TelemetrySummaryRecomputed`
 - `EvidenceAttachmentRegistered`
 - `EvidenceAttachmentDeleted`
+- `EvidenceAttachmentUploaded`
+- `EvidenceAttachmentUploadFailed`
+- `EvidenceAttachmentDownloaded`
+- `EvidenceAttachmentDownloadDenied`
 - `ResolutionReportExportGenerated`
 - `AuditLogRetentionDryRunCompleted`
 - `AuditLogRetentionDeleteCompleted`
