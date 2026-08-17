@@ -24,7 +24,8 @@ public sealed class EvidenceAttachment
     public string ContentType { get; set; } = string.Empty;
     public long SizeBytes { get; set; }
     public string? Sha256Hash { get; set; }
-    public string ClientEvidenceId { get; set; } = string.Empty;
+    [BsonIgnoreIfNull]
+    public string? ClientEvidenceId { get; set; }
     public string? ClientStorageReference { get; set; }
     public EvidenceStorageProvider StorageProvider { get; set; } = EvidenceStorageProvider.None;
     public string? Bucket { get; set; }
