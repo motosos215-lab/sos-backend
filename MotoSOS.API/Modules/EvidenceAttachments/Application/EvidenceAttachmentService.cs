@@ -192,7 +192,7 @@ public sealed class EvidenceAttachmentService : IEvidenceAttachmentService
             ContentType = file.ContentType,
             SizeBytes = command.SizeBytes,
             Sha256Hash = sha256,
-            ClientEvidenceId = clientEvidenceId ?? string.Empty,
+            ClientEvidenceId = clientEvidenceId,
             StorageProvider = EvidenceStorageProvider.DigitalOceanSpaces,
             Description = NormalizeOptional(command.Description),
             CapturedAtUtc = now,
@@ -244,7 +244,9 @@ public sealed class EvidenceAttachmentService : IEvidenceAttachmentService
     {
         EvidenceType type = Parse<EvidenceType>(request.EvidenceType!);
         DateTimeOffset now = _clock.UtcNow;
-        string idempotencyKey = _keys.Create(ownerUserId, NormalizeRequired(request.ClientEvidenceId), target.TargetType.ToString(), target.TargetId);
+        string clientEvidenceId = NormalizeRequired(request.ClientEvidenceId);
+        if (string.IsNullOrWhiteSpace(clientEvidenceId)) throw new ValidationAppException("ClientEvidenceId is required.");
+        string idempotencyKey = _keys.Create(ownerUserId, clientEvidenceId, target.TargetType.ToString(), target.TargetId);
         var item = new EvidenceAttachment
         {
             UserId = ownerUserId,
@@ -262,7 +264,7 @@ public sealed class EvidenceAttachmentService : IEvidenceAttachmentService
             ContentType = NormalizeRequired(request.ContentType),
             SizeBytes = request.SizeBytes!.Value,
             Sha256Hash = NormalizeOptional(request.Sha256Hash)?.ToLowerInvariant(),
-            ClientEvidenceId = NormalizeRequired(request.ClientEvidenceId),
+            ClientEvidenceId = clientEvidenceId,
             ClientStorageReference = NormalizeOptional(request.ClientStorageReference),
             StorageProvider = string.IsNullOrWhiteSpace(request.StorageProvider) ? EvidenceStorageProvider.None : Parse<EvidenceStorageProvider>(request.StorageProvider!),
             Description = NormalizeOptional(request.Description),
@@ -372,6 +374,6 @@ public sealed class EvidenceAttachmentService : IEvidenceAttachmentService
     private static TEnum Parse<TEnum>(string value) where TEnum : struct, Enum => Enum.Parse<TEnum>(value, false);
     private static string NormalizeRequired(string? value) => value?.Trim() ?? string.Empty;
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    private static EvidenceAttachmentResponse ToResponse(EvidenceAttachment e) => new(e.Id, e.UserId, e.RegisteredByUserId, e.RegisteredByRole.ToString(), e.TargetType.ToString(), e.IncidentId, e.AlertDispatchId, e.EmergencyResolutionReportId, e.TripId, e.EvidenceType.ToString(), e.Source.ToString(), e.Status.ToString(), e.FileName, e.ContentType, e.SizeBytes, e.Sha256Hash, e.ClientEvidenceId, e.ClientStorageReference, e.StorageProvider.ToString(), e.Description, e.CapturedAtUtc, e.RegisteredAtUtc, e.CreatedAtUtc, e.UpdatedAtUtc, e.DeletedAtUtc, e.Metadata);
+    private static EvidenceAttachmentResponse ToResponse(EvidenceAttachment e) => new(e.Id, e.UserId, e.RegisteredByUserId, e.RegisteredByRole.ToString(), e.TargetType.ToString(), e.IncidentId, e.AlertDispatchId, e.EmergencyResolutionReportId, e.TripId, e.EvidenceType.ToString(), e.Source.ToString(), e.Status.ToString(), e.FileName, e.ContentType, e.SizeBytes, e.Sha256Hash, e.ClientEvidenceId ?? string.Empty, e.ClientStorageReference, e.StorageProvider.ToString(), e.Description, e.CapturedAtUtc, e.RegisteredAtUtc, e.CreatedAtUtc, e.UpdatedAtUtc, e.DeletedAtUtc, e.Metadata);
     private sealed record TargetContext(EvidenceTargetType TargetType, string TargetId, string OwnerUserId, string? IncidentId, string? AlertDispatchId, string? EmergencyResolutionReportId, string? TripId);
 }
