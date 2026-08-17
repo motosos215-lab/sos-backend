@@ -88,6 +88,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IUserSubscriptionRepository, MongoUserSubscriptionRepository>();
             services.AddScoped<IOnboardingConfirmationRepository, MongoOnboardingConfirmationRepository>();
             services.AddScoped<ITripRepository, MongoTripRepository>();
+            services.AddScoped<ITripRoutePointRepository, MongoTripRoutePointRepository>();
             services.AddScoped<IOfflineIngestionRepository, MongoOfflineIngestionRepository>();
             services.AddScoped<IIncidentRepository, MongoIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, MongoAlertDispatchRepository>();
@@ -121,6 +122,7 @@ public static class InfrastructureServiceExtensions
             services.AddScoped<IUserSubscriptionRepository, UnconfiguredUserSubscriptionRepository>();
             services.AddScoped<IOnboardingConfirmationRepository, UnconfiguredOnboardingConfirmationRepository>();
             services.AddScoped<ITripRepository, UnconfiguredTripRepository>();
+            services.AddScoped<ITripRoutePointRepository, UnconfiguredTripRoutePointRepository>();
             services.AddScoped<IOfflineIngestionRepository, UnconfiguredOfflineIngestionRepository>();
             services.AddScoped<IIncidentRepository, UnconfiguredIncidentRepository>();
             services.AddScoped<IAlertDispatchRepository, UnconfiguredAlertDispatchRepository>();

@@ -186,6 +186,12 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(trips, "ix_trips_startedAtUtc", new BsonDocument(nameof(Trip.StartedAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(trips, "ix_trips_finishedAtUtc", new BsonDocument(nameof(Trip.FinishedAtUtc), 1), unique: false, cancellationToken);
 
+        IMongoCollection<TripRoutePoint> tripRoutePoints = _database.GetCollection<TripRoutePoint>(MongoCollectionNames.TripRoutePoints);
+        await EnsureIndexAsync(tripRoutePoints, "ux_tripRoutePoints_tripId_clientRoutePointId", new BsonDocument { [nameof(TripRoutePoint.TripId)] = 1, [nameof(TripRoutePoint.ClientRoutePointId)] = 1 }, unique: true, cancellationToken);
+        await EnsureIndexAsync(tripRoutePoints, "ix_tripRoutePoints_tripId_sequence", new BsonDocument { [nameof(TripRoutePoint.TripId)] = 1, [nameof(TripRoutePoint.Sequence)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(tripRoutePoints, "ix_tripRoutePoints_userId_tripId", new BsonDocument { [nameof(TripRoutePoint.UserId)] = 1, [nameof(TripRoutePoint.TripId)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(tripRoutePoints, "ix_tripRoutePoints_tripId_recordedAtUtc", new BsonDocument { [nameof(TripRoutePoint.TripId)] = 1, [nameof(TripRoutePoint.RecordedAtUtc)] = 1 }, unique: false, cancellationToken);
+
         IMongoCollection<OfflineIngestionRecord> offlineIngestionRecords = _database.GetCollection<OfflineIngestionRecord>(MongoCollectionNames.OfflineIngestionRecords);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_userId", new BsonDocument(nameof(OfflineIngestionRecord.UserId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(offlineIngestionRecords, "ix_offlineIngestionRecords_mobileDeviceId", new BsonDocument(nameof(OfflineIngestionRecord.MobileDeviceId), 1), unique: false, cancellationToken);

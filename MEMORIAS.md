@@ -1,5 +1,16 @@
 # Memorias Tecnicas
 
+## Trip Route Points API
+
+- Trip Route Points API agrega `POST /api/v1/trips/{tripId}/route-points/batch` y `GET /api/v1/trips/{tripId}/route` para Rider autenticado.
+- Los puntos GPS reales capturados por Android se guardan en la coleccion separada `tripRoutePoints`; no se embeben en `Trip`.
+- Indices: unico `tripId + clientRoutePointId`, `tripId + sequence`, `userId + tripId` y `tripId + recordedAtUtc`.
+- Idempotencia persistente por `tripId + clientRoutePointId`: `Accepted`, `Duplicate` o `Conflict` sin sobrescribir datos existentes.
+- El batch rechaza errores estructurales completos, incluidos `clientRoutePointId` duplicados dentro del mismo request.
+- Viajes `Active` aceptan puntos desde `StartedAtUtc`; viajes `Finished` aceptan sync offline dentro de `Trips__RoutePoints__OfflineSyncGraceHours`.
+- `GET route` devuelve `full` ordenado por `sequence` o `preview` con downsampling simple conservando primer y ultimo punto.
+- Android dibuja la Polyline con puntos reales; el backend no calcula rutas con Google, no guarda encoded polyline ni usa llaves de mapas.
+
 ## Evidence Binary Storage
 
 - Evidence Attachments agrega upload/download binario real para incidentes mediante `multipart/form-data` y descarga stream por API.

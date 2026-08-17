@@ -40,6 +40,8 @@ public sealed class TripEndpointsTests
 
         (await client.GetAsync("/api/v1/trips/active")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await client.PostAsJsonAsync("/api/v1/trips/start", StartRequest("v", "m"))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.PostAsJsonAsync("/api/v1/trips/trip/route-points/batch", RouteBatch(Point()))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.GetAsync("/api/v1/trips/trip/route")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Theory]
@@ -53,6 +55,8 @@ public sealed class TripEndpointsTests
         await AuthenticateAsync(client, $"trips-{role}@example.com", role, stores);
 
         (await client.GetAsync("/api/v1/trips/active")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await client.PostAsJsonAsync("/api/v1/trips/trip/route-points/batch", RouteBatch(Point()))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await client.GetAsync("/api/v1/trips/trip/route")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -160,6 +164,99 @@ public sealed class TripEndpointsTests
         list.Should().NotContain(trip.Id);
     }
 
+    [Fact]
+    public async Task RiderCanPostRouteBatchAndGetFullRoute()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        User user = await AuthenticateAsync(client, "trips-route-full@example.com", "Rider", stores);
+        Trip trip = ActiveTrip(user.Id);
+        stores.Trips.Trips.Add(trip);
+
+        HttpResponseMessage post = await client.PostAsJsonAsync($"/api/v1/trips/{trip.Id}/route-points/batch", RouteBatch(Point(sequence: 2), Point(sequence: 1)));
+        string route = await (await client.GetAsync($"/api/v1/trips/{trip.Id}/route")).Content.ReadAsStringAsync();
+
+        post.StatusCode.Should().Be(HttpStatusCode.OK);
+        route.Should().Contain("\"totalPoints\":2");
+        route.IndexOf("\"sequence\":1", StringComparison.Ordinal).Should().BeLessThan(route.IndexOf("\"sequence\":2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RouteBatchIsIdempotentAndReportsConflict()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        User user = await AuthenticateAsync(client, "trips-route-idempotent@example.com", "Rider", stores);
+        Trip trip = ActiveTrip(user.Id);
+        stores.Trips.Trips.Add(trip);
+        string clientRoutePointId = Guid.NewGuid().ToString();
+
+        await client.PostAsJsonAsync($"/api/v1/trips/{trip.Id}/route-points/batch", RouteBatch(Point(clientRoutePointId, 1)));
+        string duplicate = await (await client.PostAsJsonAsync($"/api/v1/trips/{trip.Id}/route-points/batch", RouteBatch(Point(clientRoutePointId, 1)))).Content.ReadAsStringAsync();
+        string conflict = await (await client.PostAsJsonAsync($"/api/v1/trips/{trip.Id}/route-points/batch", RouteBatch(Point(clientRoutePointId, 2)))).Content.ReadAsStringAsync();
+
+        duplicate.Should().Contain("Duplicate");
+        conflict.Should().Contain("Conflict");
+        stores.RoutePoints.Points.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task RoutePreviewReducesPointsAndKeepsFirstAndLast()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        User user = await AuthenticateAsync(client, "trips-route-preview@example.com", "Rider", stores);
+        Trip trip = ActiveTrip(user.Id);
+        stores.Trips.Trips.Add(trip);
+        await client.PostAsJsonAsync($"/api/v1/trips/{trip.Id}/route-points/batch", RouteBatch(Enumerable.Range(1, 10).Select(i => Point(sequence: i)).ToArray()));
+
+        string preview = await (await client.GetAsync($"/api/v1/trips/{trip.Id}/route?mode=preview&maxPoints=4")).Content.ReadAsStringAsync();
+
+        preview.Should().Contain("\"mode\":\"preview\"");
+        preview.Should().Contain("\"returnedPoints\":4");
+        preview.Should().Contain("\"sequence\":1");
+        preview.Should().Contain("\"sequence\":10");
+    }
+
+    [Fact]
+    public async Task RouteEndpointsHideMissingOrOtherUserTrips()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient owner = factory.CreateClient();
+        HttpClient other = factory.CreateClient();
+        User ownerUser = await AuthenticateAsync(owner, "trips-route-owner@example.com", "Rider", stores);
+        await AuthenticateAsync(other, "trips-route-other@example.com", "Rider", stores);
+        Trip trip = ActiveTrip(ownerUser.Id);
+        stores.Trips.Trips.Add(trip);
+
+        (await other.PostAsJsonAsync($"/api/v1/trips/{trip.Id}/route-points/batch", RouteBatch(Point()))).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await other.GetAsync($"/api/v1/trips/{trip.Id}/route")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await owner.GetAsync("/api/v1/trips/missing/route")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RecentlyFinishedTripAllowsRouteSyncButExpiredGraceRejectsIt()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        User user = await AuthenticateAsync(client, "trips-route-finished@example.com", "Rider", stores);
+        Trip recent = FinishedTrip(user.Id, DateTimeOffset.UtcNow.AddHours(-2), DateTimeOffset.UtcNow.AddHours(-1));
+        Trip expired = FinishedTrip(user.Id, DateTimeOffset.UtcNow.AddHours(-30), DateTimeOffset.UtcNow.AddHours(-25));
+        stores.Trips.Trips.Add(recent);
+        stores.Trips.Trips.Add(expired);
+
+        HttpResponseMessage ok = await client.PostAsJsonAsync($"/api/v1/trips/{recent.Id}/route-points/batch", RouteBatch(Point(recordedAtUtc: DateTimeOffset.UtcNow.AddHours(-1.5))));
+        HttpResponseMessage rejected = await client.PostAsJsonAsync($"/api/v1/trips/{expired.Id}/route-points/batch", RouteBatch(Point(recordedAtUtc: DateTimeOffset.UtcNow.AddHours(-26))));
+
+        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+        rejected.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     private static (DriverVehicle Vehicle, UserDevice Mobile) SeedReadyState(TestStores stores, string userId)
     {
         stores.Profiles.Profiles.Add(new DriverProfile { UserId = userId, CompletionStatus = ProfileCompletionStatus.Completed });
@@ -175,6 +272,10 @@ public sealed class TripEndpointsTests
 
     private static StartTripRequest StartRequest(string vehicleId, string mobileId) => new(vehicleId, mobileId, null, DateTimeOffset.UtcNow, new TripLocationRequest(19.2826, -99.6557, 12.5, "gps", DateTimeOffset.UtcNow), 87, "1.0.0");
     private static FinishTripRequest FinishRequest() => new(DateTimeOffset.UtcNow, new TripLocationRequest(19.2850, -99.6600, 10, "gps", DateTimeOffset.UtcNow), 75, "Viaje finalizado");
+    private static Trip ActiveTrip(string userId) => new() { UserId = userId, VehicleId = "v", MobileDeviceId = "m", Status = TripStatus.Active, StartedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-10), CreatedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-10) };
+    private static Trip FinishedTrip(string userId, DateTimeOffset startedAtUtc, DateTimeOffset finishedAtUtc) => new() { UserId = userId, VehicleId = "v", MobileDeviceId = "m", Status = TripStatus.Finished, StartedAtUtc = startedAtUtc, FinishedAtUtc = finishedAtUtc, CreatedAtUtc = startedAtUtc };
+    private static CreateTripRoutePointsBatchRequest RouteBatch(params CreateTripRoutePointRequest[] points) => new(points);
+    private static CreateTripRoutePointRequest Point(string? clientId = null, int sequence = 1, DateTimeOffset? recordedAtUtc = null) => new(clientId ?? Guid.NewGuid().ToString(), sequence, recordedAtUtc ?? DateTimeOffset.UtcNow.AddMinutes(-1), 19.4326 + sequence / 10000d, -99.1332, 12.5, 8.4, 180);
 
     private static async Task<User> AuthenticateAsync(HttpClient client, string email, string accountType, TestStores stores)
     {
@@ -203,10 +304,11 @@ public sealed class TripEndpointsTests
             services.AddSingleton<IUserSubscriptionRepository>(stores.Subscriptions);
             services.AddSingleton<IOnboardingConfirmationRepository>(stores.Confirmations);
             services.AddSingleton<ITripRepository>(stores.Trips);
+            services.AddSingleton<ITripRoutePointRepository>(stores.RoutePoints);
         });
     });
 
-    private sealed class TestStores { public InMemoryUserRepository Users { get; } = new(); public InMemoryRefreshTokenRepository RefreshTokens { get; } = new(); public InMemoryDriverProfileRepository Profiles { get; } = new(); public InMemoryDriverVehicleRepository Vehicles { get; } = new(); public InMemoryEmergencyContactRepository Contacts { get; } = new(); public InMemoryActivationCodeRepository Codes { get; } = new(); public InMemoryUserDeviceRepository Devices { get; } = new(); public InMemoryUserSubscriptionRepository Subscriptions { get; } = new(); public InMemoryOnboardingConfirmationRepository Confirmations { get; } = new(); public InMemoryTripRepository Trips { get; } = new(); }
+    private sealed class TestStores { public InMemoryUserRepository Users { get; } = new(); public InMemoryRefreshTokenRepository RefreshTokens { get; } = new(); public InMemoryDriverProfileRepository Profiles { get; } = new(); public InMemoryDriverVehicleRepository Vehicles { get; } = new(); public InMemoryEmergencyContactRepository Contacts { get; } = new(); public InMemoryActivationCodeRepository Codes { get; } = new(); public InMemoryUserDeviceRepository Devices { get; } = new(); public InMemoryUserSubscriptionRepository Subscriptions { get; } = new(); public InMemoryOnboardingConfirmationRepository Confirmations { get; } = new(); public InMemoryTripRepository Trips { get; } = new(); public InMemoryTripRoutePointRepository RoutePoints { get; } = new(); }
     private sealed class InMemoryUserRepository : IUserRepository { public List<User> Users { get; } = []; public Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Users.FirstOrDefault(user => user.Id == id)); public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.Email, email.Trim(), StringComparison.OrdinalIgnoreCase))); public Task AddAsync(User user, CancellationToken cancellationToken) { Users.Add(user); return Task.CompletedTask; } public Task UpdateAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository { public List<RefreshToken> Tokens { get; } = []; public Task<RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken cancellationToken) => Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash)); public Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken) { Tokens.Add(refreshToken); return Task.CompletedTask; } public Task UpdateAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryDriverProfileRepository : IDriverProfileRepository { public List<DriverProfile> Profiles { get; } = []; public Task<DriverProfile?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Profiles.FirstOrDefault(profile => profile.UserId == userId)); public Task AddAsync(DriverProfile profile, CancellationToken cancellationToken) { Profiles.Add(profile); return Task.CompletedTask; } public Task UpdateAsync(DriverProfile profile, CancellationToken cancellationToken) => Task.CompletedTask; }
@@ -217,6 +319,7 @@ public sealed class TripEndpointsTests
     private sealed class InMemoryUserSubscriptionRepository : IUserSubscriptionRepository { public List<UserSubscription> Subscriptions { get; } = []; public Task<UserSubscription?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.FirstOrDefault(subscription => subscription.UserId == userId)); public Task<bool> HasActiveSubscriptionAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Subscriptions.Any(subscription => subscription.UserId == userId && subscription.Status == SubscriptionStatus.Active)); public Task AddAsync(UserSubscription subscription, CancellationToken cancellationToken) { Subscriptions.Add(subscription); return Task.CompletedTask; } public Task UpdateAsync(UserSubscription subscription, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryOnboardingConfirmationRepository : IOnboardingConfirmationRepository { public List<OnboardingConfirmation> Confirmations { get; } = []; public Task<OnboardingConfirmation?> GetByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Confirmations.FirstOrDefault(confirmation => confirmation.UserId == userId)); public Task AddAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) { Confirmations.Add(confirmation); return Task.CompletedTask; } public Task UpdateAsync(OnboardingConfirmation confirmation, CancellationToken cancellationToken) => Task.CompletedTask; }
     private sealed class InMemoryTripRepository : ITripRepository { public List<Trip> Trips { get; } = []; public Task<Trip?> GetActiveByUserIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult(Trips.FirstOrDefault(trip => trip.UserId == userId && trip.Status == TripStatus.Active)); public Task<Trip?> GetByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(Trips.FirstOrDefault(trip => trip.Id == id)); public Task<IReadOnlyList<Trip>> ListByUserIdAsync(string userId, TripStatus? status, int pageNumber, int pageSize, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Trip>>(Trips.Where(trip => trip.UserId == userId && (!status.HasValue || trip.Status == status.Value)).Skip((pageNumber - 1) * pageSize).Take(pageSize).ToArray()); public Task<long> CountByUserIdAsync(string userId, TripStatus? status, CancellationToken cancellationToken) => Task.FromResult((long)Trips.Count(trip => trip.UserId == userId && (!status.HasValue || trip.Status == status.Value))); public Task AddAsync(Trip trip, CancellationToken cancellationToken) { Trips.Add(trip); return Task.CompletedTask; } public Task UpdateAsync(Trip trip, CancellationToken cancellationToken) => Task.CompletedTask; }
+    private sealed class InMemoryTripRoutePointRepository : ITripRoutePointRepository { public List<TripRoutePoint> Points { get; } = []; public Task<IReadOnlyList<TripRoutePoint>> GetByTripIdAndClientIdsAsync(string tripId, IReadOnlyCollection<string> ids, CancellationToken ct) => Task.FromResult<IReadOnlyList<TripRoutePoint>>(Points.Where(point => point.TripId == tripId && ids.Contains(point.ClientRoutePointId)).ToArray()); public Task<(TripRoutePoint RoutePoint, bool IsDuplicate)> AddOrGetDuplicateAsync(TripRoutePoint point, CancellationToken ct) { TripRoutePoint? existing = Points.FirstOrDefault(existing => existing.TripId == point.TripId && existing.ClientRoutePointId == point.ClientRoutePointId); if (existing is not null) return Task.FromResult((existing, true)); Points.Add(point); return Task.FromResult((point, false)); } public Task<IReadOnlyList<TripRoutePoint>> ListByUserIdAndTripIdAsync(string userId, string tripId, CancellationToken ct) => Task.FromResult<IReadOnlyList<TripRoutePoint>>(Points.Where(point => point.UserId == userId && point.TripId == tripId).OrderBy(point => point.Sequence).ToArray()); }
     private sealed record LoginEnvelope(bool Success, LoginResponse Data);
     private sealed record TripEnvelope(bool Success, StartTripResponse Data);
 }
