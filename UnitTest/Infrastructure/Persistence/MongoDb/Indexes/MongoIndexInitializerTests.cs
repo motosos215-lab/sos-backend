@@ -440,6 +440,12 @@ public sealed class MongoIndexInitializerTests
                 It.IsAny<CreateOneIndexOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        indexes.EvidenceAttachmentIndexes.Verify(
+            indexManager => indexManager.CreateOneAsync(
+                It.Is<CreateIndexModel<EvidenceAttachment>>(model => IsExpectedEvidenceClientPartialIndex(model)),
+                It.IsAny<CreateOneIndexOptions>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
         indexes.ResolutionReportExportIndexes.Verify(
             indexManager => indexManager.CreateOneAsync(
                 It.Is<CreateIndexModel<ResolutionReportExport>>(model => model.Options.Name == "ux_resolutionReportExports_idempotencyKey" && model.Options.Unique == true),
@@ -1043,6 +1049,14 @@ public sealed class MongoIndexInitializerTests
     private static BsonDocument MinorEventUserIdTripIdIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.UserId)] = 1, [nameof(MinorEvent.TripId)] = 1 }, unique: false);
     private static BsonDocument MinorEventEventTypeOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.EventType)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false);
     private static BsonDocument MinorEventStatusOccurredAtIndex(string name) => Index(MongoCollectionNames.MinorEvents, name, new BsonDocument { [nameof(MinorEvent.Status)] = 1, [nameof(MinorEvent.OccurredAtUtc)] = 1 }, unique: false);
+
+    private static bool IsExpectedEvidenceClientPartialIndex(CreateIndexModel<EvidenceAttachment> model)
+    {
+        if (model.Options.Name != "ux_evidenceAttachments_userId_incidentId_clientEvidenceId" || model.Options.Unique != true) return false;
+        if (model.Options.PartialFilterExpression is not BsonDocumentFilterDefinition<EvidenceAttachment> partial) return false;
+        return partial.Document.Equals(new BsonDocument(nameof(EvidenceAttachment.ClientEvidenceId), new BsonDocument("$gt", string.Empty)))
+            && !partial.Document.ToString().Contains("$ne", StringComparison.Ordinal);
+    }
 
     private static BsonDocument Index(string collection, string name, BsonDocument key, bool unique)
     {
