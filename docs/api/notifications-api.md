@@ -104,6 +104,20 @@ Notification Outbox procesa attempts mediante `NotificationProviderResolver`. `P
 
 La abstraccion no cambia endpoints publicos, responses ni transiciones existentes.
 
+## Push SOS Y Feedback Rider
+
+El flujo original de SOS hacia Monitor se mantiene igual: si el attempt `Push` no tiene `EventType`, FCM resuelve el destinatario por `EmergencyContact.LinkedUserId` y conserva el payload historico con `notificationDeliveryAttemptId`, `alertDispatchId`, `incidentId` y `channel`.
+
+Los attempts internos de feedback al Rider usan `EventType` y `RecipientUserId`. Solo cuando ambos campos existen, FCM envia directo a `RecipientUserId`. El payload de feedback distingue `notificationDeliveryAttemptId` como el attempt nuevo de feedback y `monitorAlertAttemptId` como el attempt original del Monitor.
+
+Event types soportados:
+
+- `monitor_alert_viewed`
+- `monitor_alert_acknowledged`
+- `monitor_alert_declined`
+
+Si el Rider no tiene FCM activo o tiene `PushEnabled=false`, el feedback se omite sin fallar la accion del Monitor.
+
 ## Transiciones
 
 `mark-simulated-sent`:

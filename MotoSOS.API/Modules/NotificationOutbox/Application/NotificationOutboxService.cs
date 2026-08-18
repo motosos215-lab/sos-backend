@@ -145,7 +145,7 @@ public sealed class NotificationOutboxService : INotificationOutboxService
         try
         {
             INotificationProvider provider = _providers.Resolve(channel);
-            return await provider.SendAsync(new NotificationProviderRequest(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, channel, simulateFailures, attempt.ContactEmail, attempt.ContactPhoneNumber), cancellationToken);
+            return await provider.SendAsync(new NotificationProviderRequest(attempt.Id, attempt.AlertDispatchId, attempt.IncidentId, channel, simulateFailures, attempt.ContactEmail, attempt.ContactPhoneNumber, attempt.RecipientUserId, attempt.EventType, attempt.MonitorAlertAttemptId, attempt.MonitorUserId, attempt.Screen, attempt.OccurredAtUtc), cancellationToken);
         }
         catch (Exception)
         {

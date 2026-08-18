@@ -25,6 +25,14 @@ public sealed class PushNotificationRecipientResolver : IPushNotificationRecipie
         NotificationDeliveryAttempt? attempt = await _attempts.GetByIdAsync(notificationDeliveryAttemptId, cancellationToken);
         if (attempt is null || attempt.Channel != NotificationChannel.Push) return PushNotificationRecipientResolution.Failed("push_recipient_not_available");
 
+        if (!string.IsNullOrWhiteSpace(attempt.EventType) && !string.IsNullOrWhiteSpace(attempt.RecipientUserId))
+        {
+            PushNotificationToken? directToken = await _tokens.GetLatestActiveFcmByUserIdAsync(attempt.RecipientUserId, cancellationToken);
+            return directToken is null
+                ? PushNotificationRecipientResolution.Failed("push_token_not_available")
+                : PushNotificationRecipientResolution.Success(new PushNotificationRecipient(attempt.RecipientUserId, directToken));
+        }
+
         EmergencyContact? contact = await _contacts.GetByIdAsync(attempt.EmergencyContactId, cancellationToken);
         if (contact is null || contact.UserId != attempt.UserId || !contact.IsActive || contact.InvitationStatus != EmergencyContactInvitationStatus.Linked || string.IsNullOrWhiteSpace(contact.LinkedUserId))
         {

@@ -91,6 +91,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<INotificationProviderStatusService, NotificationProviderStatusService>();
         services.AddScoped<IPushNotificationTokenService, PushNotificationTokenService>();
         services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
+        services.AddScoped<IRiderAlertFeedbackNotificationService, RiderAlertFeedbackNotificationService>();
         services.Configure<NotificationOutboxWorkerOptions>(configuration.GetSection(NotificationOutboxWorkerOptions.SectionName));
         services.AddSingleton<INotificationOutboxWorkerStateStore, InMemoryNotificationOutboxWorkerStateStore>();
         services.AddHostedService<NotificationOutboxWorker>();
@@ -141,6 +142,7 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IIncidentIdempotencyKeyFactory, IncidentIdempotencyKeyFactory>();
         services.AddSingleton<IAlertDispatchIdempotencyKeyFactory, AlertDispatchIdempotencyKeyFactory>();
         services.AddSingleton<INotificationIdempotencyKeyFactory, NotificationIdempotencyKeyFactory>();
+        services.AddSingleton<IRiderAlertFeedbackNotificationIdempotencyKeyFactory, RiderAlertFeedbackNotificationIdempotencyKeyFactory>();
         services.AddSingleton<IAlertAcknowledgementIdempotencyKeyFactory, AlertAcknowledgementIdempotencyKeyFactory>();
         services.AddSingleton<ILocationSharingStalenessService, LocationSharingStalenessService>();
         services.AddSingleton<IEmergencyResolutionIdempotencyKeyFactory, EmergencyResolutionIdempotencyKeyFactory>();

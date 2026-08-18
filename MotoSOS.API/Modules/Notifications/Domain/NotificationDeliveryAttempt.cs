@@ -18,6 +18,12 @@ public sealed class NotificationDeliveryAttempt
     public string? ContactEmail { get; set; }
     public string? ContactRelationship { get; set; }
     public int? ContactPriority { get; set; }
+    public string? RecipientUserId { get; set; }
+    public string? EventType { get; set; }
+    public string? MonitorAlertAttemptId { get; set; }
+    public string? MonitorUserId { get; set; }
+    public string? Screen { get; set; }
+    public DateTimeOffset? OccurredAtUtc { get; set; }
     public NotificationChannel Channel { get; set; }
     public NotificationDeliveryStatus Status { get; set; } = NotificationDeliveryStatus.Prepared;
     public NotificationProvider Provider { get; set; } = NotificationProvider.None;
