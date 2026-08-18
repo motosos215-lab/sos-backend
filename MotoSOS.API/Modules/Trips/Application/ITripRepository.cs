@@ -10,4 +10,5 @@ public interface ITripRepository
     Task<long> CountByUserIdAsync(string userId, TripStatus? status, CancellationToken cancellationToken);
     Task AddAsync(Trip trip, CancellationToken cancellationToken);
     Task UpdateAsync(Trip trip, CancellationToken cancellationToken);
+    Task<bool> TransferActiveMobileDeviceAsync(string tripId, string userId, string mobileDeviceId, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken) => Task.FromResult(false);
 }

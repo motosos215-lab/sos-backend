@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using FluentValidation;
 using MotoSOS.API.Common.Results;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Auth.Contracts;
+using MotoSOS.API.Modules.Auth.Sessions.Application;
+using MotoSOS.API.Modules.Auth.Sessions.Contracts;
 
 namespace MotoSOS.API.Modules.Auth.Endpoints;
 
@@ -48,8 +51,15 @@ public static class AuthEndpoints
                 return Results.BadRequest(ApiResponse<object>.Fail(new ApiError("validation_error", validation.Errors[0].ErrorMessage)));
             }
 
-            LoginResponse response = await authService.LoginAsync(request, cancellationToken);
-            return Results.Ok(ApiResponse<LoginResponse>.Ok(response));
+            try
+            {
+                LoginResponse response = await authService.LoginAsync(request, cancellationToken);
+                return Results.Ok(ApiResponse<LoginResponse>.Ok(response));
+            }
+            catch (ActiveSessionExistsAppException exception)
+            {
+                return Results.Conflict(new ApiResponse<ActiveSessionConflictResponse>(false, exception.DataPayload, new ApiError(exception.Code, exception.Message)));
+            }
         });
 
         group.MapPost("/forgot-password", async (
@@ -116,8 +126,35 @@ public static class AuthEndpoints
                 return Results.BadRequest(ApiResponse<object>.Fail(new ApiError("validation_error", validation.Errors[0].ErrorMessage)));
             }
 
-            LoginResponse response = await authService.LoginWithCodeAsync(request, cancellationToken);
-            return Results.Ok(ApiResponse<LoginResponse>.Ok(response));
+            try
+            {
+                LoginResponse response = await authService.LoginWithCodeAsync(request, cancellationToken);
+                return Results.Ok(ApiResponse<LoginResponse>.Ok(response));
+            }
+            catch (ActiveSessionExistsAppException exception)
+            {
+                return Results.Conflict(new ApiResponse<ActiveSessionConflictResponse>(false, exception.DataPayload, new ApiError(exception.Code, exception.Message)));
+            }
+        });
+
+        group.MapPost("/sessions/takeover", async (
+            TakeoverSessionRequest request,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                TakeoverSessionResponse response = await authService.TakeoverAsync(request, cancellationToken);
+                return Results.Ok(ApiResponse<TakeoverSessionResponse>.Ok(response));
+            }
+            catch (ActiveTripTransferRequiredAppException exception)
+            {
+                return Results.Conflict(new ApiResponse<object>(false, new { activeTrip = exception.DataPayload }, new ApiError(exception.Code, exception.Message)));
+            }
+            catch (ActiveSessionExistsAppException exception)
+            {
+                return Results.Conflict(new ApiResponse<ActiveSessionConflictResponse>(false, exception.DataPayload, new ApiError(exception.Code, exception.Message)));
+            }
         });
 
         group.MapPost("/refresh", async (
@@ -141,6 +178,7 @@ public static class AuthEndpoints
             LogoutRequest request,
             IValidator<LogoutRequest> validator,
             IAuthService authService,
+            ClaimsPrincipal principal,
             CancellationToken cancellationToken) =>
         {
             var validation = await validator.ValidateAsync(request, cancellationToken);
@@ -150,10 +188,13 @@ public static class AuthEndpoints
                 return Results.BadRequest(ApiResponse<object>.Fail(new ApiError("validation_error", validation.Errors[0].ErrorMessage)));
             }
 
-            await authService.LogoutAsync(request, cancellationToken);
-            return Results.NoContent();
-        });
+            await authService.LogoutAsync(GetUserId(principal), GetSessionId(principal), request, cancellationToken);
+            return Results.Ok(ApiResponse<object>.Ok(new { loggedOut = true }));
+        }).RequireAuthorization();
 
         return endpoints;
     }
+
+    private static string? GetUserId(ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.FindFirstValue("sub");
+    private static string? GetSessionId(ClaimsPrincipal principal) => principal.FindFirstValue("sid");
 }

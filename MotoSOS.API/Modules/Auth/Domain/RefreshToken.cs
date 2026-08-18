@@ -11,6 +11,8 @@ public sealed class RefreshToken
 
     public string UserId { get; set; } = string.Empty;
 
+    public string? SessionId { get; set; }
+
     public string TokenHash { get; set; } = string.Empty;
 
     public DateTimeOffset ExpiresAtUtc { get; set; }

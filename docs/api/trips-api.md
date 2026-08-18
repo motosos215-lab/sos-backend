@@ -26,6 +26,8 @@ Este modulo no implementa todavia ingesta offline, minor events, sensor batches,
 - Si ya existe un viaje activo con datos distintos, devuelve `active_trip_exists`.
 - `POST /api/v1/trips/{id}/finish` es idempotente si el viaje ya esta `Finished`.
 - Los viajes no se borran fisicamente.
+- Si un Rider confirma takeover con viaje activo, la API transfiere solo `Trip.mobileDeviceId` al nuevo movil validado.
+- La transferencia conserva exactamente el mismo `trip.id`, `status = Active`, `startedAtUtc`, puntos de ruta, incidentes, alert dispatches, notification attempts y SOS existentes.
 
 ## Riesgo De Concurrencia
 

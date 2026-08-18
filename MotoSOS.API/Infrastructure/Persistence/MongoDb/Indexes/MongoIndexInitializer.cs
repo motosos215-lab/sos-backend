@@ -6,6 +6,7 @@ using MotoSOS.API.Modules.AlertDispatch.Domain;
 using MotoSOS.API.Modules.AuditLogRetention.Domain;
 using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Auth.Sessions.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.EmergencyResolution.Domain;
@@ -73,6 +74,20 @@ public sealed class MongoIndexInitializer
         await EnsureIndexAsync(authCodes, "ix_authCodes_userId_purpose_status", new BsonDocument { [nameof(AuthCode.UserId)] = 1, [nameof(AuthCode.Purpose)] = 1, [nameof(AuthCode.Status)] = 1 }, unique: false, cancellationToken);
         await EnsureIndexAsync(authCodes, "ix_authCodes_expiresAtUtc", new BsonDocument(nameof(AuthCode.ExpiresAtUtc), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(authCodes, "ix_authCodes_createdAtUtc", new BsonDocument(nameof(AuthCode.CreatedAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<UserSession> userSessions = _database.GetCollection<UserSession>(MongoCollectionNames.UserSessions);
+        await EnsureIndexAsync(userSessions, "ux_userSessions_userId_sessionType_active", new BsonDocument { [nameof(UserSession.UserId)] = 1, [nameof(UserSession.SessionType)] = 1 }, unique: true, partialFilter: new BsonDocument(nameof(UserSession.RevokedAtUtc), BsonNull.Value), cancellationToken);
+        await EnsureIndexAsync(userSessions, "ix_userSessions_userId", new BsonDocument(nameof(UserSession.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(userSessions, "ix_userSessions_userId_sessionType", new BsonDocument { [nameof(UserSession.UserId)] = 1, [nameof(UserSession.SessionType)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(userSessions, "ix_userSessions_userId_clientDeviceId", new BsonDocument { [nameof(UserSession.UserId)] = 1, [nameof(UserSession.ClientDeviceId)] = 1 }, unique: false, cancellationToken);
+        await EnsureIndexAsync(userSessions, "ix_userSessions_revokedAtUtc", new BsonDocument(nameof(UserSession.RevokedAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(userSessions, "ix_userSessions_lastSeenAtUtc", new BsonDocument(nameof(UserSession.LastSeenAtUtc), 1), unique: false, cancellationToken);
+
+        IMongoCollection<SessionTakeoverToken> sessionTakeoverTokens = _database.GetCollection<SessionTakeoverToken>(MongoCollectionNames.SessionTakeoverTokens);
+        await EnsureIndexAsync(sessionTakeoverTokens, "ux_sessionTakeoverTokens_tokenHash", new BsonDocument(nameof(SessionTakeoverToken.TokenHash), 1), unique: true, cancellationToken);
+        await EnsureIndexAsync(sessionTakeoverTokens, "ix_sessionTakeoverTokens_userId", new BsonDocument(nameof(SessionTakeoverToken.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(sessionTakeoverTokens, "ix_sessionTakeoverTokens_expiresAtUtc", new BsonDocument(nameof(SessionTakeoverToken.ExpiresAtUtc), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(sessionTakeoverTokens, "ix_sessionTakeoverTokens_usedAtUtc", new BsonDocument(nameof(SessionTakeoverToken.UsedAtUtc), 1), unique: false, cancellationToken);
 
         IMongoCollection<DriverProfile> driverProfiles = _database.GetCollection<DriverProfile>(MongoCollectionNames.DriverProfiles);
         await EnsureIndexAsync(driverProfiles, "ux_driverProfiles_userId", new BsonDocument(nameof(DriverProfile.UserId), 1), unique: true, cancellationToken);
@@ -243,6 +258,7 @@ public sealed class MongoIndexInitializer
 
         IMongoCollection<PushNotificationToken> pushNotificationTokens = _database.GetCollection<PushNotificationToken>(MongoCollectionNames.PushNotificationTokens);
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_userId", new BsonDocument(nameof(PushNotificationToken.UserId), 1), unique: false, cancellationToken);
+        await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_sessionId", new BsonDocument(nameof(PushNotificationToken.SessionId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_deviceId", new BsonDocument(nameof(PushNotificationToken.DeviceId), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_platform", new BsonDocument(nameof(PushNotificationToken.Platform), 1), unique: false, cancellationToken);
         await EnsureIndexAsync(pushNotificationTokens, "ix_pushNotificationTokens_channel", new BsonDocument(nameof(PushNotificationToken.Channel), 1), unique: false, cancellationToken);
@@ -410,13 +426,18 @@ public sealed class MongoIndexInitializer
     }
 
     private static async Task EnsureIndexAsync<TDocument>(
-        IMongoCollection<TDocument> collection,
+        IMongoCollection<TDocument>? collection,
         string name,
         BsonDocument key,
         bool unique,
         BsonDocument? partialFilter,
         CancellationToken cancellationToken)
     {
+        if (collection is null)
+        {
+            return;
+        }
+
         if (await HasEquivalentIndexAsync(collection, key, unique, partialFilter, cancellationToken))
         {
             return;
@@ -441,7 +462,7 @@ public sealed class MongoIndexInitializer
         }
     }
 
-    private static Task EnsureIndexAsync<TDocument>(IMongoCollection<TDocument> collection, string name, BsonDocument key, bool unique, CancellationToken cancellationToken) => EnsureIndexAsync(collection, name, key, unique, null, cancellationToken);
+    private static Task EnsureIndexAsync<TDocument>(IMongoCollection<TDocument>? collection, string name, BsonDocument key, bool unique, CancellationToken cancellationToken) => EnsureIndexAsync(collection, name, key, unique, null, cancellationToken);
 
     private static async Task<bool> HasEquivalentIndexAsync<TDocument>(
         IMongoCollection<TDocument> collection,

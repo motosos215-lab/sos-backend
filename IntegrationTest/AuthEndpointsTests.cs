@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -7,9 +8,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MotoSOS.API.Common.Results;
 using MotoSOS.API.Modules.Auth.Application;
 using MotoSOS.API.Modules.Auth.Contracts;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Auth.Sessions.Contracts;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
 
@@ -158,6 +161,129 @@ public sealed class AuthEndpointsTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         content.Should().Contain("invalid_credentials");
         content.Should().NotContain("missing@example.com");
+    }
+
+    [Fact]
+    public async Task RiderLoginIncludesSessionIdAndSameClientDeviceReusesSession()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("session-rider@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+
+        HttpResponseMessage first = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, Device("11111111-1111-1111-1111-111111111111")));
+        LoginEnvelope firstLogin = (await first.Content.ReadFromJsonAsync<LoginEnvelope>())!;
+        HttpResponseMessage second = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, Device("11111111-1111-1111-1111-111111111111")));
+        LoginEnvelope secondLogin = (await second.Content.ReadFromJsonAsync<LoginEnvelope>())!;
+
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        firstLogin.Data.Session.Should().NotBeNull();
+        secondLogin.Data.Session!.Id.Should().Be(firstLogin.Data.Session!.Id);
+        new JwtSecurityTokenHandler().ReadJwtToken(firstLogin.Data.AccessToken).Claims.Should().Contain(claim => claim.Type == "sid" && claim.Value == firstLogin.Data.Session!.Id);
+        stores.RefreshTokens.Tokens.Should().OnlyContain(token => token.SessionId == firstLogin.Data.Session!.Id);
+    }
+
+    [Fact]
+    public async Task MonitorTakeoverRevokesOldAccessAndRefreshTokens()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("takeover-monitor@example.com", "Monitor");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+        ClientDeviceRequest firstDevice = Device("22222222-2222-2222-2222-222222222222");
+        ClientDeviceRequest secondDevice = Device("33333333-3333-3333-3333-333333333333");
+        LoginEnvelope firstLogin = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, firstDevice))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+
+        HttpResponseMessage conflict = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, secondDevice));
+        ActiveSessionConflictEnvelope conflictBody = (await conflict.Content.ReadFromJsonAsync<ActiveSessionConflictEnvelope>())!;
+        HttpResponseMessage takeover = await client.PostAsJsonAsync("/api/v1/auth/sessions/takeover", new TakeoverSessionRequest(conflictBody.Data.TakeoverToken, secondDevice));
+        LoginEnvelope takeoverBody = (await takeover.Content.ReadFromJsonAsync<LoginEnvelope>())!;
+
+        conflict.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        conflictBody.Error.Code.Should().Be("active_session_exists");
+        conflictBody.Data.ActiveSession.DeviceName.Should().Be(firstDevice.DeviceName);
+        takeover.StatusCode.Should().Be(HttpStatusCode.OK);
+        takeoverBody.Data.Session!.Id.Should().NotBe(firstLogin.Data.Session!.Id);
+
+        HttpClient oldClient = factory.CreateClient();
+        oldClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firstLogin.Data.AccessToken);
+        (await oldClient.GetAsync("/api/v1/users/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(firstLogin.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        HttpClient newClient = factory.CreateClient();
+        newClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", takeoverBody.Data.AccessToken);
+        (await newClient.GetAsync("/api/v1/users/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Theory]
+    [InlineData("Rider")]
+    [InlineData("Monitor")]
+    public async Task UserCanHaveWebAppAndMobileAppSessionsAtTheSameTime(string accountType)
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest($"{accountType.ToLowerInvariant()}-web-mobile@example.com", accountType);
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+
+        LoginEnvelope webLogin = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+        LoginEnvelope mobileLogin = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, Device("44444444-4444-4444-4444-444444444444")))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+
+        webLogin.Data.Session!.SessionType.Should().Be("WebApp");
+        mobileLogin.Data.Session!.SessionType.Should().Be("MobileApp");
+        mobileLogin.Data.Session.Id.Should().NotBe(webLogin.Data.Session.Id);
+
+        HttpClient webClient = factory.CreateClient();
+        webClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", webLogin.Data.AccessToken);
+        (await webClient.GetAsync("/api/v1/users/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(webLogin.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(mobileLogin.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task MobileTakeoverDoesNotRevokeWebAppSession()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("mobile-takeover-keeps-web@example.com", "Monitor");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+        LoginEnvelope webLogin = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+        LoginEnvelope firstMobile = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, Device("55555555-5555-5555-5555-555555555555")))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+
+        ClientDeviceRequest secondDevice = Device("66666666-6666-6666-6666-666666666666");
+        HttpResponseMessage conflict = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, secondDevice));
+        ActiveSessionConflictEnvelope conflictBody = (await conflict.Content.ReadFromJsonAsync<ActiveSessionConflictEnvelope>())!;
+        HttpResponseMessage takeover = await client.PostAsJsonAsync("/api/v1/auth/sessions/takeover", new TakeoverSessionRequest(conflictBody.Data.TakeoverToken, secondDevice));
+
+        conflict.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        conflictBody.Data.ActiveSession.SessionType.Should().Be("MobileApp");
+        takeover.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(webLogin.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(firstMobile.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task LogoutRevokesOnlyCurrentSessionType()
+    {
+        var stores = new TestStores();
+        await using WebApplicationFactory<Program> factory = CreateFactory(stores);
+        HttpClient client = factory.CreateClient();
+        var register = CreateRegisterRequest("logout-one-session@example.com", "Rider");
+        await client.PostAsJsonAsync("/api/v1/auth/register", register);
+        LoginEnvelope webLogin = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+        LoginEnvelope mobileLogin = (await (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(register.Email, register.Password, false, Device("77777777-7777-7777-7777-777777777777")))).Content.ReadFromJsonAsync<LoginEnvelope>())!;
+
+        HttpClient mobileClient = factory.CreateClient();
+        mobileClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", mobileLogin.Data.AccessToken);
+        HttpResponseMessage logout = await mobileClient.PostAsJsonAsync("/api/v1/auth/logout", new LogoutRequest(mobileLogin.Data.RefreshToken));
+
+        logout.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(mobileLogin.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(webLogin.Data.RefreshToken))).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -498,6 +624,8 @@ public sealed class AuthEndpointsTests
         return new RegisterRequest(email, "StrongPass1!", "StrongPass1!", "Moto Rider", "+52 555 555 5555", accountType, true);
     }
 
+    private static ClientDeviceRequest Device(string clientDeviceId) => new(clientDeviceId, "Samsung SM-A536E", "Android", "Android 16", "1.0.0");
+
     private static WebApplicationFactory<Program> CreateFactory(TestStores stores, bool authCodesEnabled = true, bool useEmailProvider = false)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -668,5 +796,7 @@ public sealed class AuthEndpointsTests
 
     private sealed record LoginEnvelope(bool Success, LoginData Data);
 
-    private sealed record LoginData(string AccessToken, string RefreshToken, DateTimeOffset AccessTokenExpiresAtUtc, AuthUserResponse User);
+    private sealed record LoginData(string AccessToken, string RefreshToken, DateTimeOffset AccessTokenExpiresAtUtc, AuthUserResponse User, SessionResponse? Session);
+
+    private sealed record ActiveSessionConflictEnvelope(bool Success, ActiveSessionConflictResponse Data, ApiError Error);
 }

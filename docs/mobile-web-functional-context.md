@@ -8,6 +8,8 @@ MotoSOS API es la API central del producto. Actualmente expone flujos funcionale
 
 La API usa JSON con propiedades en `camelCase` y responde normalmente mediante el wrapper estandar `ApiResponse<T>`.
 
+Auth soporta sesion unica por `SessionType`: `MobileApp`, `WebApp` o `AdminWeb`. Android/iOS envia `clientDevice` y puede convivir con web; login web sin `clientDevice` recibe `sid` `WebApp/AdminWeb` y no cierra la app movil. Si otro telefono `MobileApp` esta activo, login responde `active_session_exists` y usa `POST /api/v1/auth/sessions/takeover`. Para Rider con viaje activo, takeover movil requiere `transferActiveTrip=true` y conserva el mismo `trip.id`.
+
 La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, `Email` usa SMTP/Brevo si el provider Email esta habilitado/configurado y `Sms` usa Brevo SMS si el provider SMS esta habilitado/configurado. WhatsApp real sigue fuera de alcance.
 
 Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
@@ -55,7 +57,7 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 
 ## Flujo Recomendado Para Movil
 
-1. Registrar o iniciar sesion con `POST /api/v1/auth/register` o `POST /api/v1/auth/login`.
+1. Registrar o iniciar sesion con `POST /api/v1/auth/register` o `POST /api/v1/auth/login` enviando `clientDevice` en Android.
 2. Consultar usuario actual con `GET /api/v1/users/me`.
 3. Completar perfil con `PUT /api/v1/profiles/me`.
 4. Registrar vehiculo con `POST /api/v1/vehicles`.

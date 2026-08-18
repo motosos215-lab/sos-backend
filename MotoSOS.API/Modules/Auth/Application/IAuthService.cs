@@ -1,4 +1,5 @@
 using MotoSOS.API.Modules.Auth.Contracts;
+using MotoSOS.API.Modules.Auth.Sessions.Contracts;
 
 namespace MotoSOS.API.Modules.Auth.Application;
 
@@ -18,5 +19,7 @@ public interface IAuthService
 
     Task<RefreshTokenResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken);
 
-    Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken);
+    Task LogoutAsync(string? userId, string? sessionId, LogoutRequest request, CancellationToken cancellationToken);
+
+    Task<TakeoverSessionResponse> TakeoverAsync(TakeoverSessionRequest request, CancellationToken cancellationToken);
 }

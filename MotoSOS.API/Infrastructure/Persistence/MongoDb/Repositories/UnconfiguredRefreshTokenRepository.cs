@@ -13,5 +13,7 @@ public sealed class UnconfiguredRefreshTokenRepository : IRefreshTokenRepository
 
     public Task RevokeActiveByUserIdAsync(string userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken) => throw CreateException();
 
+    public Task RevokeActiveBySessionIdAsync(string sessionId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken) => throw CreateException();
+
     private static InvalidOperationException CreateException() => new("MongoDB is not configured for refresh token persistence.");
 }

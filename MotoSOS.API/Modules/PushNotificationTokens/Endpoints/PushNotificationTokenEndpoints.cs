@@ -18,7 +18,7 @@ public static class PushNotificationTokenEndpoints
             string? userId = GetUserId(principal);
             if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
             ValidatedRegisterPushNotificationTokenRequest validated = validator.Validate(request);
-            return Results.Ok(ApiResponse<RegisterPushNotificationTokenResponse>.Ok(await service.RegisterAsync(userId, validated, cancellationToken)));
+            return Results.Ok(ApiResponse<RegisterPushNotificationTokenResponse>.Ok(await service.RegisterAsync(userId, principal.FindFirstValue("sid"), validated, cancellationToken)));
         });
 
         group.MapGet(string.Empty, async (string? platform, string? channel, string? status, int? pageNumber, int? pageSize, ClaimsPrincipal principal, PushNotificationTokenQueryValidator validator, IPushNotificationTokenService service, CancellationToken cancellationToken) =>

@@ -73,6 +73,8 @@ Para viajes `Finished`, Android puede sincronizar offline hasta `FinishedAtUtc +
 
 Los puntos se conservan despues de finalizar el viaje.
 
+Si el Rider transfiere una sesion con viaje activo, los route points existentes se conservan intactos y el nuevo dispositivo continua agregando puntos sobre el mismo `tripId`. La idempotencia por `tripId + clientRoutePointId` sigue aplicando despues del takeover.
+
 ## GET Route
 
 Ejemplos:

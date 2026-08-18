@@ -7,6 +7,8 @@ Push Notification Tokens API registra y administra tokens de notificacion de app
 - Coleccion MongoDB: `pushNotificationTokens`.
 - Registra tokens para `Rider`, `Monitor` y `Admin` autenticados.
 - Cada usuario registra solo tokens propios; `userId` viene siempre del JWT.
+- Para `Monitor`, el token queda asociado internamente al `sid` del JWT. Android no envia `sessionId`.
+- Si la sesion del Monitor se reemplaza por takeover o se cierra con logout, los push tokens asociados a esa sesion se revocan para que el telefono anterior no reciba nuevas alertas SOS.
 - No envia notificaciones reales.
 - No llama proveedores externos.
 - No agrega SDKs externos.
@@ -33,6 +35,7 @@ Cualquier otra combinacion devuelve `validation_error`.
 - `TokenHash` se usa solo para deduplicacion interna y nunca se devuelve.
 - `TokenPreview` se devuelve solo enmascarado.
 - `TokenValue`, `TokenHash` y `TokenPreview` no se incluyen en metadata de auditoria.
+- `SessionId` es interno y no permite recuperar el token FCM completo.
 - Pendiente futuro: encryption/protection at rest para `TokenValue`.
 - Este modulo no agrega secretos de cifrado.
 
