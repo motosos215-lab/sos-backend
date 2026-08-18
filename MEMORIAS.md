@@ -1,5 +1,14 @@
 # Memorias Tecnicas
 
+## Monitor Alert Feedback Push
+
+- Las acciones Monitor `view`, `acknowledge` y `decline` crean feedback push al Rider solo cuando hay transicion real de estado.
+- Event types centralizados: `monitor_alert_viewed`, `monitor_alert_acknowledged` y `monitor_alert_declined`; screen `emergency_status`.
+- El feedback usa `NotificationDeliveryAttempt` interno con `EventType` y `RecipientUserId`; el flujo SOS original sin `EventType` sigue resolviendo destinatario por `EmergencyContact.LinkedUserId`.
+- Idempotencia del feedback: `RiderUserId + IncidentId + MonitorNotificationDeliveryAttemptId + FeedbackEventType`.
+- Payload FCM separa `notificationDeliveryAttemptId` del attempt feedback y `monitorAlertAttemptId` del attempt original del Monitor.
+- Si el Rider no tiene FCM activo o `PushEnabled=false`, se omite feedback sin fallar el endpoint del Monitor.
+
 ## User Session Takeover
 
 - Auth agrega `UserSession` en `userSessions` y `SessionTakeoverToken` en `sessionTakeoverTokens` para sesion unica por `SessionType`: `MobileApp`, `WebApp` o `AdminWeb`.
