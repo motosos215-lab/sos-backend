@@ -44,6 +44,19 @@ public sealed class MongoPushNotificationTokenRepository : IPushNotificationToke
         return result.ModifiedCount;
     }
 
+    public async Task<long> RevokeActiveTokensBySessionIdAsync(string sessionId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        UpdateDefinition<PushNotificationToken> update = Builders<PushNotificationToken>.Update
+            .Set(token => token.Status, PushNotificationTokenStatus.Revoked)
+            .Set(token => token.RevokedAtUtc, now)
+            .Set(token => token.UpdatedAtUtc, now);
+        UpdateResult result = await _tokens.UpdateManyAsync(
+            token => token.SessionId == sessionId && token.Status == PushNotificationTokenStatus.Active,
+            update,
+            cancellationToken: cancellationToken);
+        return result.ModifiedCount;
+    }
+
     public async Task<IReadOnlyList<PushNotificationToken>> ListByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken) => await _tokens.Find(BuildFilter(query) & Builders<PushNotificationToken>.Filter.Eq(token => token.UserId, userId)).SortByDescending(token => token.LastSeenAtUtc).Skip((query.PageNumber - 1) * query.PageSize).Limit(query.PageSize).ToListAsync(cancellationToken);
     public async Task<long> CountByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken) => await _tokens.CountDocumentsAsync(BuildFilter(query) & Builders<PushNotificationToken>.Filter.Eq(token => token.UserId, userId), cancellationToken: cancellationToken);
     public async Task<IReadOnlyList<PushNotificationToken>> ListAsync(PushNotificationTokenQuery query, CancellationToken cancellationToken) => await _tokens.Find(BuildFilter(query)).SortByDescending(token => token.LastSeenAtUtc).Skip((query.PageNumber - 1) * query.PageSize).Limit(query.PageSize).ToListAsync(cancellationToken);

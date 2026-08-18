@@ -5,6 +5,7 @@ using MotoSOS.API.Modules.AuditLogRetention.Application;
 using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.Auth.AdminBootstrap;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.Auth.Sessions.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyResolution.Application;
@@ -46,6 +47,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAdminBootstrapInitializer, AdminBootstrapInitializer>();
         services.AddHostedService<AdminBootstrapHostedService>();
         services.Configure<AuthCodeOptions>(configuration.GetSection(AuthCodeOptions.SectionName));
+        services.Configure<UserSessionOptions>(configuration.GetSection(UserSessionOptions.SectionName));
         services.AddSingleton<IAuthCodeGenerator, AuthCodeGenerator>();
         services.AddScoped<IAuthCodeHasher, AuthCodeHasher>();
         services.AddSingleton<AuthCodeEmailOptionsValidator>();

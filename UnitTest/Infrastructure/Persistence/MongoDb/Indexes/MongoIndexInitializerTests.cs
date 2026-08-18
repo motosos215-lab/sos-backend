@@ -13,6 +13,7 @@ using MotoSOS.API.Modules.AlertDispatch.Domain;
 using MotoSOS.API.Modules.AuditLogRetention.Domain;
 using MotoSOS.API.Modules.AuditLogs.Domain;
 using MotoSOS.API.Modules.Auth.Domain;
+using MotoSOS.API.Modules.Auth.Sessions.Domain;
 using MotoSOS.API.Modules.Devices.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
 using MotoSOS.API.Modules.EmergencyResolution.Domain;
@@ -498,6 +499,34 @@ public sealed class MongoIndexInitializerTests
         Func<Task> act = () => initializer.EnsureIndexesAsync(CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("MongoDB failure");
+    }
+
+    [Fact]
+    public async Task EnsureIndexesAsyncCreatesActiveUserSessionIndexByUserIdAndSessionType()
+    {
+        var database = new Mock<IMongoDatabase>();
+        var userSessions = new Mock<IMongoCollection<UserSession>>();
+        var userSessionIndexes = new Mock<IMongoIndexManager<UserSession>>();
+        CreateIndexModel<UserSession>? createdIndex = null;
+        userSessions.SetupGet(collection => collection.Indexes).Returns(userSessionIndexes.Object);
+        database
+            .Setup(db => db.GetCollection<UserSession>(MongoCollectionNames.UserSessions, It.IsAny<MongoCollectionSettings>()))
+            .Returns(userSessions.Object);
+        userSessionIndexes
+            .Setup(indexManager => indexManager.ListAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new BsonDocumentCursor([]));
+        userSessionIndexes
+            .Setup(indexManager => indexManager.CreateOneAsync(It.IsAny<CreateIndexModel<UserSession>>(), It.IsAny<CreateOneIndexOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<CreateIndexModel<UserSession>, CreateOneIndexOptions?, CancellationToken>((model, _, _) => createdIndex ??= model)
+            .ReturnsAsync("ux_userSessions_userId_sessionType_active");
+        var initializer = new MongoIndexInitializer(database.Object);
+
+        await initializer.EnsureIndexesAsync(CancellationToken.None);
+
+        createdIndex.Should().NotBeNull();
+        createdIndex!.Options.Name.Should().Be("ux_userSessions_userId_sessionType_active");
+        createdIndex.Options.Unique.Should().BeTrue();
+        createdIndex.Options.PartialFilterExpression.Should().NotBeNull();
     }
 
     private static TestMongoIndexes CreateIndexes(params BsonDocument[] existingIndexes)

@@ -4,5 +4,5 @@ namespace MotoSOS.API.Security.Tokens;
 
 public interface IJwtTokenService
 {
-    TokenResult CreateAccessToken(User user);
+    TokenResult CreateAccessToken(User user, string? sessionId = null);
 }

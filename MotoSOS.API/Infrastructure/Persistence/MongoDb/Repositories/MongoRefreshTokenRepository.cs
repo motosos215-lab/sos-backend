@@ -37,4 +37,13 @@ public sealed class MongoRefreshTokenRepository : IRefreshTokenRepository
             update,
             cancellationToken: cancellationToken);
     }
+
+    public async Task RevokeActiveBySessionIdAsync(string sessionId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken)
+    {
+        var update = Builders<RefreshToken>.Update.Set(token => token.RevokedAtUtc, revokedAtUtc);
+        await _refreshTokens.UpdateManyAsync(
+            token => token.SessionId == sessionId && token.RevokedAtUtc == null && token.ExpiresAtUtc > revokedAtUtc,
+            update,
+            cancellationToken: cancellationToken);
+    }
 }

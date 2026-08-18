@@ -11,6 +11,7 @@ using MotoSOS.API.Modules.AlertDispatch.Application;
 using MotoSOS.API.Modules.AuditLogRetention.Application;
 using MotoSOS.API.Modules.AuditLogs.Application;
 using MotoSOS.API.Modules.Auth.Application;
+using MotoSOS.API.Modules.Auth.Sessions.Application;
 using MotoSOS.API.Modules.Devices.Application;
 using MotoSOS.API.Modules.EmergencyContacts.Application;
 using MotoSOS.API.Modules.EmergencyResolution.Application;
@@ -79,6 +80,8 @@ public static class InfrastructureServiceExtensions
             services.AddHostedService<MongoIndexInitializerHostedService>();
             services.AddScoped<IUserRepository, MongoUserRepository>();
             services.AddScoped<IRefreshTokenRepository, MongoRefreshTokenRepository>();
+            services.AddScoped<IUserSessionRepository, MongoUserSessionRepository>();
+            services.AddScoped<ISessionTakeoverTokenRepository, MongoSessionTakeoverTokenRepository>();
             services.AddScoped<IAuthCodeRepository, MongoAuthCodeRepository>();
             services.AddScoped<IDriverProfileRepository, MongoDriverProfileRepository>();
             services.AddScoped<IDriverVehicleRepository, MongoDriverVehicleRepository>();
@@ -113,6 +116,16 @@ public static class InfrastructureServiceExtensions
         {
             services.AddScoped<IUserRepository, UnconfiguredUserRepository>();
             services.AddScoped<IRefreshTokenRepository, UnconfiguredRefreshTokenRepository>();
+            if (isTesting)
+            {
+                services.AddSingleton<IUserSessionRepository, InMemoryUserSessionRepository>();
+                services.AddSingleton<ISessionTakeoverTokenRepository, InMemorySessionTakeoverTokenRepository>();
+            }
+            else
+            {
+                services.AddScoped<IUserSessionRepository, UnconfiguredUserSessionRepository>();
+                services.AddScoped<ISessionTakeoverTokenRepository, UnconfiguredSessionTakeoverTokenRepository>();
+            }
             services.AddScoped<IAuthCodeRepository, UnconfiguredAuthCodeRepository>();
             services.AddScoped<IDriverProfileRepository, UnconfiguredDriverProfileRepository>();
             services.AddScoped<IDriverVehicleRepository, UnconfiguredDriverVehicleRepository>();

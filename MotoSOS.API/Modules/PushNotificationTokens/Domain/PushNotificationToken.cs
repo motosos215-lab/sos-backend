@@ -9,6 +9,7 @@ public sealed class PushNotificationToken
     [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
     public string UserId { get; set; } = string.Empty;
+    public string? SessionId { get; set; }
     public string? DeviceId { get; set; }
     public PushTokenPlatform Platform { get; set; }
     public PushTokenChannel Channel { get; set; }
