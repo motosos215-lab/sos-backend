@@ -12,7 +12,7 @@ Auth soporta sesion unica por `SessionType`: `MobileApp`, `WebApp` o `AdminWeb`.
 
 La API prepara registros de notificacion. El worker puede procesar attempts `Prepared`; `Push` usa FCM si FCM esta habilitado/configurado, `Email` usa SMTP/Brevo si el provider Email esta habilitado/configurado y `Sms` usa Brevo SMS si el provider SMS esta habilitado/configurado. WhatsApp real sigue fuera de alcance.
 
-Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
+Las preferencias de notificacion propias se administran con `/api/v1/notification-preferences/me`. Para contactos de emergencia enlazados por `LinkedUserId`, `PushEnabled`, `EmailEnabled` y `SmsEnabled` controlan si se preparan attempts de esos canales. `PushEnabled=false` tambien omite feedback push al Rider cuando un Monitor ve, confirma o declina una alerta. Quiet Hours y `CriticalAlertsEnabled` se guardan, pero no suprimen alertas criticas en esta version.
 
 Trip Route Points permite que Android envie puntos GPS reales del recorrido mediante `POST /api/v1/trips/{tripId}/route-points/batch` y luego los lea con `GET /api/v1/trips/{tripId}/route` para dibujar una Polyline en Google Maps. Los puntos se guardan en `tripRoutePoints`, separados del documento `Trip`. Google Maps solo dibuja los puntos reales capturados por Android; el backend no calcula el recorrido.
 
@@ -196,6 +196,27 @@ Los endpoints `NoContent` pueden responder `204` sin body.
 | GET | `/api/v1/admin/dashboard/offline-processing` | Admin | Resumen offline | Funcional |
 
 ## JSONs De Ejemplo
+
+### Feedback Push Al Rider
+
+Cuando un Monitor ejecuta `view`, `acknowledge` o `decline` y hay cambio real de estado, el backend puede crear un attempt interno `Push` para el Rider. Android debe tratar estos eventos como actualizaciones de estado de emergencia y abrir/refrescar `emergency_status`.
+
+Payload FCM esperado:
+
+```json
+{
+  "eventType": "monitor_alert_viewed",
+  "incidentId": "incident-id",
+  "alertDispatchId": "alert-dispatch-id",
+  "notificationDeliveryAttemptId": "feedback-attempt-id",
+  "monitorAlertAttemptId": "monitor-original-attempt-id",
+  "monitorUserId": "monitor-user-id",
+  "occurredAtUtc": "2026-08-18T10:30:00.0000000+00:00",
+  "screen": "emergency_status"
+}
+```
+
+Si el Rider no tiene FCM activo o desactivo `PushEnabled`, el backend omite el feedback push y la accion del Monitor sigue siendo valida.
 
 ### Registro
 

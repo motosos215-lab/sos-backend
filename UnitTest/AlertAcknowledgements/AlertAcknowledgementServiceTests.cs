@@ -5,6 +5,7 @@ using MotoSOS.API.Modules.AlertAcknowledgements.Application;
 using MotoSOS.API.Modules.AlertAcknowledgements.Contracts;
 using MotoSOS.API.Modules.AlertAcknowledgements.Domain;
 using MotoSOS.API.Modules.EmergencyContacts.Domain;
+using MotoSOS.API.Modules.Notifications.Application;
 using MotoSOS.API.Modules.Notifications.Domain;
 using MotoSOS.API.Modules.Users.Application;
 using MotoSOS.API.Modules.Users.Domain;
@@ -47,8 +48,40 @@ public sealed class AlertAcknowledgementServiceTests
         User admin = User(UserRole.Admin); await Assert.ThrowsAsync<ForbiddenAppException>(() => Service(admin, new Contacts(), new Attempts(), new Acks()).ListMonitorAlertsAsync(admin.Id, null, null, null, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task FeedbackIsEnqueuedOnlyWhenMonitorActionChangesState()
+    {
+        User monitor = User(UserRole.Monitor);
+        NotificationDeliveryAttempt viewAttempt = Attempt("rider", "c1");
+        var viewFeedback = new Feedback();
+        AlertAcknowledgementService viewService = Service(monitor, new Contacts(Contact("c1", monitor.Id)), new Attempts(viewAttempt), new Acks(), viewFeedback);
+
+        await viewService.ViewAsync(monitor.Id, viewAttempt.Id, CancellationToken.None);
+        await viewService.ViewAsync(monitor.Id, viewAttempt.Id, CancellationToken.None);
+
+        viewFeedback.Events.Should().Equal(NotificationEventTypes.MonitorAlertViewed);
+
+        NotificationDeliveryAttempt acknowledgeAttempt = Attempt("rider", "c1");
+        var acknowledgeFeedback = new Feedback();
+        AlertAcknowledgementService acknowledgeService = Service(monitor, new Contacts(Contact("c1", monitor.Id)), new Attempts(acknowledgeAttempt), new Acks(), acknowledgeFeedback);
+
+        await acknowledgeService.AcknowledgeAsync(monitor.Id, acknowledgeAttempt.Id, new AcknowledgeAlertRequest("CanAssist", null), CancellationToken.None);
+        await acknowledgeService.AcknowledgeAsync(monitor.Id, acknowledgeAttempt.Id, new AcknowledgeAlertRequest("CanAssist", null), CancellationToken.None);
+
+        acknowledgeFeedback.Events.Should().Equal(NotificationEventTypes.MonitorAlertAcknowledged);
+
+        NotificationDeliveryAttempt declineAttempt = Attempt("rider", "c1");
+        var declineFeedback = new Feedback();
+        AlertAcknowledgementService declineService = Service(monitor, new Contacts(Contact("c1", monitor.Id)), new Attempts(declineAttempt), new Acks(), declineFeedback);
+
+        await declineService.DeclineAsync(monitor.Id, declineAttempt.Id, new DeclineAlertRequest("CannotAssist", null), CancellationToken.None);
+        await declineService.DeclineAsync(monitor.Id, declineAttempt.Id, new DeclineAlertRequest("CannotAssist", null), CancellationToken.None);
+
+        declineFeedback.Events.Should().Equal(NotificationEventTypes.MonitorAlertDeclined);
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 8, 6, 11, 0, 0, TimeSpan.Zero);
-    private static AlertAcknowledgementService Service(User user, Contacts contacts, Attempts attempts, Acks acks) => new(new Users(user), contacts, attempts, acks, new AlertAcknowledgementIdempotencyKeyFactory(), new Clock());
+    private static AlertAcknowledgementService Service(User user, Contacts contacts, Attempts attempts, Acks acks, IRiderAlertFeedbackNotificationService? feedback = null) => new(new Users(user), contacts, attempts, acks, new AlertAcknowledgementIdempotencyKeyFactory(), new Clock(), feedbackNotifications: feedback);
     private static User User(UserRole role) => new() { Email = $"{Guid.NewGuid()}@example.com", Role = role, IsActive = true, FullName = "User" };
     private static EmergencyContact Contact(string id, string monitorId) => new() { Id = id, UserId = "rider", LinkedUserId = monitorId, IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked };
     private static NotificationDeliveryAttempt Attempt(string riderId, string contactId) => new() { UserId = riderId, EmergencyContactId = contactId, AlertDispatchId = "alert", IncidentId = "incident", TripId = "trip", Channel = NotificationChannel.Sms, Status = NotificationDeliveryStatus.Prepared, Provider = NotificationProvider.None, PreparedAtUtc = Now, CreatedAtUtc = Now };
@@ -58,4 +91,5 @@ public sealed class AlertAcknowledgementServiceTests
     private sealed class Contacts(params EmergencyContact[] contacts) : IMonitorLinkedContactRepository { public Task<IReadOnlyList<EmergencyContact>> GetActiveLinkedByLinkedUserIdAsync(string id, CancellationToken ct) => Task.FromResult<IReadOnlyList<EmergencyContact>>(contacts.Where(c => c.LinkedUserId == id && c.IsActive && c.InvitationStatus == EmergencyContactInvitationStatus.Linked).ToArray()); }
     private sealed class Attempts(params NotificationDeliveryAttempt[] attempts) : INotificationAttemptMonitorRepository { private readonly List<NotificationDeliveryAttempt> _items = attempts.ToList(); public Task<NotificationDeliveryAttempt?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(_items.FirstOrDefault(a => a.Id == id)); public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByEmergencyContactIdsAsync(IReadOnlyCollection<string> ids, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>(_items.Where(a => ids.Contains(a.EmergencyContactId)).ToArray()); public Task<long> CountByEmergencyContactIdsAsync(IReadOnlyCollection<string> ids, CancellationToken ct) => Task.FromResult((long)_items.Count(a => ids.Contains(a.EmergencyContactId))); }
     private sealed class Acks(params AlertAcknowledgement[] acks) : IAlertAcknowledgementRepository { private readonly List<AlertAcknowledgement> _items = acks.ToList(); public Task<AlertAcknowledgement?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(_items.FirstOrDefault(a => a.Id == id)); public Task<AlertAcknowledgement?> GetByIdempotencyKeyAsync(string key, CancellationToken ct) => Task.FromResult(_items.FirstOrDefault(a => a.IdempotencyKey == key)); public Task<(AlertAcknowledgement Acknowledgement, bool IsDuplicate)> AddOrGetDuplicateAsync(AlertAcknowledgement ack, CancellationToken ct) { AlertAcknowledgement? existing = _items.FirstOrDefault(a => a.IdempotencyKey == ack.IdempotencyKey); if (existing is not null) return Task.FromResult((existing, true)); _items.Add(ack); return Task.FromResult((ack, false)); } public Task<IReadOnlyList<AlertAcknowledgement>> ListByMonitorUserIdAsync(string id, AlertAcknowledgementStatus? s, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<AlertAcknowledgement>>(_items.Where(a => a.MonitorUserId == id && (!s.HasValue || a.Status == s)).ToArray()); public Task<long> CountByMonitorUserIdAsync(string id, AlertAcknowledgementStatus? s, CancellationToken ct) => Task.FromResult((long)_items.Count(a => a.MonitorUserId == id)); public Task<IReadOnlyList<AlertAcknowledgement>> ListByUserIdAsync(string id, string? ad, string? i, AlertAcknowledgementStatus? s, int p, int z, CancellationToken ct) => Task.FromResult<IReadOnlyList<AlertAcknowledgement>>(_items.Where(a => a.UserId == id).ToArray()); public Task<long> CountByUserIdAsync(string id, string? ad, string? i, AlertAcknowledgementStatus? s, CancellationToken ct) => Task.FromResult((long)_items.Count(a => a.UserId == id)); public Task UpdateAsync(AlertAcknowledgement ack, CancellationToken ct) => Task.CompletedTask; }
+    private sealed class Feedback : IRiderAlertFeedbackNotificationService { public List<string> Events { get; } = []; public Task EnqueueAsync(AlertAcknowledgement acknowledgement, string feedbackEventType, DateTimeOffset occurredAtUtc, CancellationToken cancellationToken) { Events.Add(feedbackEventType); return Task.CompletedTask; } }
 }

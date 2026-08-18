@@ -42,6 +42,34 @@ public sealed class PushNotificationRecipientResolverTests
         noToken.FailureCode.Should().Be("push_token_not_available");
     }
 
+    [Fact]
+    public async Task FeedbackAttemptWithEventTypeAndRecipientUserIdResolvesDirectRiderOnly()
+    {
+        var attempts = new Attempts(new NotificationDeliveryAttempt { Id = "feedback", UserId = "rider", RecipientUserId = "rider", EventType = NotificationEventTypes.MonitorAlertViewed, EmergencyContactId = "contact", Channel = NotificationChannel.Push });
+        var contacts = new Contacts(new EmergencyContact { Id = "contact", UserId = "rider", IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked, LinkedUserId = "monitor" });
+        var tokens = new Tokens([Token("monitor", "monitor-token", PushNotificationTokenStatus.Active, Now), Token("other-rider", "other-rider-token", PushNotificationTokenStatus.Active, Now.AddMinutes(1)), Token("rider", "rider-token", PushNotificationTokenStatus.Active, Now.AddMinutes(2))]);
+
+        PushNotificationRecipientResolution resolution = await new PushNotificationRecipientResolver(attempts, contacts, tokens).ResolveAsync("feedback", CancellationToken.None);
+
+        resolution.Recipient.Should().NotBeNull();
+        resolution.Recipient!.UserId.Should().Be("rider");
+        resolution.Recipient.Token.Id.Should().Be("rider-token");
+    }
+
+    [Fact]
+    public async Task RecipientUserIdWithoutEventTypeKeepsOriginalMonitorResolution()
+    {
+        var attempts = new Attempts(new NotificationDeliveryAttempt { Id = "attempt", UserId = "rider", RecipientUserId = "rider", EmergencyContactId = "contact", Channel = NotificationChannel.Push });
+        var contacts = new Contacts(new EmergencyContact { Id = "contact", UserId = "rider", IsActive = true, InvitationStatus = EmergencyContactInvitationStatus.Linked, LinkedUserId = "monitor" });
+        var tokens = new Tokens([Token("rider", "rider-token", PushNotificationTokenStatus.Active, Now.AddMinutes(1)), Token("monitor", "monitor-token", PushNotificationTokenStatus.Active, Now)]);
+
+        PushNotificationRecipientResolution resolution = await new PushNotificationRecipientResolver(attempts, contacts, tokens).ResolveAsync("attempt", CancellationToken.None);
+
+        resolution.Recipient.Should().NotBeNull();
+        resolution.Recipient!.UserId.Should().Be("monitor");
+        resolution.Recipient.Token.Id.Should().Be("monitor-token");
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 8, 9, 12, 0, 0, TimeSpan.Zero);
     private static PushNotificationToken Token(string userId, string id, PushNotificationTokenStatus status, DateTimeOffset lastSeen) => new() { Id = id, UserId = userId, Channel = PushTokenChannel.Fcm, Platform = PushTokenPlatform.Android, Status = status, LastSeenAtUtc = lastSeen, TokenValue = $"value-{id}" };
     private sealed class Attempts(params NotificationDeliveryAttempt[] items) : INotificationDeliveryAttemptRepository { public Task<NotificationDeliveryAttempt?> GetByIdAsync(string id, CancellationToken ct) => Task.FromResult(items.FirstOrDefault(i => i.Id == id)); public Task<NotificationDeliveryAttempt?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct) => Task.FromResult<NotificationDeliveryAttempt?>(null); public Task<(NotificationDeliveryAttempt Attempt, bool IsDuplicate)> AddOrGetDuplicateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) => Task.FromResult((attempt, false)); public Task<IReadOnlyList<NotificationDeliveryAttempt>> ListByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, int pageNumber, int pageSize, CancellationToken ct) => Task.FromResult<IReadOnlyList<NotificationDeliveryAttempt>>([]); public Task<long> CountByUserIdAsync(string userId, string? alertDispatchId, string? incidentId, NotificationDeliveryStatus? status, CancellationToken ct) => Task.FromResult(0L); public Task UpdateAsync(NotificationDeliveryAttempt attempt, CancellationToken ct) => Task.CompletedTask; }
