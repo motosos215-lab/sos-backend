@@ -20,7 +20,7 @@ public sealed class JwtTokenService : IJwtTokenService
         _clock = clock;
     }
 
-    public TokenResult CreateAccessToken(User user)
+    public TokenResult CreateAccessToken(User user, string? sessionId = null)
     {
         if (string.IsNullOrWhiteSpace(_options.Key))
         {
@@ -41,6 +41,11 @@ public sealed class JwtTokenService : IJwtTokenService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64)
         };
+
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            claims.Add(new Claim("sid", sessionId));
+        }
 
         var descriptor = new JwtSecurityToken(
             issuer: _options.Issuer,

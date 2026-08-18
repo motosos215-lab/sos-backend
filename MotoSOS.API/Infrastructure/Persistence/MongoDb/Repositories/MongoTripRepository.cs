@@ -39,6 +39,15 @@ public sealed class MongoTripRepository : ITripRepository
     public async Task UpdateAsync(Trip trip, CancellationToken cancellationToken) =>
         await _trips.ReplaceOneAsync(existing => existing.Id == trip.Id, trip, cancellationToken: cancellationToken);
 
+    public async Task<bool> TransferActiveMobileDeviceAsync(string tripId, string userId, string mobileDeviceId, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken)
+    {
+        UpdateResult result = await _trips.UpdateOneAsync(
+            trip => trip.Id == tripId && trip.UserId == userId && trip.Status == TripStatus.Active,
+            Builders<Trip>.Update.Set(trip => trip.MobileDeviceId, mobileDeviceId).Set(trip => trip.UpdatedAtUtc, updatedAtUtc),
+            cancellationToken: cancellationToken);
+        return result.ModifiedCount == 1;
+    }
+
     private static FilterDefinition<Trip> BuildUserFilter(string userId, TripStatus? status)
     {
         FilterDefinitionBuilder<Trip> builder = Builders<Trip>.Filter;

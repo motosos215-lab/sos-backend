@@ -36,7 +36,9 @@ public sealed class PushNotificationTokenService : IPushNotificationTokenService
         _auditLogs = auditLogs;
     }
 
-    public async Task<RegisterPushNotificationTokenResponse> RegisterAsync(string userId, ValidatedRegisterPushNotificationTokenRequest request, CancellationToken cancellationToken)
+    public Task<RegisterPushNotificationTokenResponse> RegisterAsync(string userId, ValidatedRegisterPushNotificationTokenRequest request, CancellationToken cancellationToken) => RegisterAsync(userId, null, request, cancellationToken);
+
+    public async Task<RegisterPushNotificationTokenResponse> RegisterAsync(string userId, string? sessionId, ValidatedRegisterPushNotificationTokenRequest request, CancellationToken cancellationToken)
     {
         User user = await GetActiveUserAsync(userId, cancellationToken);
         await EnsureOwnedDeviceAsync(user.Id, request.DeviceId, cancellationToken);
@@ -51,6 +53,7 @@ public sealed class PushNotificationTokenService : IPushNotificationTokenService
             existing.UpdatedAtUtc = now;
             existing.Status = PushNotificationTokenStatus.Active;
             existing.RevokedAtUtc = null;
+            existing.SessionId = sessionId;
             existing.Metadata = request.Metadata.ToDictionary(item => item.Key, item => item.Value);
             await _tokens.UpdateAsync(existing, cancellationToken);
             await RecordAsync(user, existing, AuditAction.PushNotificationTokenRegistered, cancellationToken);
@@ -62,6 +65,7 @@ public sealed class PushNotificationTokenService : IPushNotificationTokenService
         {
             Id = ObjectId.GenerateNewId().ToString(),
             UserId = user.Id,
+            SessionId = sessionId,
             DeviceId = request.DeviceId,
             Platform = request.Platform,
             Channel = request.Channel,

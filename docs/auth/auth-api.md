@@ -1,5 +1,7 @@
 # Auth API
 
+Nota vigente: los endpoints que emiten tokens (`POST /api/v1/auth/login` y `POST /api/v1/auth/login-with-code`) crean o reutilizan `UserSession` y emiten JWT con claim `sid`. `clientDevice` es obligatorio solo para `MobileApp` (`Android`/`iOS`); web usa `SessionType = WebApp` o `AdminWeb`. El takeover de sesion esta documentado en `docs/api/auth-session-takeover-api.md`.
+
 La autenticacion de MotoSOS.API usa JWT Bearer, refresh tokens hasheados y MongoDB Atlas como almacenamiento central. Las respuestas publicas mantienen el envelope estandar.
 
 ## Envelope

@@ -1,5 +1,17 @@
 # Memorias Tecnicas
 
+## User Session Takeover
+
+- Auth agrega `UserSession` en `userSessions` y `SessionTakeoverToken` en `sessionTakeoverTokens` para sesion unica por `SessionType`: `MobileApp`, `WebApp` o `AdminWeb`.
+- `login` y `login-with-code` validan credenciales/codigo antes de revisar sesiones; `login-with-code` no consume el codigo si termina en conflicto `active_session_exists`.
+- Access tokens Rider/Monitor incluyen claim `sid`; la autenticacion global valida que la sesion exista, pertenezca al usuario y no este revocada.
+- Refresh tokens quedan ligados a `SessionId`; una sesion revocada devuelve `session_revoked` y no puede revivirse con refresh token viejo.
+- Takeover revoca la sesion anterior, refresh tokens anteriores y push tokens asociados a esa sesion; el token temporal se guarda solo hasheado, expira rapido y es de un solo uso.
+- Para Rider con viaje activo, takeover sin transferencia devuelve `active_trip_transfer_required` sin modificar sesion ni viaje; con transferencia valida el nuevo movil y cambia solo `Trip.mobileDeviceId`.
+- La transferencia conserva el mismo `trip.id`, `status=Active`, `startedAtUtc`, route points, Incident, AlertDispatch, NotificationAttempts y SOS existentes.
+- `PushNotificationToken.SessionId` se deriva del JWT; Android no envia `sessionId` y el token FCM completo no se expone.
+- Indices agregados: `ux_userSessions_userId_sessionType_active`, indices de busqueda de sesiones/takeover y `ix_pushNotificationTokens_sessionId`.
+
 ## Trip Route Points API
 
 - Trip Route Points API agrega `POST /api/v1/trips/{tripId}/route-points/batch` y `GET /api/v1/trips/{tripId}/route` para Rider autenticado.

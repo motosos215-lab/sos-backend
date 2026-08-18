@@ -9,6 +9,7 @@ public interface IPushNotificationTokenRepository
     Task<(PushNotificationToken Token, bool IsDuplicate)> AddOrGetDuplicateAsync(PushNotificationToken token, CancellationToken cancellationToken);
     Task UpdateAsync(PushNotificationToken token, CancellationToken cancellationToken);
     Task<long> RevokeActiveTokensForScopeAsync(string userId, PushTokenPlatform platform, PushTokenChannel channel, string? deviceId, DateTimeOffset now, CancellationToken cancellationToken);
+    Task<long> RevokeActiveTokensBySessionIdAsync(string sessionId, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult(0L);
     Task<IReadOnlyList<PushNotificationToken>> ListByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken);
     Task<long> CountByUserIdAsync(string userId, PushNotificationTokenQuery query, CancellationToken cancellationToken);
     Task<PushNotificationTokenStatusSummary> GetStatusByUserIdAsync(string userId, CancellationToken cancellationToken);
